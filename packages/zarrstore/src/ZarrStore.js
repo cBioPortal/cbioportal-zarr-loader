@@ -12,4 +12,12 @@ export class ZarrStore {
     const root = await zarr.open(store, { kind: "group" });
     return new ZarrStore(store, root);
   }
+
+  async openArray(path) {
+    return zarr.open(this.root.resolve(path), { kind: "array" });
+  }
+
+  async openGroup(path) {
+    return zarr.open(this.root.resolve(path), { kind: "group" });
+  }
 }

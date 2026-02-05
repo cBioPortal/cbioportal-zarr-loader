@@ -1,5 +1,5 @@
 import * as zarr from "zarrita";
-import { ZarrStore } from "./src/ZarrStore.js";
+import { ZarrStore } from "@anndata-zarr/zarrstore";
 
 const z = await ZarrStore.open(
   "http://localhost:3000/spectrum_all_cells.zarr",
@@ -7,11 +7,18 @@ const z = await ZarrStore.open(
 console.log("Root attributes:", z.attrs);
 
 // Open the X array (expression matrix)
-const X = await zarr.open(z.root.resolve("X"), { kind: "array" });
+const X = await z.openArray("X");
 console.log("\nX array:");
 console.log("  Shape:", X.shape);
 console.log("  Chunks:", X.chunks);
 console.log("  Dtype:", X.dtype);
+
+// Open obs and var groups
+const obs = await z.openGroup("obs");
+console.log("\nobs attributes:", obs.attrs);
+
+const varGroup = await z.openGroup("var");
+console.log("var attributes:", varGroup.attrs);
 
 // Read a small slice: first 5 cells x first 10 genes
 const slice = await zarr.get(X, [zarr.slice(5), zarr.slice(10)]);

@@ -1,0 +1,25 @@
+{
+  "name": "@anndata-zarr/app",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@anndata-zarr/zarrstore": "workspace:*",
+    "@deck.gl/core": "^9.2.6",
+    "@deck.gl/layers": "^9.2.6",
+    "@deck.gl/react": "^9.2.6",
+    "antd": "^6.2.3",
+    "deck.gl": "^9.2.6",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^5.1.3",
+    "vite": "^7.2.4"
+  }
+}
