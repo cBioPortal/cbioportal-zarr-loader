@@ -163,13 +163,10 @@ const useAppStore = create((set, get) => ({
   },
 
   fetchObsm: async (key) => {
-    const { adata, obsIndex, fetchObsmStreaming } = get();
+    const { adata, obsIndex } = get();
     if (!adata) return;
 
     set({ selectedObsm: key, obsmLoading: true, obsmData: null });
-
-    // Fire streaming fetch concurrently (don't await)
-    fetchObsmStreaming(key);
 
     try {
       const start = performance.now();
