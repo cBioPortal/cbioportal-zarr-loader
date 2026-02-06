@@ -8,7 +8,6 @@ import {
   Spin,
   Alert,
   Table,
-  List,
   Space,
 } from "antd";
 
@@ -48,12 +47,9 @@ export default function ColumnExplorer({
     <Row gutter={[16, 16]}>
       <Col xs={24} md={6}>
         <Card title="Columns" size="small">
-          <List
-            size="small"
-            dataSource={columns}
-            style={{ maxHeight: 200, overflow: "auto" }}
-            renderItem={(c) => (
-              <List.Item style={{ padding: "4px 0" }}>
+          <div style={{ maxHeight: 200, overflow: "auto" }}>
+            {columns.map((c) => (
+              <div key={c} style={{ padding: "4px 0" }}>
                 <Button
                   type={selectedColumn === c ? "primary" : "text"}
                   size="small"
@@ -61,9 +57,9 @@ export default function ColumnExplorer({
                 >
                   {c}
                 </Button>
-              </List.Item>
-            )}
-          />
+              </div>
+            ))}
+          </div>
         </Card>
         {selectedColumn && (
           <Card
