@@ -4,7 +4,6 @@ import {
   Typography,
   Spin,
   Alert,
-  List,
   Tabs,
   Descriptions,
 } from "antd";
@@ -73,6 +72,11 @@ export default function App() {
 
   const tabItems = [
     {
+      key: "obsm",
+      label: `obsm (${obsmKeys.length})`,
+      children: <ObsmTab />,
+    },
+    {
       key: "obs",
       label: `obs (${obsColumns.length})`,
       children: (
@@ -101,24 +105,41 @@ export default function App() {
       ),
     },
     {
-      key: "obsm",
-      label: `obsm (${obsmKeys.length})`,
-      children: <ObsmTab />,
-    },
-    {
       key: "layers",
       label: `layers (${layerKeys.length})`,
       children: (
-        <Card title="Layers">
+        <Card title="Layers" size="small">
           {layerKeys.length ? (
-            <List
-              size="small"
-              dataSource={layerKeys}
-              renderItem={(k) => <List.Item>{k}</List.Item>}
-            />
+            <div>
+              {layerKeys.map((k) => (
+                <div key={k} style={{ padding: "4px 0" }}>{k}</div>
+              ))}
+            </div>
           ) : (
             <Text type="secondary">(none)</Text>
           )}
+        </Card>
+      ),
+    },
+    {
+      key: "info",
+      label: "Info",
+      children: (
+        <Card title="Dataset" size="small">
+          <Descriptions column={1} size="small">
+            <Descriptions.Item label="Shape">
+              {adata.nObs.toLocaleString()} obs × {adata.nVar.toLocaleString()} var
+            </Descriptions.Item>
+            <Descriptions.Item label="Chunk size">
+              {chunks ? chunks.join(" × ") : "N/A"}
+            </Descriptions.Item>
+            <Descriptions.Item label="Encoding">
+              {adata.attrs["encoding-type"]} v{adata.attrs["encoding-version"]}
+            </Descriptions.Item>
+            <Descriptions.Item label="URL">
+              <Text copyable style={{ fontSize: 12 }}>{URL}</Text>
+            </Descriptions.Item>
+          </Descriptions>
         </Card>
       ),
     },
@@ -126,26 +147,8 @@ export default function App() {
 
   return (
     <div style={{ padding: 24 }}>
-      <Title level={2}>AnnData Store</Title>
-      <Text type="secondary" copyable>
-        {URL}
-      </Text>
-
-      <Card title="Dataset" size="small" style={{ marginTop: 24 }}>
-        <Descriptions column={3} size="small">
-          <Descriptions.Item label="Shape">
-            {adata.nObs.toLocaleString()} × {adata.nVar.toLocaleString()}
-          </Descriptions.Item>
-          <Descriptions.Item label="Chunk size">
-            {chunks ? chunks.join(" × ") : "N/A"}
-          </Descriptions.Item>
-          <Descriptions.Item label="Encoding">
-            {adata.attrs["encoding-type"]} v{adata.attrs["encoding-version"]}
-          </Descriptions.Item>
-        </Descriptions>
-      </Card>
-
-      <Tabs items={tabItems} defaultActiveKey="obsm" style={{ marginTop: 24 }} />
+      <Title level={3}>AnnData Zarr Viewer</Title>
+      <Tabs items={tabItems} defaultActiveKey="obsm" />
     </div>
   );
 }
