@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { ZarrStore } from "./ZarrStore.js";
 
-const URL = "http://localhost:3000/spectrum_all_cells.zarr";
+const URL = `${globalThis.__TEST_BASE_URL__}/pbmc3k.zarr`;
 
 describe("ZarrStore", () => {
   it("opens a zarr store and exposes store, root, and attrs", async () => {
