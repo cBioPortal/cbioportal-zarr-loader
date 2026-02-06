@@ -191,7 +191,7 @@ export default function EmbeddingScatterplot({
 
     // Use the smaller container dimension to calculate zoom
     const viewSize = Math.min(containerSize.width, containerSize.height);
-    const zoom = Math.log2(viewSize / maxRange) - 1;
+    const zoom = Math.log2(viewSize / maxRange) - 0.1;
 
     return {
       target: [centerX, centerY],
