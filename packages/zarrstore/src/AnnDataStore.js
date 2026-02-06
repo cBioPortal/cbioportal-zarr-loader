@@ -305,6 +305,18 @@ export class AnnDataStore {
     return this.#slotArray("obsm", key);
   }
 
+  async *obsmStreaming(key, batchSize) {
+    const arr = await this.#zarrStore.openArray(`obsm/${key}`);
+    const [nObs] = arr.shape;
+    const step = batchSize ?? arr.chunks[0];
+
+    for (let offset = 0; offset < nObs; offset += step) {
+      const end = Math.min(offset + step, nObs);
+      const chunk = await zarr.get(arr, [zarr.slice(offset, end), null]);
+      yield { data: chunk.data, shape: chunk.shape, offset, total: nObs };
+    }
+  }
+
   obsmKeys() {
     return this.#slotKeys("obsm");
   }

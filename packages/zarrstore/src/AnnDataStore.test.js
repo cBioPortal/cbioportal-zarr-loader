@@ -128,6 +128,78 @@ describe("AnnDataStore", () => {
         expect(entry.data).toBeDefined();
       }
     });
+
+    it("streams obsm in batches with correct metadata", async () => {
+      const adata = await AnnDataStore.open(URL);
+      const keys = adata.obsmKeys();
+      if (keys.length === 0) return;
+
+      const batches = [];
+      for await (const batch of adata.obsmStreaming(keys[0])) {
+        expect(batch.data).toBeDefined();
+        expect(batch.shape).toHaveLength(2);
+        expect(batch.offset).toBeGreaterThanOrEqual(0);
+        expect(batch.total).toBe(adata.nObs);
+        batches.push(batch);
+      }
+
+      expect(batches.length).toBeGreaterThan(0);
+    });
+
+    it("streaming batches concatenate to match non-streaming obsm", async () => {
+      const adata = await AnnDataStore.open(URL);
+      const keys = adata.obsmKeys();
+      if (keys.length === 0) return;
+
+      const key = keys[0];
+      const full = await adata.obsm(key);
+
+      const batches = [];
+      for await (const batch of adata.obsmStreaming(key)) {
+        batches.push(batch);
+      }
+
+      // Verify offsets increment correctly
+      let expectedOffset = 0;
+      for (const batch of batches) {
+        expect(batch.offset).toBe(expectedOffset);
+        expectedOffset += batch.shape[0];
+      }
+      expect(expectedOffset).toBe(full.shape[0]);
+
+      // Concatenate batch data and compare to full result
+      const totalElements = batches.reduce((sum, b) => sum + b.data.length, 0);
+      const concatenated = new full.data.constructor(totalElements);
+      let writeOffset = 0;
+      for (const batch of batches) {
+        concatenated.set(batch.data, writeOffset);
+        writeOffset += batch.data.length;
+      }
+
+      expect(concatenated.length).toBe(full.data.length);
+      expect(concatenated).toEqual(full.data);
+    });
+
+    it("respects custom batchSize parameter", async () => {
+      const adata = await AnnDataStore.open(URL);
+      const keys = adata.obsmKeys();
+      if (keys.length === 0) return;
+
+      const batchSize = 100;
+      const batches = [];
+      for await (const batch of adata.obsmStreaming(keys[0], batchSize)) {
+        batches.push(batch);
+      }
+
+      // All batches except possibly the last should have batchSize rows
+      for (let i = 0; i < batches.length - 1; i++) {
+        expect(batches[i].shape[0]).toBe(batchSize);
+      }
+      // Last batch should be <= batchSize
+      const last = batches[batches.length - 1];
+      expect(last.shape[0]).toBeLessThanOrEqual(batchSize);
+      expect(last.offset + last.shape[0]).toBe(last.total);
+    });
   });
 
   describe("layers", () => {
