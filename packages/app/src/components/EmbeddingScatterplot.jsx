@@ -188,7 +188,7 @@ export default function EmbeddingScatterplot({
       getRadius: 3,
       radiusUnits: "pixels",
       radiusMinPixels: 1,
-      radiusMaxPixels: 10,
+      radiusMaxPixels: 2,
       opacity: 0.7,
       pickable: true,
       onHover: (info) => setHoverInfo(info.object ? info : null),
