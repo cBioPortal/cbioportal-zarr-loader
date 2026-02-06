@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import {
   Row,
   Col,
@@ -12,7 +13,7 @@ import {
 } from "antd";
 import ColumnExplorer from "./components/ColumnExplorer";
 import ObsmTab from "./components/ObsmTab";
-import useAnnData from "./hooks/useAnnData";
+import useAppStore from "./store/useAppStore";
 
 const { Title, Text } = Typography;
 
@@ -26,11 +27,24 @@ export default function App() {
     loading,
     error,
     metadata,
-    obsColumn,
-    varColumn,
-    obsm,
-    fetchColorData,
-  } = useAnnData(URL);
+    initialize,
+    // Obs column
+    selectedObsColumn,
+    obsColumnData,
+    obsColumnLoading,
+    obsColumnTime,
+    fetchObsColumn,
+    // Var column
+    selectedVarColumn,
+    varColumnData,
+    varColumnLoading,
+    varColumnTime,
+    fetchVarColumn,
+  } = useAppStore();
+
+  useEffect(() => {
+    initialize(URL);
+  }, [initialize]);
 
   if (loading) {
     return (
@@ -78,11 +92,11 @@ export default function App() {
       children: (
         <ColumnExplorer
           columns={obsColumns}
-          selectedColumn={obsColumn.selected}
-          columnData={obsColumn.data}
-          loading={obsColumn.loading}
-          time={obsColumn.time}
-          onSelectColumn={obsColumn.fetch}
+          selectedColumn={selectedObsColumn}
+          columnData={obsColumnData}
+          loading={obsColumnLoading}
+          time={obsColumnTime}
+          onSelectColumn={fetchObsColumn}
         />
       ),
     },
@@ -92,25 +106,18 @@ export default function App() {
       children: (
         <ColumnExplorer
           columns={varColumns}
-          selectedColumn={varColumn.selected}
-          columnData={varColumn.data}
-          loading={varColumn.loading}
-          time={varColumn.time}
-          onSelectColumn={varColumn.fetch}
+          selectedColumn={selectedVarColumn}
+          columnData={varColumnData}
+          loading={varColumnLoading}
+          time={varColumnTime}
+          onSelectColumn={fetchVarColumn}
         />
       ),
     },
     {
       key: "obsm",
       label: `obsm (${obsmKeys.length})`,
-      children: (
-        <ObsmTab
-          obsmKeys={obsmKeys}
-          obsm={obsm}
-          obsColumns={obsColumns}
-          fetchColorData={fetchColorData}
-        />
-      ),
+      children: <ObsmTab />,
     },
     {
       key: "layers",
@@ -169,7 +176,7 @@ export default function App() {
         </Col>
       </Row>
 
-      <Tabs items={tabItems} style={{ marginTop: 24 }} />
+      <Tabs items={tabItems} defaultActiveKey="obsm" style={{ marginTop: 24 }} />
     </div>
   );
 }

@@ -1,10 +1,37 @@
-import { useState, useEffect, useMemo } from "react";
-import { Typography, Space, Select } from "antd";
+import { useState, useMemo } from "react";
+import { Typography, Space, Select, Tag, Card, Input } from "antd";
 import DeckGL from "@deck.gl/react";
 import { ScatterplotLayer } from "@deck.gl/layers";
 import { OrthographicView } from "@deck.gl/core";
+import useAppStore from "../store/useAppStore";
 
 const { Text } = Typography;
+
+// Viridis-like color scale for continuous data
+const VIRIDIS = [
+  [68, 1, 84],
+  [72, 40, 120],
+  [62, 74, 137],
+  [49, 104, 142],
+  [38, 130, 142],
+  [31, 158, 137],
+  [53, 183, 121],
+  [109, 205, 89],
+  [180, 222, 44],
+  [253, 231, 37],
+];
+
+function interpolateViridis(t) {
+  const idx = t * (VIRIDIS.length - 1);
+  const lower = Math.floor(idx);
+  const upper = Math.min(lower + 1, VIRIDIS.length - 1);
+  const frac = idx - lower;
+  return [
+    Math.round(VIRIDIS[lower][0] + (VIRIDIS[upper][0] - VIRIDIS[lower][0]) * frac),
+    Math.round(VIRIDIS[lower][1] + (VIRIDIS[upper][1] - VIRIDIS[lower][1]) * frac),
+    Math.round(VIRIDIS[lower][2] + (VIRIDIS[upper][2] - VIRIDIS[lower][2]) * frac),
+  ];
+}
 
 const COLORS = [
   [31, 119, 180],   // #1f77b4
@@ -24,38 +51,43 @@ const COLORS = [
   [197, 176, 213],  // #c5b0d5
 ];
 
-export default function EmbeddingScatterplotDeckGL({
+export default function EmbeddingScatterplot({
   data,
   shape,
   label,
-  obsColumns,
-  fetchColorData,
-  maxPoints = 50000, // deck.gl can handle more points
+  maxPoints = 50000,
 }) {
-  const [colorColumn, setColorColumn] = useState(null);
-  const [colorData, setColorData] = useState(null);
-  const [colorLoading, setColorLoading] = useState(false);
-  const [hoverInfo, setHoverInfo] = useState(null);
+  const {
+    metadata,
+    // Color by obs column
+    colorColumn,
+    colorData,
+    colorLoading,
+    setColorColumn,
+    // Gene expression
+    selectedGene,
+    geneExpression,
+    geneLoading,
+    setSelectedGene,
+    clearGeneSelection,
+  } = useAppStore();
 
-  useEffect(() => {
-    if (!colorColumn || !fetchColorData) {
-      setColorData(null);
-      return;
+  const { obsColumns, geneNames } = metadata;
+
+  const [hoverInfo, setHoverInfo] = useState(null);
+  const [geneSearchText, setGeneSearchText] = useState("");
+
+  // Compute expression range for normalization
+  const expressionRange = useMemo(() => {
+    if (!geneExpression) return null;
+    let min = Infinity, max = -Infinity;
+    for (let i = 0; i < geneExpression.length; i++) {
+      const val = geneExpression[i];
+      if (val < min) min = val;
+      if (val > max) max = val;
     }
-    async function loadColorData() {
-      setColorLoading(true);
-      try {
-        const values = await fetchColorData(colorColumn);
-        setColorData(values);
-      } catch (err) {
-        console.error(err);
-        setColorData(null);
-      } finally {
-        setColorLoading(false);
-      }
-    }
-    loadColorData();
-  }, [colorColumn, fetchColorData]);
+    return { min, max };
+  }, [geneExpression]);
 
   const { points, categoryColorMap, bounds } = useMemo(() => {
     if (!data || !shape) return { points: [], categoryColorMap: {}, bounds: null };
@@ -63,7 +95,7 @@ export default function EmbeddingScatterplotDeckGL({
     const cols = shape[1];
     const step = Math.max(1, Math.floor(shape[0] / maxPoints));
 
-    // Build category color map
+    // Build category color map (for obs columns)
     const categories = new Map();
     if (colorData) {
       for (let i = 0; i < shape[0]; i += step) {
@@ -81,7 +113,7 @@ export default function EmbeddingScatterplotDeckGL({
 
     for (let i = 0; i < shape[0]; i += step) {
       const x = data[i * cols];
-      const y = data[i * cols + 1];
+      const y = -data[i * cols + 1]; // Flip Y axis
 
       minX = Math.min(minX, x);
       maxX = Math.max(maxX, x);
@@ -89,11 +121,14 @@ export default function EmbeddingScatterplotDeckGL({
       maxY = Math.max(maxY, y);
 
       const cat = colorData ? String(colorData[i]) : "All";
+      const exprValue = geneExpression ? geneExpression[i] : null;
+
       pts.push({
         position: [x, y],
         category: cat,
         colorIndex: categories.get(cat) ?? 0,
         index: i,
+        expression: exprValue,
       });
     }
 
@@ -108,7 +143,15 @@ export default function EmbeddingScatterplotDeckGL({
       categoryColorMap: colorMap,
       bounds: { minX, maxX, minY, maxY },
     };
-  }, [data, shape, colorData, maxPoints]);
+  }, [data, shape, colorData, geneExpression, maxPoints]);
+
+  // Filtered genes for the gene list
+  const filteredGenes = useMemo(() => {
+    if (!geneNames) return [];
+    if (!geneSearchText) return geneNames;
+    const search = geneSearchText.toLowerCase();
+    return geneNames.filter(name => name.toLowerCase().includes(search));
+  }, [geneNames, geneSearchText]);
 
   const initialViewState = useMemo(() => {
     if (!bounds) return { target: [0, 0], zoom: 0 };
@@ -119,7 +162,6 @@ export default function EmbeddingScatterplotDeckGL({
     const rangeY = bounds.maxY - bounds.minY;
     const maxRange = Math.max(rangeX, rangeY);
 
-    // Calculate zoom to fit the data (rough approximation)
     const zoom = Math.log2(400 / maxRange) - 1;
 
     return {
@@ -133,7 +175,16 @@ export default function EmbeddingScatterplotDeckGL({
       id: "scatterplot",
       data: points,
       getPosition: (d) => d.position,
-      getFillColor: (d) => colorData ? COLORS[d.colorIndex] : [24, 144, 255],
+      getFillColor: (d) => {
+        if (geneExpression && expressionRange && expressionRange.max > expressionRange.min) {
+          const t = (d.expression - expressionRange.min) / (expressionRange.max - expressionRange.min);
+          return interpolateViridis(t);
+        }
+        if (colorData) {
+          return COLORS[d.colorIndex];
+        }
+        return [24, 144, 255];
+      },
       getRadius: 3,
       radiusUnits: "pixels",
       radiusMinPixels: 1,
@@ -141,6 +192,9 @@ export default function EmbeddingScatterplotDeckGL({
       opacity: 0.7,
       pickable: true,
       onHover: (info) => setHoverInfo(info.object ? info : null),
+      updateTriggers: {
+        getFillColor: [colorData, geneExpression, expressionRange],
+      },
     }),
   ];
 
@@ -156,17 +210,32 @@ export default function EmbeddingScatterplotDeckGL({
 
   return (
     <>
-      <Space style={{ marginBottom: 16 }} wrap>
-        <Text>Color by:</Text>
+      <Space style={{ marginBottom: 16 }} wrap align="center">
+        <Text>Color by obs:</Text>
         <Select
           allowClear
           placeholder="Select obs column"
-          style={{ width: 200 }}
+          style={{ width: 180 }}
           value={colorColumn}
           onChange={setColorColumn}
           loading={colorLoading}
           options={obsColumns?.map((c) => ({ label: c, value: c })) || []}
         />
+        {selectedGene && (
+          <>
+            <Text type="secondary">|</Text>
+            <Text>Gene:</Text>
+            <Tag
+              closable
+              onClose={clearGeneSelection}
+              color="blue"
+              style={{ fontSize: 13, padding: "2px 8px" }}
+            >
+              {selectedGene}
+            </Tag>
+            {geneLoading && <Text type="secondary">Loading...</Text>}
+          </>
+        )}
         {points.length < shape?.[0] && (
           <>
             <Text type="secondary">|</Text>
@@ -210,6 +279,7 @@ export default function EmbeddingScatterplotDeckGL({
               <div>x: {hoverInfo.object.position[0].toFixed(4)}</div>
               <div>y: {hoverInfo.object.position[1].toFixed(4)}</div>
               {colorData && <div>{colorColumn}: {hoverInfo.object.category}</div>}
+              {geneExpression && <div>{selectedGene}: {hoverInfo.object.expression?.toFixed(4)}</div>}
             </div>
           )}
 
@@ -257,6 +327,75 @@ export default function EmbeddingScatterplotDeckGL({
               </div>
             ))}
           </div>
+        )}
+
+        {/* Gene expression color scale */}
+        {geneExpression && expressionRange && (
+          <div style={{ fontSize: 12 }}>
+            <div style={{ marginBottom: 4 }}>{selectedGene}</div>
+            <div
+              style={{
+                width: 20,
+                height: 200,
+                background: `linear-gradient(to bottom, ${VIRIDIS.slice().reverse().map(c => `rgb(${c.join(",")})`).join(", ")})`,
+                borderRadius: 2,
+              }}
+            />
+            <div style={{ display: "flex", flexDirection: "column", justifyContent: "space-between", height: 200, marginLeft: 4, position: "relative", top: -200 }}>
+              <span>{expressionRange.max.toFixed(2)}</span>
+              <span>{((expressionRange.max + expressionRange.min) / 2).toFixed(2)}</span>
+              <span>{expressionRange.min.toFixed(2)}</span>
+            </div>
+          </div>
+        )}
+
+        {/* Gene list */}
+        {geneNames && geneNames.length > 0 && (
+          <Card
+            size="small"
+            title={`Genes (${geneNames.length.toLocaleString()})`}
+            style={{ width: 220, height: 500 }}
+            bodyStyle={{ padding: 0, height: "calc(100% - 38px)", display: "flex", flexDirection: "column" }}
+          >
+            <div style={{ padding: 8, borderBottom: "1px solid #f0f0f0" }}>
+              <Input.Search
+                placeholder="Search genes..."
+                size="small"
+                value={geneSearchText}
+                onChange={(e) => setGeneSearchText(e.target.value)}
+                allowClear
+              />
+            </div>
+            <div style={{ flex: 1, overflow: "auto" }}>
+              {filteredGenes.map((gene) => (
+                <div
+                  key={gene}
+                  style={{
+                    padding: "4px 12px",
+                    cursor: "pointer",
+                    backgroundColor: selectedGene === gene ? "#e6f4ff" : undefined,
+                    fontSize: 12,
+                    whiteSpace: "nowrap",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                  }}
+                  onClick={() => setSelectedGene(gene)}
+                >
+                  {gene}
+                </div>
+              ))}
+              {filteredGenes.length === 0 && geneSearchText && (
+                <div style={{ padding: "8px 12px", color: "#999", fontSize: 12 }}>
+                  No genes found
+                </div>
+              )}
+            </div>
+            {geneSearchText && (
+              <div style={{ padding: "4px 12px", fontSize: 11, color: "#999", borderTop: "1px solid #f0f0f0" }}>
+                {filteredGenes.length.toLocaleString()} matches
+              </div>
+            )}
+          </Card>
         )}
       </div>
     </>

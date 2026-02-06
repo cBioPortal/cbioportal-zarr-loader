@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import {
   Row,
   Col,
@@ -11,12 +12,32 @@ import {
   Button,
 } from "antd";
 import EmbeddingScatterplot from "./EmbeddingScatterplot";
+import useAppStore from "../store/useAppStore";
 
 const { Title, Text } = Typography;
 
-export default function ObsmTab({ obsmKeys, obsm, obsColumns, fetchColorData }) {
-  const { selected, data, loading, time, fetch } = obsm;
-  const isEmbedding = selected && /umap|tsne|pca/i.test(selected) && data?.shape?.[1] >= 2;
+export default function ObsmTab() {
+  const {
+    metadata,
+    selectedObsm,
+    obsmData,
+    obsmLoading,
+    obsmTime,
+    fetchObsm,
+  } = useAppStore();
+
+  const { obsmKeys, obsColumns, geneNames } = metadata;
+  const isEmbedding = selectedObsm && /umap|tsne|pca/i.test(selectedObsm) && obsmData?.shape?.[1] >= 2;
+
+  // Auto-fetch UMAP embedding on mount
+  useEffect(() => {
+    if (!selectedObsm && obsmKeys.length > 0) {
+      const umapKey = obsmKeys.find(k => /umap/i.test(k));
+      if (umapKey) {
+        fetchObsm(umapKey);
+      }
+    }
+  }, [obsmKeys, selectedObsm, fetchObsm]);
 
   return (
     <Row gutter={[16, 16]}>
@@ -29,9 +50,9 @@ export default function ObsmTab({ obsmKeys, obsm, obsColumns, fetchColorData }) 
               renderItem={(k) => (
                 <List.Item style={{ padding: "4px 0" }}>
                   <Button
-                    type={selected === k ? "primary" : "text"}
+                    type={selectedObsm === k ? "primary" : "text"}
                     size="small"
-                    onClick={() => fetch(k)}
+                    onClick={() => fetchObsm(k)}
                   >
                     {k}
                   </Button>
@@ -44,27 +65,25 @@ export default function ObsmTab({ obsmKeys, obsm, obsColumns, fetchColorData }) 
         </Card>
       </Col>
       <Col xs={24} md={18}>
-        {selected ? (
-          <Card title={`obsm: ${selected}`} size="small">
-            {loading ? (
+        {selectedObsm ? (
+          <Card title={`obsm: ${selectedObsm}`} size="small">
+            {obsmLoading ? (
               <Spin />
-            ) : data?.error ? (
-              <Alert type="error" message={data.error} />
+            ) : obsmData?.error ? (
+              <Alert type="error" message={obsmData.error} />
             ) : (
               <>
                 <Space style={{ marginBottom: 16 }} wrap>
-                  <Text>Fetched in {time?.toFixed(1)} ms</Text>
+                  <Text>Fetched in {obsmTime?.toFixed(1)} ms</Text>
                   <Text type="secondary">|</Text>
-                  <Text>Shape: {data?.shape?.join(" × ")}</Text>
+                  <Text>Shape: {obsmData?.shape?.join(" × ")}</Text>
                 </Space>
 
                 {isEmbedding && (
                   <EmbeddingScatterplot
-                    data={data.data}
-                    shape={data.shape}
-                    label={selected}
-                    obsColumns={obsColumns}
-                    fetchColorData={fetchColorData}
+                    data={obsmData.data}
+                    shape={obsmData.shape}
+                    label={selectedObsm}
                   />
                 )}
 
@@ -73,16 +92,16 @@ export default function ObsmTab({ obsmKeys, obsm, obsColumns, fetchColorData }) 
                   size="small"
                   pagination={false}
                   scroll={{ x: true }}
-                  dataSource={data?.index?.slice(0, 10).map((id, i) => {
+                  dataSource={obsmData?.index?.slice(0, 10).map((id, i) => {
                     const row = { key: id, index: id };
-                    for (let j = 0; j < data.shape[1]; j++) {
-                      row[`col${j}`] = data.data[i * data.shape[1] + j]?.toFixed(4);
+                    for (let j = 0; j < obsmData.shape[1]; j++) {
+                      row[`col${j}`] = obsmData.data[i * obsmData.shape[1] + j]?.toFixed(4);
                     }
                     return row;
                   })}
                   columns={[
                     { title: "Index", dataIndex: "index", key: "index", fixed: "left" },
-                    ...Array.from({ length: data?.shape?.[1] || 0 }, (_, j) => ({
+                    ...Array.from({ length: obsmData?.shape?.[1] || 0 }, (_, j) => ({
                       title: String(j),
                       dataIndex: `col${j}`,
                       key: `col${j}`,
