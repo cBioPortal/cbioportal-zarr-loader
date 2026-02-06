@@ -5,7 +5,6 @@ import { ScatterplotLayer } from "@deck.gl/layers";
 import { OrthographicView } from "@deck.gl/core";
 import useAppStore from "../store/useAppStore";
 import { calculatePlotDimensions } from "../utils/calculatePlotDimensions";
-import GeneList from "./GeneList";
 
 const { Text } = Typography;
 
@@ -369,7 +368,6 @@ export default function EmbeddingScatterplot({
           </div>
         )}
 
-        <GeneList height={containerSize.height} />
       </div>
     </>
   );

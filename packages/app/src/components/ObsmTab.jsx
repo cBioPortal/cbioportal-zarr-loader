@@ -11,6 +11,7 @@ import {
   Button,
 } from "antd";
 import EmbeddingScatterplot from "./EmbeddingScatterplot";
+import GeneList from "./GeneList";
 import useAppStore from "../store/useAppStore";
 
 const { Text } = Typography;
@@ -62,6 +63,7 @@ export default function ObsmTab() {
             <Text type="secondary">(none)</Text>
           )}
         </Card>
+        <GeneList height={400} style={{ marginTop: 16 }} />
       </Col>
       <Col xs={24} md={18}>
         {selectedObsm ? (
