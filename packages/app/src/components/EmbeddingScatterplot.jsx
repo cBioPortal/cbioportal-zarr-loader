@@ -1,5 +1,6 @@
 import { useState, useMemo, useRef, useLayoutEffect } from "react";
-import { Typography, Space, Select, Tag } from "antd";
+import { Typography, Space, Select, Tag, Button } from "antd";
+import { ExpandOutlined, CompressOutlined } from "@ant-design/icons";
 import DeckGL from "@deck.gl/react";
 import { ScatterplotLayer } from "@deck.gl/layers";
 import { OrthographicView } from "@deck.gl/core";
@@ -32,6 +33,7 @@ export default function EmbeddingScatterplot({
   const { obsColumns } = metadata;
 
   const [hoverInfo, setHoverInfo] = useState(null);
+  const [expanded, setExpanded] = useState(false);
   const containerRef = useRef(null);
   const [containerSize, setContainerSize] = useState({ width: 600, height: 600 });
 
@@ -109,14 +111,19 @@ export default function EmbeddingScatterplot({
       if (!containerRef.current || !bounds) return;
 
       const parentWidth = containerRef.current.parentElement?.clientWidth || 800;
-      // Reserve space for gene list (220px) and legend (~150px) and gaps
-      const availableWidth = Math.min(parentWidth - 400, 800);
+
+      // Use larger dimensions when expanded
+      const availableWidth = expanded
+        ? Math.min(parentWidth - 100, 1200)
+        : Math.min(parentWidth - 400, 800);
+      const maxHeight = expanded ? 900 : 600;
+      const minWidth = expanded ? 600 : 400;
 
       const dimensions = calculatePlotDimensions({
         bounds,
         availableWidth,
-        maxHeight: 600,
-        minWidth: 400,
+        maxHeight,
+        minWidth,
       });
 
       setContainerSize(dimensions);
@@ -125,7 +132,7 @@ export default function EmbeddingScatterplot({
     updateSize();
     window.addEventListener("resize", updateSize);
     return () => window.removeEventListener("resize", updateSize);
-  }, [bounds]);
+  }, [bounds, expanded]);
 
   const initialViewState = useMemo(() => {
     if (!bounds) return { target: [0, 0], zoom: 0 };
@@ -220,6 +227,14 @@ export default function EmbeddingScatterplot({
             </Text>
           </>
         )}
+        <Text type="secondary">|</Text>
+        <Button
+          size="small"
+          icon={expanded ? <CompressOutlined /> : <ExpandOutlined />}
+          onClick={() => setExpanded(!expanded)}
+        >
+          {expanded ? "Collapse" : "Expand"}
+        </Button>
       </Space>
 
       <div ref={containerRef} style={{ display: "flex", gap: 16 }}>
