@@ -1,12 +1,9 @@
 import { useEffect } from "react";
 import {
-  Row,
-  Col,
   Card,
   Typography,
   Spin,
   Alert,
-  Table,
   List,
   Tabs,
   Descriptions,
@@ -72,18 +69,7 @@ export default function App() {
     );
   }
 
-  const { obsColumns, varColumns, obsmKeys, layerKeys, timings, chunks } = metadata;
-
-  const timingsData = Object.entries(timings).map(([key, ms]) => ({
-    key,
-    operation: key,
-    time: `${ms.toFixed(1)} ms`,
-  }));
-  timingsData.push({
-    key: "total",
-    operation: "Total",
-    time: `${Object.values(timings).reduce((a, b) => a + b, 0).toFixed(1)} ms`,
-  });
+  const { obsColumns, varColumns, obsmKeys, layerKeys, chunks } = metadata;
 
   const tabItems = [
     {
@@ -145,36 +131,19 @@ export default function App() {
         {URL}
       </Text>
 
-      <Row gutter={[16, 16]} style={{ marginTop: 24 }}>
-        <Col xs={24} md={12}>
-          <Card title="Dataset" size="small">
-            <Descriptions column={1} size="small">
-              <Descriptions.Item label="Shape">
-                {adata.nObs.toLocaleString()} × {adata.nVar.toLocaleString()}
-              </Descriptions.Item>
-              <Descriptions.Item label="Chunk size">
-                {chunks ? chunks.join(" × ") : "N/A"}
-              </Descriptions.Item>
-              <Descriptions.Item label="Encoding">
-                {adata.attrs["encoding-type"]} v{adata.attrs["encoding-version"]}
-              </Descriptions.Item>
-            </Descriptions>
-          </Card>
-        </Col>
-        <Col xs={24} md={12}>
-          <Card title="Fetch Keys Timings" size="small">
-            <Table
-              size="small"
-              pagination={false}
-              dataSource={timingsData}
-              columns={[
-                { title: "Operation", dataIndex: "operation", key: "operation" },
-                { title: "Time", dataIndex: "time", key: "time" },
-              ]}
-            />
-          </Card>
-        </Col>
-      </Row>
+      <Card title="Dataset" size="small" style={{ marginTop: 24 }}>
+        <Descriptions column={3} size="small">
+          <Descriptions.Item label="Shape">
+            {adata.nObs.toLocaleString()} × {adata.nVar.toLocaleString()}
+          </Descriptions.Item>
+          <Descriptions.Item label="Chunk size">
+            {chunks ? chunks.join(" × ") : "N/A"}
+          </Descriptions.Item>
+          <Descriptions.Item label="Encoding">
+            {adata.attrs["encoding-type"]} v{adata.attrs["encoding-version"]}
+          </Descriptions.Item>
+        </Descriptions>
+      </Card>
 
       <Tabs items={tabItems} defaultActiveKey="obsm" style={{ marginTop: 24 }} />
     </div>
