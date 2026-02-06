@@ -56,7 +56,7 @@ export default function EmbeddingScatterplot({
   data,
   shape,
   label,
-  maxPoints = 50000,
+  maxPoints = Infinity,
 }) {
   const {
     metadata,
