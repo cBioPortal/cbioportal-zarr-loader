@@ -1,9 +1,10 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useLayoutEffect } from "react";
 import { Typography, Space, Select, Tag, Card, Input } from "antd";
 import DeckGL from "@deck.gl/react";
 import { ScatterplotLayer } from "@deck.gl/layers";
 import { OrthographicView } from "@deck.gl/core";
 import useAppStore from "../store/useAppStore";
+import { calculatePlotDimensions } from "../utils/calculatePlotDimensions";
 
 const { Text } = Typography;
 
@@ -76,6 +77,8 @@ export default function EmbeddingScatterplot({
 
   const [hoverInfo, setHoverInfo] = useState(null);
   const [geneSearchText, setGeneSearchText] = useState("");
+  const containerRef = useRef(null);
+  const [containerSize, setContainerSize] = useState({ width: 600, height: 600 });
 
   // Compute expression range for normalization
   const expressionRange = useMemo(() => {
@@ -145,6 +148,30 @@ export default function EmbeddingScatterplot({
     };
   }, [data, shape, colorData, geneExpression, maxPoints]);
 
+  // Calculate container dimensions based on available space and data aspect ratio
+  useLayoutEffect(() => {
+    const updateSize = () => {
+      if (!containerRef.current || !bounds) return;
+
+      const parentWidth = containerRef.current.parentElement?.clientWidth || 800;
+      // Reserve space for gene list (220px) and legend (~150px) and gaps
+      const availableWidth = Math.min(parentWidth - 400, 800);
+
+      const dimensions = calculatePlotDimensions({
+        bounds,
+        availableWidth,
+        maxHeight: 600,
+        minWidth: 400,
+      });
+
+      setContainerSize(dimensions);
+    };
+
+    updateSize();
+    window.addEventListener("resize", updateSize);
+    return () => window.removeEventListener("resize", updateSize);
+  }, [bounds]);
+
   // Filtered genes for the gene list
   const filteredGenes = useMemo(() => {
     if (!geneNames) return [];
@@ -162,13 +189,15 @@ export default function EmbeddingScatterplot({
     const rangeY = bounds.maxY - bounds.minY;
     const maxRange = Math.max(rangeX, rangeY);
 
-    const zoom = Math.log2(400 / maxRange) - 1;
+    // Use the smaller container dimension to calculate zoom
+    const viewSize = Math.min(containerSize.width, containerSize.height);
+    const zoom = Math.log2(viewSize / maxRange) - 1;
 
     return {
       target: [centerX, centerY],
       zoom: Math.max(-5, Math.min(zoom, 10)),
     };
-  }, [bounds]);
+  }, [bounds, containerSize]);
 
   const layers = [
     new ScatterplotLayer({
@@ -246,11 +275,11 @@ export default function EmbeddingScatterplot({
         )}
       </Space>
 
-      <div style={{ display: "flex", gap: 16 }}>
+      <div ref={containerRef} style={{ display: "flex", gap: 16 }}>
         <div
           style={{
-            width: 500,
-            height: 500,
+            width: containerSize.width,
+            height: containerSize.height,
             position: "relative",
             border: "1px solid #d9d9d9",
             borderRadius: 4,
@@ -312,7 +341,7 @@ export default function EmbeddingScatterplot({
 
         {/* Legend */}
         {colorColumn && sortedCategories.length > 1 && (
-          <div style={{ maxHeight: 500, overflow: "auto", fontSize: 12 }}>
+          <div style={{ maxHeight: containerSize.height, overflow: "auto", fontSize: 12 }}>
             {sortedCategories.map(([cat, color]) => (
               <div key={cat} style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 2 }}>
                 <div
@@ -354,7 +383,7 @@ export default function EmbeddingScatterplot({
           <Card
             size="small"
             title={`Genes (${geneNames.length.toLocaleString()})`}
-            style={{ width: 220, height: 500 }}
+            style={{ width: 220, height: containerSize.height }}
             bodyStyle={{ padding: 0, height: "calc(100% - 38px)", display: "flex", flexDirection: "column" }}
           >
             <div style={{ padding: 8, borderBottom: "1px solid #f0f0f0" }}>
