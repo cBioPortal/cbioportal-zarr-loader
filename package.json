@@ -7,7 +7,7 @@
   "main": "index.js",
   "scripts": {},
   "keywords": [],
-  "author": "",
+  "author": "Jason Hwee (Hweej) <hweej@users.noreply.github.com>",
   "license": "ISC",
   "engines": {
     "node": ">=22"
