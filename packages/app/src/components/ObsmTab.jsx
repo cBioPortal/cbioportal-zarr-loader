@@ -6,7 +6,6 @@ import {
   Typography,
   Spin,
   Alert,
-  List,
   Space,
   Button,
 } from "antd";
@@ -44,11 +43,9 @@ export default function ObsmTab() {
       <Col xs={24} md={6}>
         <Card title="Keys" size="small">
           {obsmKeys.length ? (
-            <List
-              size="small"
-              dataSource={obsmKeys}
-              renderItem={(k) => (
-                <List.Item style={{ padding: "4px 0" }}>
+            <div>
+              {obsmKeys.map((k) => (
+                <div key={k} style={{ padding: "4px 0" }}>
                   <Button
                     type={selectedObsm === k ? "primary" : "text"}
                     size="small"
@@ -56,9 +53,9 @@ export default function ObsmTab() {
                   >
                     {k}
                   </Button>
-                </List.Item>
-              )}
-            />
+                </div>
+              ))}
+            </div>
           ) : (
             <Text type="secondary">(none)</Text>
           )}
