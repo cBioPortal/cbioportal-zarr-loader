@@ -1,10 +1,11 @@
 import { useState, useMemo, useRef, useLayoutEffect } from "react";
-import { Typography, Space, Select, Tag, Card, Input } from "antd";
+import { Typography, Space, Select, Tag } from "antd";
 import DeckGL from "@deck.gl/react";
 import { ScatterplotLayer } from "@deck.gl/layers";
 import { OrthographicView } from "@deck.gl/core";
 import useAppStore from "../store/useAppStore";
 import { calculatePlotDimensions } from "../utils/calculatePlotDimensions";
+import GeneList from "./GeneList";
 
 const { Text } = Typography;
 
@@ -69,14 +70,12 @@ export default function EmbeddingScatterplot({
     selectedGene,
     geneExpression,
     geneLoading,
-    setSelectedGene,
     clearGeneSelection,
   } = useAppStore();
 
-  const { obsColumns, geneNames } = metadata;
+  const { obsColumns } = metadata;
 
   const [hoverInfo, setHoverInfo] = useState(null);
-  const [geneSearchText, setGeneSearchText] = useState("");
   const containerRef = useRef(null);
   const [containerSize, setContainerSize] = useState({ width: 600, height: 600 });
 
@@ -171,14 +170,6 @@ export default function EmbeddingScatterplot({
     window.addEventListener("resize", updateSize);
     return () => window.removeEventListener("resize", updateSize);
   }, [bounds]);
-
-  // Filtered genes for the gene list
-  const filteredGenes = useMemo(() => {
-    if (!geneNames) return [];
-    if (!geneSearchText) return geneNames;
-    const search = geneSearchText.toLowerCase();
-    return geneNames.filter(name => name.toLowerCase().includes(search));
-  }, [geneNames, geneSearchText]);
 
   const initialViewState = useMemo(() => {
     if (!bounds) return { target: [0, 0], zoom: 0 };
@@ -378,54 +369,7 @@ export default function EmbeddingScatterplot({
           </div>
         )}
 
-        {/* Gene list */}
-        {geneNames && geneNames.length > 0 && (
-          <Card
-            size="small"
-            title={`Genes (${geneNames.length.toLocaleString()})`}
-            style={{ width: 220, height: containerSize.height }}
-            bodyStyle={{ padding: 0, height: "calc(100% - 38px)", display: "flex", flexDirection: "column" }}
-          >
-            <div style={{ padding: 8, borderBottom: "1px solid #f0f0f0" }}>
-              <Input.Search
-                placeholder="Search genes..."
-                size="small"
-                value={geneSearchText}
-                onChange={(e) => setGeneSearchText(e.target.value)}
-                allowClear
-              />
-            </div>
-            <div style={{ flex: 1, overflow: "auto" }}>
-              {filteredGenes.map((gene) => (
-                <div
-                  key={gene}
-                  style={{
-                    padding: "4px 12px",
-                    cursor: "pointer",
-                    backgroundColor: selectedGene === gene ? "#e6f4ff" : undefined,
-                    fontSize: 12,
-                    whiteSpace: "nowrap",
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                  }}
-                  onClick={() => setSelectedGene(gene)}
-                >
-                  {gene}
-                </div>
-              ))}
-              {filteredGenes.length === 0 && geneSearchText && (
-                <div style={{ padding: "8px 12px", color: "#999", fontSize: 12 }}>
-                  No genes found
-                </div>
-              )}
-            </div>
-            {geneSearchText && (
-              <div style={{ padding: "4px 12px", fontSize: 11, color: "#999", borderTop: "1px solid #f0f0f0" }}>
-                {filteredGenes.length.toLocaleString()} matches
-              </div>
-            )}
-          </Card>
-        )}
+        <GeneList height={containerSize.height} />
       </div>
     </>
   );
