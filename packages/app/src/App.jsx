@@ -72,11 +72,6 @@ export default function App() {
 
   const tabItems = [
     {
-      key: "obsm",
-      label: `obsm (${obsmKeys.length})`,
-      children: <ObsmTab />,
-    },
-    {
       key: "obs",
       label: `obs (${obsColumns.length})`,
       children: (
@@ -103,6 +98,11 @@ export default function App() {
           onSelectColumn={fetchVarColumn}
         />
       ),
+    },
+    {
+      key: "obsm",
+      label: `obsm (${obsmKeys.length})`,
+      children: <ObsmTab />,
     },
     {
       key: "layers",
@@ -147,7 +147,7 @@ export default function App() {
 
   return (
     <div style={{ padding: 24 }}>
-      <Title level={3}>AnnData Zarr Viewer</Title>
+      <Title level={3}>AnnData Zarr Loader</Title>
       <Tabs items={tabItems} defaultActiveKey="obsm" />
     </div>
   );

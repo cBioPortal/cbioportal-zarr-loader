@@ -1,5 +1,5 @@
 {
-  "name": "@anndata-zarr/app",
+  "name": "@cbioportal-zarr-loader/app",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -9,7 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@anndata-zarr/zarrstore": "workspace:*",
+    "@cbioportal-zarr-loader/zarrstore": "workspace:*",
     "@deck.gl/core": "^9.2.6",
     "@deck.gl/layers": "^9.2.6",
     "@deck.gl/react": "^9.2.6",

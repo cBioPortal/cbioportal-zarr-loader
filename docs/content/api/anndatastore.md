@@ -10,7 +10,7 @@ A high-level class for reading AnnData files stored in Zarr format. Provides con
 ## Import
 
 ```js
-import { AnnDataStore } from '@anndata-zarr/zarrstore';
+import { AnnDataStore } from '@cbioportal-zarr-loader/zarrstore';
 ```
 
 ## Static Methods

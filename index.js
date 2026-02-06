@@ -1,5 +1,5 @@
 import * as zarr from "zarrita";
-import { ZarrStore } from "@anndata-zarr/zarrstore";
+import { ZarrStore } from "@cbioportal-zarr-loader/zarrstore";
 
 const z = await ZarrStore.open(
   "http://localhost:3000/spectrum_all_cells.zarr",

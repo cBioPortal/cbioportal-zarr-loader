@@ -10,7 +10,7 @@ A wrapper class for working with Zarr stores using [zarrita](https://github.com/
 ## Import
 
 ```js
-import { ZarrStore } from '@anndata-zarr/zarrstore';
+import { ZarrStore } from '@cbioportal-zarr-loader/zarrstore';
 ```
 
 ## Static Methods

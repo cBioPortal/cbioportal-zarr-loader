@@ -20,7 +20,7 @@ import {
   decodeSparseMatrix,
   sparseToDense,
   decodeNode,
-} from '@anndata-zarr/zarrstore';
+} from '@cbioportal-zarr-loader/zarrstore';
 ```
 
 ## Functions

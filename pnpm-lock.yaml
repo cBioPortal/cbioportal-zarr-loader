@@ -34,7 +34,7 @@ importers:
 
   packages/app:
     dependencies:
-      '@anndata-zarr/zarrstore':
+      '@cbioportal-zarr-loader/zarrstore':
         specifier: workspace:*
         version: link:../zarrstore
       '@deck.gl/core':

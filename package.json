@@ -1,5 +1,5 @@
 {
-  "name": "anndata-zarr",
+  "name": "cbioportal-zarr-loader",
   "version": "1.0.0",
   "description": "",
   "private": true,

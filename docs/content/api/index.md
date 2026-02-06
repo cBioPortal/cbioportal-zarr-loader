@@ -5,7 +5,7 @@ sidebar_position: 0
 
 # API Reference
 
-The `@anndata-zarr/zarrstore` package provides classes and utilities for reading AnnData files stored in Zarr format.
+The `@cbioportal-zarr-loader/zarrstore` package provides classes and utilities for reading AnnData files stored in Zarr format.
 
 ## Classes
 
@@ -19,7 +19,7 @@ The `@anndata-zarr/zarrstore` package provides classes and utilities for reading
 ## Quick Start
 
 ```js
-import { AnnDataStore } from '@anndata-zarr/zarrstore';
+import { AnnDataStore } from '@cbioportal-zarr-loader/zarrstore';
 
 // Open an AnnData file
 const adata = await AnnDataStore.open('https://example.com/pbmc3k.zarr');

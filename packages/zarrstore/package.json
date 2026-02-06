@@ -1,5 +1,5 @@
 {
-  "name": "@anndata-zarr/zarrstore",
+  "name": "@cbioportal-zarr-loader/zarrstore",
   "version": "1.0.0",
   "type": "module",
   "exports": "./src/index.js",

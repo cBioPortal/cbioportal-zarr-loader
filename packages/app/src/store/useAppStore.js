@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { AnnDataStore } from "@anndata-zarr/zarrstore";
+import { AnnDataStore } from "@cbioportal-zarr-loader/zarrstore";
 
 const useAppStore = create((set, get) => ({
   // Core data
