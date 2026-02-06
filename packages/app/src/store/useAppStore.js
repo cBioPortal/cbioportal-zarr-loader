@@ -26,6 +26,12 @@ const useAppStore = create((set, get) => ({
   obsmLoading: false,
   obsmTime: null,
 
+  // Obsm streaming state
+  obsmStreamingData: null,
+  obsmStreamingLoading: false,
+  obsmStreamingTime: null,
+  obsmStreamingProgress: null,
+
   // Gene expression state (for scatterplot coloring)
   selectedGene: null,
   geneExpression: null,
@@ -157,10 +163,13 @@ const useAppStore = create((set, get) => ({
   },
 
   fetchObsm: async (key) => {
-    const { adata, obsIndex } = get();
+    const { adata, obsIndex, fetchObsmStreaming } = get();
     if (!adata) return;
 
     set({ selectedObsm: key, obsmLoading: true, obsmData: null });
+
+    // Fire streaming fetch concurrently (don't await)
+    fetchObsmStreaming(key);
 
     try {
       const start = performance.now();
@@ -178,6 +187,57 @@ const useAppStore = create((set, get) => ({
     } catch (err) {
       console.error(err);
       set({ obsmData: { error: err.message }, obsmLoading: false });
+    }
+  },
+
+  fetchObsmStreaming: async (key) => {
+    const { adata } = get();
+    if (!adata) return;
+
+    set({
+      obsmStreamingData: null,
+      obsmStreamingLoading: true,
+      obsmStreamingTime: null,
+      obsmStreamingProgress: 0,
+    });
+
+    try {
+      const start = performance.now();
+      let buffer = null;
+      let nDims = 0;
+      let loadedRows = 0;
+
+      for await (const batch of adata.obsmStreaming(key)) {
+        const { data, shape, offset, total } = batch;
+        nDims = shape[1];
+
+        // Pre-allocate on first batch
+        if (!buffer) {
+          buffer = new data.constructor(total * nDims);
+        }
+
+        // Copy batch data into buffer
+        buffer.set(data, offset * nDims);
+        loadedRows = offset + shape[0];
+
+        set({
+          obsmStreamingData: { data: buffer, shape: [loadedRows, nDims] },
+          obsmStreamingLoading: false,
+          obsmStreamingProgress: loadedRows / total,
+        });
+      }
+
+      set({
+        obsmStreamingTime: performance.now() - start,
+        obsmStreamingProgress: null,
+      });
+    } catch (err) {
+      console.error(err);
+      set({
+        obsmStreamingData: { error: err.message },
+        obsmStreamingLoading: false,
+        obsmStreamingProgress: null,
+      });
     }
   },
 

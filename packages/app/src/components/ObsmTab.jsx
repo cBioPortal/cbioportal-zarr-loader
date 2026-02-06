@@ -9,7 +9,9 @@ import {
   Space,
   Button,
 } from "antd";
+import { ReloadOutlined } from "@ant-design/icons";
 import EmbeddingScatterplot from "./EmbeddingScatterplot";
+import StreamingEmbeddingScatterplot from "./StreamingEmbeddingScatterplot";
 import GeneList from "./GeneList";
 import useAppStore from "../store/useAppStore";
 
@@ -23,10 +25,13 @@ export default function ObsmTab() {
     obsmLoading,
     obsmTime,
     fetchObsm,
+    obsmStreamingData,
+    obsmStreamingLoading,
   } = useAppStore();
 
   const { obsmKeys, obsColumns, geneNames } = metadata;
-  const isEmbedding = selectedObsm && /umap|tsne|pca/i.test(selectedObsm) && obsmData?.shape?.[1] >= 2;
+  const hasEmbeddingShape = obsmData?.shape?.[1] >= 2 || obsmStreamingData?.shape?.[1] >= 2;
+  const isEmbedding = selectedObsm && /umap|tsne|pca/i.test(selectedObsm) && (obsmLoading || obsmStreamingLoading || hasEmbeddingShape);
 
   // Auto-fetch UMAP embedding on mount
   useEffect(() => {
@@ -64,27 +69,67 @@ export default function ObsmTab() {
       </Col>
       <Col xs={24} md={18}>
         {selectedObsm ? (
-          <Card title={`obsm: ${selectedObsm}`} size="small">
-            {obsmLoading ? (
-              <Spin />
-            ) : obsmData?.error ? (
-              <Alert type="error" message={obsmData.error} />
-            ) : (
-              <>
+          <Card
+            title={`obsm: ${selectedObsm}`}
+            size="small"
+            extra={
+              <Button
+                size="small"
+                icon={<ReloadOutlined />}
+                onClick={() => fetchObsm(selectedObsm)}
+                loading={obsmLoading || obsmStreamingLoading}
+              >
+                Reload
+              </Button>
+            }
+          >
+            {isEmbedding && (
+              <div style={{ display: "flex", gap: 16 }}>
+                <div style={{ flex: 1 }}>
+                  <Text strong>Non-streaming</Text>
+                  {obsmLoading ? (
+                    <Spin style={{ display: "block", marginTop: 16 }} />
+                  ) : obsmData?.error ? (
+                    <Alert type="error" message={obsmData.error} />
+                  ) : (
+                    <>
+                      <Space style={{ marginBottom: 8, marginTop: 8 }} wrap>
+                        <Text>Fetched in {obsmTime?.toFixed(1)} ms</Text>
+                        <Text type="secondary">|</Text>
+                        <Text>Shape: {obsmData?.shape?.join(" × ")}</Text>
+                      </Space>
+                      <EmbeddingScatterplot
+                        data={obsmData.data}
+                        shape={obsmData.shape}
+                        label={selectedObsm}
+                      />
+                    </>
+                  )}
+                </div>
+                <div style={{ flex: 1 }}>
+                  <Text strong>Streaming</Text>
+                  {obsmStreamingLoading ? (
+                    <Spin style={{ display: "block", marginTop: 16 }} />
+                  ) : (
+                    <div style={{ marginTop: 8 }}>
+                      <StreamingEmbeddingScatterplot label={selectedObsm} />
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+            {!isEmbedding && (
+              obsmLoading ? (
+                <Spin />
+              ) : obsmData?.error ? (
+                <Alert type="error" message={obsmData.error} />
+              ) : (
                 <Space style={{ marginBottom: 16 }} wrap>
                   <Text>Fetched in {obsmTime?.toFixed(1)} ms</Text>
                   <Text type="secondary">|</Text>
                   <Text>Shape: {obsmData?.shape?.join(" × ")}</Text>
                 </Space>
-
-                {isEmbedding && (
-                  <EmbeddingScatterplot
-                    data={obsmData.data}
-                    shape={obsmData.shape}
-                    label={selectedObsm}
-                  />
-                )}
-              </>
+              )
             )}
           </Card>
         ) : (
