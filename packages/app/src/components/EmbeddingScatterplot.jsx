@@ -5,52 +5,9 @@ import { ScatterplotLayer } from "@deck.gl/layers";
 import { OrthographicView } from "@deck.gl/core";
 import useAppStore from "../store/useAppStore";
 import { calculatePlotDimensions } from "../utils/calculatePlotDimensions";
+import { CATEGORICAL_COLORS, interpolateViridis, viridisGradient } from "../utils/colors";
 
 const { Text } = Typography;
-
-// Viridis-like color scale for continuous data
-const VIRIDIS = [
-  [68, 1, 84],
-  [72, 40, 120],
-  [62, 74, 137],
-  [49, 104, 142],
-  [38, 130, 142],
-  [31, 158, 137],
-  [53, 183, 121],
-  [109, 205, 89],
-  [180, 222, 44],
-  [253, 231, 37],
-];
-
-function interpolateViridis(t) {
-  const idx = t * (VIRIDIS.length - 1);
-  const lower = Math.floor(idx);
-  const upper = Math.min(lower + 1, VIRIDIS.length - 1);
-  const frac = idx - lower;
-  return [
-    Math.round(VIRIDIS[lower][0] + (VIRIDIS[upper][0] - VIRIDIS[lower][0]) * frac),
-    Math.round(VIRIDIS[lower][1] + (VIRIDIS[upper][1] - VIRIDIS[lower][1]) * frac),
-    Math.round(VIRIDIS[lower][2] + (VIRIDIS[upper][2] - VIRIDIS[lower][2]) * frac),
-  ];
-}
-
-const COLORS = [
-  [31, 119, 180],   // #1f77b4
-  [255, 127, 14],   // #ff7f0e
-  [44, 160, 44],    // #2ca02c
-  [214, 39, 40],    // #d62728
-  [148, 103, 189],  // #9467bd
-  [140, 86, 75],    // #8c564b
-  [227, 119, 194],  // #e377c2
-  [127, 127, 127],  // #7f7f7f
-  [188, 189, 34],   // #bcbd22
-  [23, 190, 207],   // #17becf
-  [174, 199, 232],  // #aec7e8
-  [255, 187, 120],  // #ffbb78
-  [152, 223, 138],  // #98df8a
-  [255, 152, 150],  // #ff9896
-  [197, 176, 213],  // #c5b0d5
-];
 
 export default function EmbeddingScatterplot({
   data,
@@ -102,7 +59,7 @@ export default function EmbeddingScatterplot({
       for (let i = 0; i < shape[0]; i += step) {
         const cat = String(colorData[i]);
         if (!categories.has(cat)) {
-          categories.set(cat, (categories.size % COLORS.length));
+          categories.set(cat, (categories.size % CATEGORICAL_COLORS.length));
         }
       }
     }
@@ -136,7 +93,7 @@ export default function EmbeddingScatterplot({
     // Convert categories map to object for legend
     const colorMap = {};
     categories.forEach((colorIdx, cat) => {
-      colorMap[cat] = COLORS[colorIdx];
+      colorMap[cat] = CATEGORICAL_COLORS[colorIdx];
     });
 
     return {
@@ -200,7 +157,7 @@ export default function EmbeddingScatterplot({
           return interpolateViridis(t);
         }
         if (colorData) {
-          return COLORS[d.colorIndex];
+          return CATEGORICAL_COLORS[d.colorIndex];
         }
         return [24, 144, 255];
       },
@@ -356,7 +313,7 @@ export default function EmbeddingScatterplot({
               style={{
                 width: 20,
                 height: 200,
-                background: `linear-gradient(to bottom, ${VIRIDIS.slice().reverse().map(c => `rgb(${c.join(",")})`).join(", ")})`,
+                background: viridisGradient("to bottom"),
                 borderRadius: 2,
               }}
             />
