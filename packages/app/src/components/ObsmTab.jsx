@@ -6,7 +6,6 @@ import {
   Typography,
   Spin,
   Alert,
-  Table,
   List,
   Space,
   Button,
@@ -14,7 +13,7 @@ import {
 import EmbeddingScatterplot from "./EmbeddingScatterplot";
 import useAppStore from "../store/useAppStore";
 
-const { Title, Text } = Typography;
+const { Text } = Typography;
 
 export default function ObsmTab() {
   const {
@@ -86,28 +85,6 @@ export default function ObsmTab() {
                     label={selectedObsm}
                   />
                 )}
-
-                <Title level={5}>First 10 rows</Title>
-                <Table
-                  size="small"
-                  pagination={false}
-                  scroll={{ x: true }}
-                  dataSource={obsmData?.index?.slice(0, 10).map((id, i) => {
-                    const row = { key: id, index: id };
-                    for (let j = 0; j < obsmData.shape[1]; j++) {
-                      row[`col${j}`] = obsmData.data[i * obsmData.shape[1] + j]?.toFixed(4);
-                    }
-                    return row;
-                  })}
-                  columns={[
-                    { title: "Index", dataIndex: "index", key: "index", fixed: "left" },
-                    ...Array.from({ length: obsmData?.shape?.[1] || 0 }, (_, j) => ({
-                      title: String(j),
-                      dataIndex: `col${j}`,
-                      key: `col${j}`,
-                    })),
-                  ]}
-                />
               </>
             )}
           </Card>
