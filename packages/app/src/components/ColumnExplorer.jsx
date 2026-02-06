@@ -3,8 +3,7 @@ import {
   Card,
   Typography,
   Button,
-  Spin,
-  Alert,
+  Tag,
   Table,
   Space,
 } from "antd";
@@ -14,16 +13,22 @@ const { Text } = Typography;
 
 export default function ColumnExplorer({
   columns,
-  selectedColumn,
-  columnData,
+  selectedColumns,
+  columnsData,
+  index,
   loading,
   time,
-  onSelectColumn,
+  onToggleColumn,
+  onClearAll,
 }) {
+  const lastSelected = selectedColumns.length
+    ? selectedColumns[selectedColumns.length - 1]
+    : null;
+
   const valueCounts = useMemo(() => {
-    if (!columnData?.values) return [];
+    if (!lastSelected || !columnsData[lastSelected]) return [];
     const counts = {};
-    for (const v of columnData.values) {
+    for (const v of columnsData[lastSelected]) {
       const key = String(v);
       counts[key] = (counts[key] || 0) + 1;
     }
@@ -31,16 +36,26 @@ export default function ColumnExplorer({
       .sort((a, b) => b[1] - a[1])
       .slice(0, 15)
       .map(([value, count]) => ({ key: value, value, count }));
-  }, [columnData?.values]);
+  }, [lastSelected, columnsData]);
+
+  const tableColumns = useMemo(() => {
+    const cols = [{ title: "Index", dataIndex: "index", key: "index" }];
+    for (const col of selectedColumns) {
+      cols.push({ title: col, dataIndex: col, key: col });
+    }
+    return cols;
+  }, [selectedColumns]);
 
   const tableData = useMemo(() => {
-    if (!columnData?.index) return [];
-    return columnData.index.map((id, i) => ({
-      key: id,
-      index: id,
-      value: String(columnData.values[i]),
-    }));
-  }, [columnData]);
+    if (!index) return [];
+    return index.map((id, i) => {
+      const row = { key: id, index: id };
+      for (const col of selectedColumns) {
+        row[col] = columnsData[col] ? String(columnsData[col][i]) : "";
+      }
+      return row;
+    });
+  }, [index, selectedColumns, columnsData]);
 
   return (
     <TabLayout
@@ -51,9 +66,10 @@ export default function ColumnExplorer({
               {columns.map((c) => (
                 <div key={c} style={{ padding: "4px 0" }}>
                   <Button
-                    type={selectedColumn === c ? "primary" : "text"}
+                    type={selectedColumns.includes(c) ? "primary" : "text"}
                     size="small"
-                    onClick={() => onSelectColumn(c)}
+                    loading={loading === c}
+                    onClick={() => onToggleColumn(c)}
                   >
                     {c}
                   </Button>
@@ -61,17 +77,13 @@ export default function ColumnExplorer({
               ))}
             </div>
           </Card>
-          {selectedColumn && (
+          {lastSelected && (
             <Card
-              title={`Value Counts: ${selectedColumn}`}
+              title={`Value Counts: ${lastSelected}`}
               size="small"
               style={{ marginTop: 16 }}
             >
-              {loading ? (
-                <Spin />
-              ) : columnData?.error ? (
-                <Alert type="error" message={columnData.error} />
-              ) : (
+              {loading === lastSelected ? null : (
                 <Table
                   size="small"
                   pagination={false}
@@ -88,41 +100,50 @@ export default function ColumnExplorer({
         </>
       }
     >
-      {selectedColumn ? (
-        <Card title={`Column: ${selectedColumn}`} size="small">
-          {loading ? (
-            <Spin />
-          ) : columnData?.error ? (
-            <Alert type="error" message={columnData.error} />
-          ) : (
+      <Card
+        title={
+          <Space size={[0, 4]} wrap>
+            <Text strong>Data</Text>
+            {selectedColumns.map((col) => (
+              <Tag
+                key={col}
+                closable
+                onClose={() => onToggleColumn(col)}
+                color="blue"
+              >
+                {col}
+              </Tag>
+            ))}
+            {selectedColumns.length > 1 && (
+              <Button type="link" size="small" onClick={onClearAll}>
+                Clear all
+              </Button>
+            )}
+          </Space>
+        }
+        size="small"
+      >
+        <Space style={{ marginBottom: 16 }}>
+          <Text>Rows: {index?.length?.toLocaleString() ?? 0}</Text>
+          {time != null && (
             <>
-              <Space style={{ marginBottom: 16 }}>
-                <Text>Fetched in {time?.toFixed(1)} ms</Text>
-                <Text type="secondary">|</Text>
-                <Text>Length: {columnData?.values?.length?.toLocaleString()}</Text>
-              </Space>
-              <Table
-                size="small"
-                pagination={{
-                  defaultPageSize: 10,
-                  showSizeChanger: true,
-                  pageSizeOptions: [10, 25, 50, 100],
-                  showTotal: (total, range) => `${range[0]}-${range[1]} of ${total}`,
-                }}
-                dataSource={tableData}
-                columns={[
-                  { title: "Index", dataIndex: "index", key: "index" },
-                  { title: selectedColumn, dataIndex: "value", key: "value" },
-                ]}
-              />
+              <Text type="secondary">|</Text>
+              <Text>Last fetch: {time.toFixed(1)} ms</Text>
             </>
           )}
-        </Card>
-      ) : (
-        <Card size="small">
-          <Text type="secondary">Select a column to view its data</Text>
-        </Card>
-      )}
+        </Space>
+        <Table
+          size="small"
+          pagination={{
+            defaultPageSize: 10,
+            showSizeChanger: true,
+            pageSizeOptions: [10, 25, 50, 100],
+            showTotal: (total, range) => `${range[0]}-${range[1]} of ${total}`,
+          }}
+          dataSource={tableData}
+          columns={tableColumns}
+        />
+      </Card>
     </TabLayout>
   );
 }

@@ -8,16 +8,16 @@ const useAppStore = create((set, get) => ({
   loading: true,
   error: null,
 
-  // Obs column state
-  selectedObsColumn: null,
-  obsColumnData: null,
-  obsColumnLoading: false,
+  // Obs column state (multi-select)
+  obsColumnsSelected: [],
+  obsColumnsData: {},
+  obsColumnLoading: null,
   obsColumnTime: null,
 
-  // Var column state
-  selectedVarColumn: null,
-  varColumnData: null,
-  varColumnLoading: false,
+  // Var column state (multi-select)
+  varColumnsSelected: [],
+  varColumnsData: {},
+  varColumnLoading: null,
   varColumnTime: null,
 
   // Obsm state
@@ -72,6 +72,10 @@ const useAppStore = create((set, get) => ({
       timings.layerKeys = performance.now() - start;
 
       start = performance.now();
+      const obsNames = await store.obsNames();
+      timings.obsNames = performance.now() - start;
+
+      start = performance.now();
       const varNames = await store.varNames();
       timings.varNames = performance.now() - start;
 
@@ -103,6 +107,8 @@ const useAppStore = create((set, get) => ({
       set({
         adata: store,
         metadata: { obsColumns, varColumns, obsmKeys, layerKeys, varNames, geneNames, timings, chunks },
+        obsIndex: obsNames,
+        varIndex: varNames,
         loading: false,
         error: null,
       });
@@ -112,54 +118,78 @@ const useAppStore = create((set, get) => ({
     }
   },
 
-  fetchObsColumn: async (colName) => {
-    const { adata, obsIndex } = get();
+  toggleObsColumn: async (colName) => {
+    const { adata, obsColumnsSelected, obsColumnsData } = get();
     if (!adata) return;
 
-    set({ selectedObsColumn: colName, obsColumnLoading: true, obsColumnData: null });
+    // Toggle off — remove column
+    if (obsColumnsSelected.includes(colName)) {
+      const { [colName]: _, ...rest } = obsColumnsData;
+      set({
+        obsColumnsSelected: obsColumnsSelected.filter((c) => c !== colName),
+        obsColumnsData: rest,
+      });
+      return;
+    }
+
+    // Toggle on — fetch and add column
+    set({ obsColumnLoading: colName });
 
     try {
       const start = performance.now();
-      let index = obsIndex;
-      if (!index) {
-        index = await adata.obsNames();
-        set({ obsIndex: index });
-      }
       const values = await adata.obsColumn(colName);
+      const { obsColumnsSelected: current, obsColumnsData: currentData } = get();
       set({
         obsColumnTime: performance.now() - start,
-        obsColumnData: { values, index },
-        obsColumnLoading: false,
+        obsColumnsSelected: [...current, colName],
+        obsColumnsData: { ...currentData, [colName]: values },
+        obsColumnLoading: null,
       });
     } catch (err) {
       console.error(err);
-      set({ obsColumnData: { error: err.message }, obsColumnLoading: false });
+      set({ obsColumnLoading: null });
     }
   },
 
-  fetchVarColumn: async (colName) => {
-    const { adata, varIndex } = get();
+  toggleVarColumn: async (colName) => {
+    const { adata, varColumnsSelected, varColumnsData } = get();
     if (!adata) return;
 
-    set({ selectedVarColumn: colName, varColumnLoading: true, varColumnData: null });
+    // Toggle off — remove column
+    if (varColumnsSelected.includes(colName)) {
+      const { [colName]: _, ...rest } = varColumnsData;
+      set({
+        varColumnsSelected: varColumnsSelected.filter((c) => c !== colName),
+        varColumnsData: rest,
+      });
+      return;
+    }
+
+    // Toggle on — fetch and add column
+    set({ varColumnLoading: colName });
 
     try {
       const start = performance.now();
-      let index = varIndex;
-      if (!index) {
-        index = await adata.varNames();
-        set({ varIndex: index });
-      }
       const values = await adata.varColumn(colName);
+      const { varColumnsSelected: current, varColumnsData: currentData } = get();
       set({
         varColumnTime: performance.now() - start,
-        varColumnData: { values, index },
-        varColumnLoading: false,
+        varColumnsSelected: [...current, colName],
+        varColumnsData: { ...currentData, [colName]: values },
+        varColumnLoading: null,
       });
     } catch (err) {
       console.error(err);
-      set({ varColumnData: { error: err.message }, varColumnLoading: false });
+      set({ varColumnLoading: null });
     }
+  },
+
+  clearObsColumns: () => {
+    set({ obsColumnsSelected: [], obsColumnsData: {}, obsColumnTime: null });
+  },
+
+  clearVarColumns: () => {
+    set({ varColumnsSelected: [], varColumnsData: {}, varColumnTime: null });
   },
 
   fetchObsm: async (key) => {

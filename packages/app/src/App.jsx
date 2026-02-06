@@ -24,18 +24,22 @@ export default function App() {
     error,
     metadata,
     initialize,
-    // Obs column
-    selectedObsColumn,
-    obsColumnData,
+    // Obs column (multi-select)
+    obsColumnsSelected,
+    obsColumnsData,
     obsColumnLoading,
     obsColumnTime,
-    fetchObsColumn,
-    // Var column
-    selectedVarColumn,
-    varColumnData,
+    obsIndex,
+    toggleObsColumn,
+    clearObsColumns,
+    // Var column (multi-select)
+    varColumnsSelected,
+    varColumnsData,
     varColumnLoading,
     varColumnTime,
-    fetchVarColumn,
+    varIndex,
+    toggleVarColumn,
+    clearVarColumns,
   } = useAppStore();
 
   useEffect(() => {
@@ -77,11 +81,13 @@ export default function App() {
       children: (
         <ColumnExplorer
           columns={obsColumns}
-          selectedColumn={selectedObsColumn}
-          columnData={obsColumnData}
+          selectedColumns={obsColumnsSelected}
+          columnsData={obsColumnsData}
+          index={obsIndex}
           loading={obsColumnLoading}
           time={obsColumnTime}
-          onSelectColumn={fetchObsColumn}
+          onToggleColumn={toggleObsColumn}
+          onClearAll={clearObsColumns}
         />
       ),
     },
@@ -91,11 +97,13 @@ export default function App() {
       children: (
         <ColumnExplorer
           columns={varColumns}
-          selectedColumn={selectedVarColumn}
-          columnData={varColumnData}
+          selectedColumns={varColumnsSelected}
+          columnsData={varColumnsData}
+          index={varIndex}
           loading={varColumnLoading}
           time={varColumnTime}
-          onSelectColumn={fetchVarColumn}
+          onToggleColumn={toggleVarColumn}
+          onClearAll={clearVarColumns}
         />
       ),
     },
