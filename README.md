@@ -2,6 +2,8 @@
 
 A monorepo for loading and visualizing data using backed by Zarr.
 
+Everything is changing, do not import. Unstable.
+
 ## Packages
 
 - `@cbioportal-zarr-loader/app` — Web application
