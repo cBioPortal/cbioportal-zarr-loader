@@ -29,8 +29,15 @@ export default function GeneList({ height = 500, width = 220, style = {} }) {
     <Card
       size="small"
       title={`Genes (${geneNames.length.toLocaleString()})`}
-      style={{ width, height, ...style }}
-      bodyStyle={{ padding: 0, height: "calc(100% - 38px)", display: "flex", flexDirection: "column" }}
+      style={{
+        width,
+        height,
+        padding: 0,
+        height: "calc(100% - 38px)",
+        display: "flex",
+        flexDirection: "column",
+        ...style
+      }}
     >
       <div style={{ padding: 8, borderBottom: "1px solid #f0f0f0" }}>
         <Input.Search
