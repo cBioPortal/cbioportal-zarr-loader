@@ -60,7 +60,7 @@ export default function ObsmTab() {
             <Text type="secondary">(none)</Text>
           )}
         </Card>
-        <GeneList height={400} style={{ marginTop: 16 }} />
+        <GeneList height={300} style={{ marginTop: 16 }} />
       </Col>
       <Col xs={24} md={18}>
         {selectedObsm ? (

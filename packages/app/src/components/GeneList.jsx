@@ -6,7 +6,7 @@ import useAppStore from "../store/useAppStore";
  * Gene selection list with search functionality.
  * Reads gene names and selection state from the store.
  */
-export default function GeneList({ height = 500, width = 220, style = {} }) {
+export default function GeneList({ height = 300, width = 220, style = {} }) {
   const {
     metadata,
     selectedGene,
@@ -29,15 +29,8 @@ export default function GeneList({ height = 500, width = 220, style = {} }) {
     <Card
       size="small"
       title={`Genes (${geneNames.length.toLocaleString()})`}
-      style={{
-        width,
-        height,
-        padding: 0,
-        height: "calc(100% - 38px)",
-        display: "flex",
-        flexDirection: "column",
-        ...style
-      }}
+      style={{ width, height, ...style }}
+      styles={{ body: { padding: 0, height: "calc(100% - 38px)", display: "flex", flexDirection: "column", overflow: "hidden" } }}
     >
       <div style={{ padding: 8, borderBottom: "1px solid #f0f0f0" }}>
         <Input.Search
