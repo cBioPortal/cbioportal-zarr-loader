@@ -107,7 +107,7 @@ export default function ColumnExplorer({
                 <Table
                   size="small"
                   pagination={{
-                    pageSize: 10,
+                    defaultPageSize: 10,
                     showSizeChanger: true,
                     pageSizeOptions: [10, 25, 50, 100],
                     showTotal: (total, range) => `${range[0]}-${range[1]} of ${total}`,
