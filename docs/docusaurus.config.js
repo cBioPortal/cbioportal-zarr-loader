@@ -7,7 +7,7 @@ const config = {
   favicon: 'img/favicon.ico',
 
   url: 'https://anndata-zarr.example.com',
-  baseUrl: '/',
+  baseUrl: process.env.DOCS_BASE_URL || '/docs/',
 
   onBrokenLinks: 'throw',
 

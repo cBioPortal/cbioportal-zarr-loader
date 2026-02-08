@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "build:with-docs": "pnpm --filter @cbioportal-zarr-loader/docs build && cp -r ../../docs/build public/docs && vite build",
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest"

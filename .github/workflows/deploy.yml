@@ -24,7 +24,10 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter @cbioportal-zarr-loader/app build
+      - run: pnpm --filter @cbioportal-zarr-loader/app build:with-docs
+        env:
+          VITE_BASE_URL: /cbioportal-zarr-loader/
+          DOCS_BASE_URL: /cbioportal-zarr-loader/docs/
       - uses: actions/upload-pages-artifact@v3
         with:
           path: packages/app/dist
