@@ -67,6 +67,7 @@ export default function ColumnExplorer({
             items={columns}
             selected={selectedColumns}
             onSelect={onToggleColumn}
+            onClear={onClearAll}
             loading={loading}
             multiSelect
             placeholder="Search columns..."

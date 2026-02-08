@@ -2,7 +2,7 @@ import useAppStore from "../store/useAppStore";
 import SearchableList from "./SearchableList";
 
 export default function GeneList({ height = 300, width = 220, style = {} }) {
-  const { metadata, selectedGene, setSelectedGene } = useAppStore();
+  const { metadata, selectedGene, setSelectedGene, clearGeneSelection } = useAppStore();
   const { geneNames } = metadata || {};
 
   return (
@@ -11,6 +11,7 @@ export default function GeneList({ height = 300, width = 220, style = {} }) {
       items={geneNames}
       selected={selectedGene}
       onSelect={setSelectedGene}
+      onClear={clearGeneSelection}
       placeholder="Search genes..."
       height={height}
       width={width}

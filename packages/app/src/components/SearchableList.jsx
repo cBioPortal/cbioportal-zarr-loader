@@ -1,11 +1,12 @@
 import { useState, useMemo } from "react";
-import { Card, Input } from "antd";
+import { Card, Input, Button } from "antd";
 
 export default function SearchableList({
   title,
   items,
   selected,
   onSelect,
+  onClear,
   loading = null,
   multiSelect = false,
   placeholder = "Search...",
@@ -34,6 +35,11 @@ export default function SearchableList({
     <Card
       size="small"
       title={`${title} (${multiSelect ? selectedCount + "/" : ""}${items.length.toLocaleString()})`}
+      extra={onClear && selectedCount > 0 ? (
+        <Button type="link" size="small" onClick={onClear} style={{ padding: 0 }}>
+          Clear
+        </Button>
+      ) : null}
       style={{ width, height, ...style }}
       styles={{
         body: {

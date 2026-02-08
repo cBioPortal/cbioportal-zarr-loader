@@ -2,7 +2,7 @@ import useAppStore from "../store/useAppStore";
 import SearchableList from "./SearchableList";
 
 export default function TooltipColumnList({ height = 300, width = 220, style = {} }) {
-  const { metadata, tooltipColumns, tooltipColumnLoading, toggleTooltipColumn } = useAppStore();
+  const { metadata, tooltipColumns, tooltipColumnLoading, toggleTooltipColumn, clearTooltipColumns } = useAppStore();
   const { obsColumns } = metadata || {};
 
   return (
@@ -11,6 +11,7 @@ export default function TooltipColumnList({ height = 300, width = 220, style = {
       items={obsColumns}
       selected={tooltipColumns}
       onSelect={toggleTooltipColumn}
+      onClear={clearTooltipColumns}
       loading={tooltipColumnLoading}
       multiSelect
       placeholder="Search columns..."
