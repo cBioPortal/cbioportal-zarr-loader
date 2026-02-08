@@ -1,8 +1,8 @@
-import {themes as prismThemes} from 'prism-react-renderer';
+import { themes as prismThemes } from 'prism-react-renderer';
 
 /** @type {import('@docusaurus/types').Config} */
 const config = {
-  title: 'anndata-zarr',
+  title: 'cbioportal-zarr-loader',
   tagline: 'AnnData ↔ Zarr bridge',
   favicon: 'img/favicon.ico',
 
@@ -44,8 +44,14 @@ const config = {
     /** @type {import('@docusaurus/preset-classic').ThemeConfig} */
     ({
       navbar: {
-        title: 'anndata-zarr',
+        title: 'cbioportal-zarr-loader',
         items: [
+          {
+            type: 'docSidebar',
+            sidebarId: 'api',
+            position: 'left',
+            label: 'API',
+          },
           {
             type: 'docSidebar',
             sidebarId: 'progress',
@@ -53,13 +59,7 @@ const config = {
             label: 'Progress',
           },
           {
-            type: 'docSidebar',
-            sidebarId: 'notes',
-            position: 'left',
-            label: 'Notes',
-          },
-          {
-            href: 'https://github.com/anndata-zarr/anndata-zarr',
+            href: 'https://github.com/cBioPortal/cbioportal-zarr-loader',
             label: 'GitHub',
             position: 'right',
           },
