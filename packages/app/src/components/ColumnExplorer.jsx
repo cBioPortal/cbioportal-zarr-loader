@@ -2,8 +2,6 @@ import { useMemo } from "react";
 import {
   Card,
   Typography,
-  Button,
-  Tag,
   Table,
   Space,
 } from "antd";
@@ -96,29 +94,7 @@ export default function ColumnExplorer({
         </>
       }
     >
-      <Card
-        title={
-          <Space size={[0, 4]} wrap>
-            <Text strong>Data</Text>
-            {selectedColumns.map((col) => (
-              <Tag
-                key={col}
-                closable
-                onClose={() => onToggleColumn(col)}
-                color="blue"
-              >
-                {col}
-              </Tag>
-            ))}
-            {selectedColumns.length > 1 && (
-              <Button type="link" size="small" onClick={onClearAll}>
-                Clear all
-              </Button>
-            )}
-          </Space>
-        }
-        size="small"
-      >
+      <Card title="Data" size="small">
         <Space style={{ marginBottom: 16 }}>
           <Text>Rows: {index?.length?.toLocaleString() ?? 0}</Text>
           {time != null && (
