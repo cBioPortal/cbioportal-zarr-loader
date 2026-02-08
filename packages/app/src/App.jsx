@@ -9,12 +9,11 @@ import {
 } from "antd";
 import ColumnExplorer from "./components/ColumnExplorer";
 import ObsmTab from "./components/ObsmTab";
+
 import useAppStore from "./store/useAppStore";
 
 const { Title, Text } = Typography;
 
-// const URL = "http://localhost:3000/pbmc3k.zarr";
-// const URL = "http://localhost:3000/spectrum_all_cells.zarr";
 const URL = "https://cbioportal-public-imaging.assets.cbioportal.org/msk_spectrum_tme_2022/zarr/spectrum_all_cells.zarr";
 
 export default function App() {
