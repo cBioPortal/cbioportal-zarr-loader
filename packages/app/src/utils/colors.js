@@ -17,8 +17,8 @@ export const CATEGORICAL_COLORS = [
   [197, 176, 213],  // #c5b0d5
 ];
 
-// Viridis color scale for continuous data
-export const VIRIDIS = [
+// Continuous color scales
+const VIRIDIS = [
   [68, 1, 84],
   [72, 40, 120],
   [62, 74, 137],
@@ -31,21 +31,40 @@ export const VIRIDIS = [
   [253, 231, 37],
 ];
 
+const MAGMA = [
+  [0, 0, 4],
+  [28, 16, 68],
+  [79, 18, 123],
+  [129, 37, 129],
+  [181, 54, 122],
+  [229, 89, 100],
+  [251, 135, 97],
+  [254, 186, 118],
+  [254, 227, 165],
+  [252, 253, 191],
+];
+
+export const COLOR_SCALES = {
+  viridis: VIRIDIS,
+  magma: MAGMA,
+};
+
 /**
- * Interpolate through the Viridis color scale.
+ * Interpolate through a color scale.
  * @param {number} t - Value between 0 and 1
+ * @param {Array} scale - Array of RGB color arrays
  * @returns {[number, number, number]} RGB color array
  */
-export function interpolateViridis(t) {
+export function interpolateColorScale(t, scale) {
   const clampedT = Math.max(0, Math.min(1, t));
-  const idx = clampedT * (VIRIDIS.length - 1);
+  const idx = clampedT * (scale.length - 1);
   const lower = Math.floor(idx);
-  const upper = Math.min(lower + 1, VIRIDIS.length - 1);
+  const upper = Math.min(lower + 1, scale.length - 1);
   const frac = idx - lower;
   return [
-    Math.round(VIRIDIS[lower][0] + (VIRIDIS[upper][0] - VIRIDIS[lower][0]) * frac),
-    Math.round(VIRIDIS[lower][1] + (VIRIDIS[upper][1] - VIRIDIS[lower][1]) * frac),
-    Math.round(VIRIDIS[lower][2] + (VIRIDIS[upper][2] - VIRIDIS[lower][2]) * frac),
+    Math.round(scale[lower][0] + (scale[upper][0] - scale[lower][0]) * frac),
+    Math.round(scale[lower][1] + (scale[upper][1] - scale[lower][1]) * frac),
+    Math.round(scale[lower][2] + (scale[upper][2] - scale[lower][2]) * frac),
   ];
 }
 
@@ -59,11 +78,12 @@ export function rgbToString(rgb) {
 }
 
 /**
- * Generate a CSS gradient string from the Viridis scale.
+ * Generate a CSS gradient string from a color scale.
+ * @param {Array} scale - Array of RGB color arrays
  * @param {string} direction - CSS gradient direction (e.g., "to bottom", "to right")
  * @returns {string} CSS linear-gradient string
  */
-export function viridisGradient(direction = "to bottom") {
-  const colors = VIRIDIS.slice().reverse().map(c => rgbToString(c)).join(", ");
+export function colorScaleGradient(scale, direction = "to bottom") {
+  const colors = scale.slice().reverse().map(c => rgbToString(c)).join(", ");
   return `linear-gradient(${direction}, ${colors})`;
 }

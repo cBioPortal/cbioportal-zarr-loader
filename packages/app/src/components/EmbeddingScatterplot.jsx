@@ -1,12 +1,12 @@
 import { useState, useMemo, useRef, useLayoutEffect } from "react";
-import { Typography, Space, Button } from "antd";
+import { Typography, Space, Button, Select } from "antd";
 import { ExpandOutlined, CompressOutlined } from "@ant-design/icons";
 import DeckGL from "@deck.gl/react";
 import { ScatterplotLayer } from "@deck.gl/layers";
 import { OrthographicView } from "@deck.gl/core";
 import useAppStore from "../store/useAppStore";
 import { calculatePlotDimensions } from "../utils/calculatePlotDimensions";
-import { CATEGORICAL_COLORS, interpolateViridis, viridisGradient } from "../utils/colors";
+import { CATEGORICAL_COLORS, COLOR_SCALES, interpolateColorScale, colorScaleGradient } from "../utils/colors";
 
 const { Text } = Typography;
 
@@ -29,6 +29,7 @@ export default function EmbeddingScatterplot({
 
   const [hoverInfo, setHoverInfo] = useState(null);
   const [expanded, setExpanded] = useState(false);
+  const [colorScaleName, setColorScaleName] = useState("viridis");
   const containerRef = useRef(null);
   const [containerSize, setContainerSize] = useState({ width: 600, height: 600 });
 
@@ -154,9 +155,10 @@ export default function EmbeddingScatterplot({
       data: points,
       getPosition: (d) => d.position,
       getFillColor: (d) => {
+        const scale = COLOR_SCALES[colorScaleName];
         if (geneExpression && expressionRange && expressionRange.max > expressionRange.min) {
           const t = (d.expression - expressionRange.min) / (expressionRange.max - expressionRange.min);
-          return interpolateViridis(t);
+          return interpolateColorScale(t, scale);
         }
         if (colorData) {
           return CATEGORICAL_COLORS[d.colorIndex];
@@ -171,7 +173,7 @@ export default function EmbeddingScatterplot({
       pickable: true,
       onHover: (info) => setHoverInfo(info.object ? info : null),
       updateTriggers: {
-        getFillColor: [colorData, geneExpression, expressionRange],
+        getFillColor: [colorData, geneExpression, expressionRange, colorScaleName],
       },
     }),
   ];
@@ -189,6 +191,18 @@ export default function EmbeddingScatterplot({
   return (
     <>
       <Space style={{ marginBottom: 16 }} wrap align="center">
+        {geneExpression && (
+          <>
+            <Text>Color scale:</Text>
+            <Select
+              size="small"
+              value={colorScaleName}
+              onChange={setColorScaleName}
+              style={{ width: 100 }}
+              options={Object.keys(COLOR_SCALES).map((name) => ({ label: name, value: name }))}
+            />
+          </>
+        )}
         {points.length < shape?.[0] && (
           <Text type="secondary">
             Showing {points.length.toLocaleString()} of {shape[0].toLocaleString()} points
@@ -300,7 +314,7 @@ export default function EmbeddingScatterplot({
               style={{
                 width: 20,
                 height: 200,
-                background: viridisGradient("to bottom"),
+                background: colorScaleGradient(COLOR_SCALES[colorScaleName], "to bottom"),
                 borderRadius: 2,
               }}
             />
