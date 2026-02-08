@@ -4,7 +4,7 @@ import { Card, Table } from "antd";
  * Displays fetch operation timings in a table.
  * Shows each operation and its duration, plus a total.
  */
-export default function TimingsTable({ timings, title = "Fetch Keys Timings" }) {
+export default function TimingsTable({ timings, title = "Fetch Keys Timings", style = {} }) {
   if (!timings) return null;
 
   const dataSource = Object.entries(timings).map(([key, ms]) => ({
@@ -20,7 +20,7 @@ export default function TimingsTable({ timings, title = "Fetch Keys Timings" }) 
   });
 
   return (
-    <Card title={title} size="small">
+    <Card title={title} size="small" style={style}>
       <Table
         size="small"
         pagination={false}
