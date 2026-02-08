@@ -9,6 +9,7 @@ import {
 } from "antd";
 import { ReloadOutlined } from "@ant-design/icons";
 import EmbeddingScatterplot from "./EmbeddingScatterplot";
+import ColorColumnList from "./ColorColumnList";
 import GeneList from "./GeneList";
 import TooltipColumnList from "./TooltipColumnList";
 import TabLayout from "./TabLayout";
@@ -62,6 +63,7 @@ export default function ObsmTab() {
               <Text type="secondary">(none)</Text>
             )}
           </Card>
+          <ColorColumnList height={250} style={{ marginTop: 16 }} />
           <GeneList height={300} style={{ marginTop: 16 }} />
           <TooltipColumnList height={250} style={{ marginTop: 16 }} />
         </>

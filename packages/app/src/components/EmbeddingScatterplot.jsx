@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef, useLayoutEffect } from "react";
-import { Typography, Space, Select, Tag, Button } from "antd";
+import { Typography, Space, Button } from "antd";
 import { ExpandOutlined, CompressOutlined } from "@ant-design/icons";
 import DeckGL from "@deck.gl/react";
 import { ScatterplotLayer } from "@deck.gl/layers";
@@ -17,22 +17,15 @@ export default function EmbeddingScatterplot({
   maxPoints = Infinity,
 }) {
   const {
-    metadata,
     // Color by obs column
     colorColumn,
     colorData,
-    colorLoading,
-    setColorColumn,
     // Gene expression
     selectedGene,
     geneExpression,
-    geneLoading,
-    clearGeneSelection,
     // Tooltip
     tooltipData,
   } = useAppStore();
-
-  const { obsColumns } = metadata;
 
   const [hoverInfo, setHoverInfo] = useState(null);
   const [expanded, setExpanded] = useState(false);
@@ -196,40 +189,11 @@ export default function EmbeddingScatterplot({
   return (
     <>
       <Space style={{ marginBottom: 16 }} wrap align="center">
-        <Text>Color by obs:</Text>
-        <Select
-          allowClear
-          placeholder="Select obs column"
-          style={{ width: 180 }}
-          value={colorColumn}
-          onChange={setColorColumn}
-          loading={colorLoading}
-          options={obsColumns?.map((c) => ({ label: c, value: c })) || []}
-        />
-        {selectedGene && (
-          <>
-            <Text type="secondary">|</Text>
-            <Text>Gene:</Text>
-            <Tag
-              closable
-              onClose={clearGeneSelection}
-              color="blue"
-              style={{ fontSize: 13, padding: "2px 8px" }}
-            >
-              {selectedGene}
-            </Tag>
-            {geneLoading && <Text type="secondary">Loading...</Text>}
-          </>
-        )}
         {points.length < shape?.[0] && (
-          <>
-            <Text type="secondary">|</Text>
-            <Text type="secondary">
-              Showing {points.length.toLocaleString()} of {shape[0].toLocaleString()} points
-            </Text>
-          </>
+          <Text type="secondary">
+            Showing {points.length.toLocaleString()} of {shape[0].toLocaleString()} points
+          </Text>
         )}
-        <Text type="secondary">|</Text>
         <Button
           size="small"
           icon={expanded ? <CompressOutlined /> : <ExpandOutlined />}
