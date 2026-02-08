@@ -6,6 +6,15 @@ on:
   pull_request:
     branches: [main]
 
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
 jobs:
   test-zarrstore:
     runs-on: ubuntu-latest
@@ -31,7 +40,8 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @cbioportal-zarr-loader/app test
 
-  build-app:
+  build:
+    needs: [test-zarrstore, test-app]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -42,3 +52,21 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @cbioportal-zarr-loader/app build:with-docs
+        env:
+          VITE_BASE_URL: /cbioportal-zarr-loader/
+          DOCS_BASE_URL: /cbioportal-zarr-loader/docs/
+      - uses: actions/upload-pages-artifact@v3
+        if: github.ref == 'refs/heads/main'
+        with:
+          path: packages/app/dist
+
+  deploy:
+    if: github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
