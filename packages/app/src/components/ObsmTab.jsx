@@ -27,7 +27,7 @@ export default function ObsmTab() {
     fetchObsm,
   } = useAppStore();
 
-  const { obsmKeys, obsColumns, geneNames } = metadata;
+  const { obsmKeys } = metadata;
   const isEmbedding = selectedObsm && /umap|tsne|pca/i.test(selectedObsm) && obsmData?.shape?.[1] >= 2;
 
   // Auto-fetch UMAP embedding on mount
