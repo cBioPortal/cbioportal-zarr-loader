@@ -8,6 +8,7 @@ import {
   Space,
 } from "antd";
 import TabLayout from "./TabLayout";
+import SearchableList from "./SearchableList";
 
 const { Text } = Typography;
 
@@ -61,22 +62,16 @@ export default function ColumnExplorer({
     <TabLayout
       sidebar={
         <>
-          <Card title="Columns" size="small">
-            <div style={{ maxHeight: 200, overflow: "auto" }}>
-              {columns.map((c) => (
-                <div key={c} style={{ padding: "4px 0" }}>
-                  <Button
-                    type={selectedColumns.includes(c) ? "primary" : "text"}
-                    size="small"
-                    loading={loading === c}
-                    onClick={() => onToggleColumn(c)}
-                  >
-                    {c}
-                  </Button>
-                </div>
-              ))}
-            </div>
-          </Card>
+          <SearchableList
+            title="Columns"
+            items={columns}
+            selected={selectedColumns}
+            onSelect={onToggleColumn}
+            loading={loading}
+            multiSelect
+            placeholder="Search columns..."
+            height={300}
+          />
           {lastSelected && (
             <Card
               title={`Value Counts: ${lastSelected}`}
