@@ -28,6 +28,8 @@ export default function EmbeddingScatterplot({
     geneExpression,
     geneLoading,
     clearGeneSelection,
+    // Tooltip
+    tooltipData,
   } = useAppStore();
 
   const { obsColumns } = metadata;
@@ -274,6 +276,9 @@ export default function EmbeddingScatterplot({
               <div>y: {hoverInfo.object.position[1].toFixed(4)}</div>
               {colorData && <div>{colorColumn}: {hoverInfo.object.category}</div>}
               {geneExpression && <div>{selectedGene}: {hoverInfo.object.expression?.toFixed(4)}</div>}
+              {Object.entries(tooltipData).map(([col, values]) => (
+                <div key={col}>{col}: {values[hoverInfo.object.index]}</div>
+              ))}
             </div>
           )}
 

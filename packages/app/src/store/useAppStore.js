@@ -42,6 +42,11 @@ const useAppStore = create((set, get) => ({
   colorData: null,
   colorLoading: false,
 
+  // Tooltip obs columns for scatterplot
+  tooltipColumns: [],
+  tooltipData: {},
+  tooltipColumnLoading: null,
+
   // Cached indices
   obsIndex: null,
   varIndex: null,
@@ -334,6 +339,38 @@ const useAppStore = create((set, get) => ({
 
   clearGeneSelection: () => {
     set({ selectedGene: null, geneExpression: null });
+  },
+
+  toggleTooltipColumn: async (colName) => {
+    const { adata, tooltipColumns, tooltipData } = get();
+    if (!adata) return;
+
+    if (tooltipColumns.includes(colName)) {
+      const { [colName]: _, ...rest } = tooltipData;
+      set({
+        tooltipColumns: tooltipColumns.filter((c) => c !== colName),
+        tooltipData: rest,
+      });
+      return;
+    }
+
+    set({ tooltipColumnLoading: colName });
+    try {
+      const values = await adata.obsColumn(colName);
+      const { tooltipColumns: current, tooltipData: currentData } = get();
+      set({
+        tooltipColumns: [...current, colName],
+        tooltipData: { ...currentData, [colName]: values },
+        tooltipColumnLoading: null,
+      });
+    } catch (err) {
+      console.error(err);
+      set({ tooltipColumnLoading: null });
+    }
+  },
+
+  clearTooltipColumns: () => {
+    set({ tooltipColumns: [], tooltipData: {} });
   },
 }));
 

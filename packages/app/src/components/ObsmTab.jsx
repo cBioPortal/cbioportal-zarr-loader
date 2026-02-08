@@ -10,6 +10,7 @@ import {
 import { ReloadOutlined } from "@ant-design/icons";
 import EmbeddingScatterplot from "./EmbeddingScatterplot";
 import GeneList from "./GeneList";
+import TooltipColumnList from "./TooltipColumnList";
 import TabLayout from "./TabLayout";
 import useAppStore from "../store/useAppStore";
 
@@ -62,6 +63,7 @@ export default function ObsmTab() {
             )}
           </Card>
           <GeneList height={300} style={{ marginTop: 16 }} />
+          <TooltipColumnList height={250} style={{ marginTop: 16 }} />
         </>
       }
     >
