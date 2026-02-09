@@ -150,6 +150,13 @@ export default function App() {
         </Card>
       ),
     },
+    {
+      key: "plots",
+      label: "Plots",
+      children: (
+        <>plots</>
+      ),
+    },
   ];
 
   return (
