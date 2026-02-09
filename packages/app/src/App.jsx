@@ -130,6 +130,11 @@ export default function App() {
       ),
     },
     {
+      key: "plots",
+      label: "Plots",
+      children: <PlotsTab />,
+    },
+    {
       key: "info",
       label: "Info",
       children: (
@@ -151,17 +156,12 @@ export default function App() {
         </Card>
       ),
     },
-    {
-      key: "plots",
-      label: "Plots",
-      children: <PlotsTab />,
-    },
   ];
 
   return (
     <div style={{ padding: 24 }}>
       <Title level={3}>AnnData Zarr Loader</Title>
-      <Tabs items={tabItems} defaultActiveKey="plots" />
+      <Tabs items={tabItems} defaultActiveKey="obsm" />
     </div>
   );
 }
