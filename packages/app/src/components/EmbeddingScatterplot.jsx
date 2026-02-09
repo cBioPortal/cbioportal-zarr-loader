@@ -208,13 +208,6 @@ export default function EmbeddingScatterplot({
             Showing {points.length.toLocaleString()} of {shape[0].toLocaleString()} points
           </Text>
         )}
-        <Button
-          size="small"
-          icon={expanded ? <CompressOutlined /> : <ExpandOutlined />}
-          onClick={() => setExpanded(!expanded)}
-        >
-          {expanded ? "Collapse" : "Expand"}
-        </Button>
       </Space>
 
       <div ref={containerRef} style={{ display: "flex", gap: 16 }}>
@@ -235,6 +228,18 @@ export default function EmbeddingScatterplot({
             initialViewState={initialViewState}
             controller={true}
             layers={layers}
+          />
+          <Button
+            size="small"
+            icon={expanded ? <CompressOutlined /> : <ExpandOutlined />}
+            onClick={() => setExpanded(!expanded)}
+            style={{
+              position: "absolute",
+              top: 8,
+              right: 8,
+              zIndex: 1,
+              opacity: 0.85,
+            }}
           />
           {hoverInfo && (
             <div
