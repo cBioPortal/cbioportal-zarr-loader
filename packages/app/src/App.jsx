@@ -9,6 +9,7 @@ import {
 } from "antd";
 import ColumnExplorer from "./components/ColumnExplorer";
 import ObsmTab from "./components/ObsmTab";
+import PlotsTab from "./components/PlotsTab";
 
 import useAppStore from "./store/useAppStore";
 
@@ -127,6 +128,11 @@ export default function App() {
           )}
         </Card>
       ),
+    },
+    {
+      key: "plots",
+      label: "Plots",
+      children: <PlotsTab />,
     },
     {
       key: "info",
