@@ -386,7 +386,7 @@ const useAppStore = create((set, get) => ({
     const { adata, metadata } = get();
     if (!adata || !geneName) return;
 
-    console.log("[PlotsTab] setPlotGene called:", geneName);
+    console.debug("[PlotsTab] setPlotGene called:", geneName);
     set({ plotGene: geneName, plotGeneLoading: true, plotGeneExpression: null });
 
     try {
@@ -400,9 +400,9 @@ const useAppStore = create((set, get) => ({
         }
       }
 
-      console.log("[PlotsTab] Fetching gene expression for queryName:", queryName);
+      console.debug("[PlotsTab] Fetching gene expression for queryName:", queryName);
       const values = await adata.geneExpression(queryName);
-      console.log("[PlotsTab] Gene expression fetched, length:", values?.length, "sample:", values?.slice(0, 5));
+      console.debug("[PlotsTab] Gene expression fetched, length:", values?.length, "sample:", values?.slice(0, 5));
       set({ plotGeneExpression: values, plotGeneLoading: false });
     } catch (err) {
       console.error("[PlotsTab] Gene expression fetch error:", err);
@@ -418,13 +418,13 @@ const useAppStore = create((set, get) => ({
     const { adata } = get();
     if (!adata || !colName) return;
 
-    console.log("[PlotsTab] setPlotObsColumn called:", colName);
+    console.debug("[PlotsTab] setPlotObsColumn called:", colName);
     set({ plotObsColumn: colName, plotObsLoading: true, plotObsData: null });
 
     try {
-      console.log("[PlotsTab] Fetching obs column:", colName);
+      console.debug("[PlotsTab] Fetching obs column:", colName);
       const values = await adata.obsColumn(colName);
-      console.log("[PlotsTab] Obs column fetched, length:", values?.length, "sample:", values?.slice(0, 5));
+      console.debug("[PlotsTab] Obs column fetched, length:", values?.length, "sample:", values?.slice(0, 5));
       set({ plotObsData: values, plotObsLoading: false });
     } catch (err) {
       console.error("[PlotsTab] Obs column fetch error:", err);

@@ -80,8 +80,8 @@ export default function PlotsTab() {
 
   if (data) {
     const categories = new Set(data.map((d) => d.category));
-    console.log("[PlotsTab] Data built:", data.length, "points,", categories.size, "categories:", [...categories].slice(0, 10));
-    console.log("[PlotsTab] Sample data:", data.slice(0, 15));
+    console.debug("[PlotsTab] Data built:", data.length, "points,", categories.size, "categories:", [...categories].slice(0, 10));
+    console.debug("[PlotsTab] Sample data:", data.slice(0, 15));
   }
 
   const isLoading = plotGeneLoading || plotObsLoading;
