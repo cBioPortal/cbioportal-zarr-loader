@@ -23,20 +23,6 @@ export default function PlotsTab() {
   } = useAppStore();
 
   const { geneNames, obsColumns } = metadata;
-
-  // Auto-select defaults for development
-  // useEffect(() => {
-  //   if (!plotGene && geneNames?.includes("EGFR")) {
-  //     setPlotGene("EGFR");
-  //   }
-  // }, [plotGene, geneNames, setPlotGene]);
-
-  // useEffect(() => {
-  //   if (!plotObsColumn && obsColumns?.includes("cell_type")) {
-  //     setPlotObsColumn("cell_type");
-  //   }
-  // }, [plotObsColumn, obsColumns, setPlotObsColumn]);
-
   const [maxPoints, setMaxPoints] = useState(5000);
   const [filterExpression, setFilterExpression] = useState(null);
 
