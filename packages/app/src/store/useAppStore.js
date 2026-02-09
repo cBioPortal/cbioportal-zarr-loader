@@ -55,6 +55,9 @@ const useAppStore = create((set, get) => ({
   plotObsData: null,
   plotObsLoading: false,
 
+  // Selection state
+  selectedPointIndices: [],
+
   // Cached indices
   obsIndex: null,
   varIndex: null,
@@ -434,6 +437,14 @@ const useAppStore = create((set, get) => ({
 
   clearPlotObsColumn: () => {
     set({ plotObsColumn: null, plotObsData: null });
+  },
+
+  setSelectedPoints: (indices) => {
+    set({ selectedPointIndices: indices });
+  },
+
+  clearSelectedPoints: () => {
+    set({ selectedPointIndices: [] });
   },
 }));
 

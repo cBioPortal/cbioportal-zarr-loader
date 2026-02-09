@@ -1,6 +1,6 @@
-import { useState, useMemo, useRef, useLayoutEffect } from "react";
+import { useState, useMemo, useRef, useCallback, useLayoutEffect } from "react";
 import { Typography, Space, Button, Select } from "antd";
-import { ExpandOutlined, CompressOutlined } from "@ant-design/icons";
+import { ExpandOutlined, CompressOutlined, SelectOutlined, DragOutlined } from "@ant-design/icons";
 import DeckGL from "@deck.gl/react";
 import { ScatterplotLayer } from "@deck.gl/layers";
 import { OrthographicView } from "@deck.gl/core";
@@ -25,12 +25,21 @@ export default function EmbeddingScatterplot({
     geneExpression,
     // Tooltip
     tooltipData,
+    // Selection
+    selectedPointIndices,
+    setSelectedPoints,
+    clearSelectedPoints,
   } = useAppStore();
 
   const [hoverInfo, setHoverInfo] = useState(null);
   const [expanded, setExpanded] = useState(false);
   const [colorScaleName, setColorScaleName] = useState("viridis");
+  const [selectMode, setSelectMode] = useState(false);
+  const dragStartRef = useRef(null);
+  const dragEndRef = useRef(null);
+  const selectionRectRef = useRef(null);
   const containerRef = useRef(null);
+  const deckRef = useRef(null);
   const [containerSize, setContainerSize] = useState({ width: 600, height: 600 });
 
   // Compute expression range for normalization
@@ -149,12 +158,82 @@ export default function EmbeddingScatterplot({
     };
   }, [bounds, containerSize]);
 
+  // Selection rectangle mouse handlers — use refs + direct DOM updates to avoid re-renders during drag
+  const updateSelectionRect = useCallback(() => {
+    const el = selectionRectRef.current;
+    const start = dragStartRef.current;
+    const end = dragEndRef.current;
+    if (!el || !start || !end) {
+      if (el) el.style.display = "none";
+      return;
+    }
+    el.style.display = "block";
+    el.style.left = `${Math.min(start.x, end.x)}px`;
+    el.style.top = `${Math.min(start.y, end.y)}px`;
+    el.style.width = `${Math.abs(end.x - start.x)}px`;
+    el.style.height = `${Math.abs(end.y - start.y)}px`;
+  }, []);
+
+  const handleMouseDown = useCallback((e) => {
+    if (!selectMode) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const pos = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+    dragStartRef.current = pos;
+    dragEndRef.current = pos;
+    updateSelectionRect();
+  }, [selectMode, updateSelectionRect]);
+
+  const handleMouseMove = useCallback((e) => {
+    if (!selectMode || !dragStartRef.current) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    dragEndRef.current = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+    updateSelectionRect();
+  }, [selectMode, updateSelectionRect]);
+
+  const handleMouseUp = useCallback(() => {
+    if (!selectMode || !dragStartRef.current || !dragEndRef.current) return;
+
+    const start = dragStartRef.current;
+    const end = dragEndRef.current;
+    const viewport = deckRef.current?.deck?.getViewports()?.[0];
+    if (viewport) {
+      const [wx1, wy1] = viewport.unproject([start.x, start.y]);
+      const [wx2, wy2] = viewport.unproject([end.x, end.y]);
+      const minWx = Math.min(wx1, wx2);
+      const maxWx = Math.max(wx1, wx2);
+      const minWy = Math.min(wy1, wy2);
+      const maxWy = Math.max(wy1, wy2);
+
+      const indices = [];
+      for (const pt of points) {
+        const [px, py] = pt.position;
+        if (px >= minWx && px <= maxWx && py >= minWy && py <= maxWy) {
+          indices.push(pt.index);
+        }
+      }
+      setSelectedPoints(indices);
+    }
+
+    dragStartRef.current = null;
+    dragEndRef.current = null;
+    updateSelectionRect();
+  }, [selectMode, points, setSelectedPoints, updateSelectionRect]);
+
+  // Build selected indices set for fast lookup in getFillColor
+  const selectedSet = useMemo(
+    () => new Set(selectedPointIndices),
+    [selectedPointIndices],
+  );
+
   const layers = [
     new ScatterplotLayer({
       id: "scatterplot",
       data: points,
       getPosition: (d) => d.position,
       getFillColor: (d) => {
+        const dimmed = selectedSet.size > 0 && !selectedSet.has(d.index);
+        if (dimmed) return [180, 180, 180, 60];
+
         const scale = COLOR_SCALES[colorScaleName];
         if (geneExpression && expressionRange && expressionRange.max > expressionRange.min) {
           const t = (d.expression - expressionRange.min) / (expressionRange.max - expressionRange.min);
@@ -173,7 +252,7 @@ export default function EmbeddingScatterplot({
       pickable: true,
       onHover: (info) => setHoverInfo(info.object ? info : null),
       updateTriggers: {
-        getFillColor: [colorData, geneExpression, expressionRange, colorScaleName],
+        getFillColor: [colorData, geneExpression, expressionRange, colorScaleName, selectedPointIndices],
       },
     }),
   ];
@@ -218,16 +297,50 @@ export default function EmbeddingScatterplot({
             position: "relative",
             border: "1px solid #d9d9d9",
             borderRadius: 4,
+            cursor: selectMode ? "crosshair" : undefined,
           }}
+          onMouseDown={handleMouseDown}
+          onMouseMove={handleMouseMove}
+          onMouseUp={handleMouseUp}
         >
           <DeckGL
+            ref={deckRef}
             key={`${containerSize.width}-${containerSize.height}`}
             width={containerSize.width}
             height={containerSize.height}
             views={new OrthographicView({ id: "ortho" })}
             initialViewState={initialViewState}
-            controller={true}
+            controller={{ dragPan: !selectMode }}
             layers={layers}
+          />
+          {/* Selection rectangle overlay — styled directly via ref to avoid re-renders */}
+          <div
+            ref={selectionRectRef}
+            style={{
+              display: "none",
+              position: "absolute",
+              backgroundColor: "rgba(24, 144, 255, 0.15)",
+              border: "1px solid rgba(24, 144, 255, 0.6)",
+              pointerEvents: "none",
+              zIndex: 2,
+            }}
+          />
+          <Button
+            size="small"
+            type={selectMode ? "primary" : "default"}
+            icon={selectMode ? <SelectOutlined /> : <DragOutlined />}
+            onClick={() => {
+              setSelectMode(!selectMode);
+              if (selectMode) clearSelectedPoints();
+            }}
+            style={{
+              position: "absolute",
+              top: 8,
+              left: 8,
+              zIndex: 1,
+              opacity: 0.85,
+            }}
+            title={selectMode ? "Switch to pan mode" : "Switch to select mode"}
           />
           <Button
             size="small"
@@ -290,6 +403,23 @@ export default function EmbeddingScatterplot({
           >
             {label}_2
           </div>
+          {selectedPointIndices.length > 0 && (
+            <div
+              style={{
+                position: "absolute",
+                bottom: 8,
+                right: 8,
+                background: "rgba(0,0,0,0.7)",
+                color: "white",
+                padding: "2px 8px",
+                borderRadius: 4,
+                fontSize: 12,
+                zIndex: 1,
+              }}
+            >
+              {selectedPointIndices.length.toLocaleString()} selected
+            </div>
+          )}
         </div>
 
         {/* Legend */}
