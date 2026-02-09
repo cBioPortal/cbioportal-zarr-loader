@@ -9,6 +9,7 @@ import {
 } from "antd";
 import ColumnExplorer from "./components/ColumnExplorer";
 import ObsmTab from "./components/ObsmTab";
+import PlotsTab from "./components/PlotsTab";
 
 import useAppStore from "./store/useAppStore";
 
@@ -153,16 +154,14 @@ export default function App() {
     {
       key: "plots",
       label: "Plots",
-      children: (
-        <>plots</>
-      ),
+      children: <PlotsTab />,
     },
   ];
 
   return (
     <div style={{ padding: 24 }}>
       <Title level={3}>AnnData Zarr Loader</Title>
-      <Tabs items={tabItems} defaultActiveKey="obsm" />
+      <Tabs items={tabItems} defaultActiveKey="plots" />
     </div>
   );
 }
