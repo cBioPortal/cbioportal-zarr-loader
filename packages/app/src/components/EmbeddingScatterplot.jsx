@@ -520,7 +520,7 @@ export default function EmbeddingScatterplot({
               points=""
             />
           </svg>
-          <div style={{ position: "absolute", top: 8, left: 8, zIndex: 1, display: "flex", gap: 4 }}>
+          <div style={{ position: "absolute", top: 8, left: 8, zIndex: 1, display: "flex", gap: 4 }} onMouseDown={(e) => e.stopPropagation()}>
             <Button
               size="small"
               type={selectMode === "rectangle" ? "primary" : "default"}
@@ -556,6 +556,7 @@ export default function EmbeddingScatterplot({
             size="small"
             icon={expanded ? <CompressOutlined /> : <ExpandOutlined />}
             onClick={() => setExpanded(!expanded)}
+            onMouseDown={(e) => e.stopPropagation()}
             style={{
               position: "absolute",
               top: 8,
