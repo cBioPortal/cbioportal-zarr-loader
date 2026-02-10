@@ -23,6 +23,40 @@ function pointInPolygon(x, y, polygon) {
 }
 
 const BREAKDOWN_LIMIT = 5;
+const LEGEND_LIMIT = 20;
+
+function CollapsibleLegend({ categories, maxHeight }) {
+  const [expanded, setExpanded] = useState(false);
+  const hasMore = categories.length > LEGEND_LIMIT;
+  const visible = expanded ? categories : categories.slice(0, LEGEND_LIMIT);
+
+  return (
+    <div style={{ maxHeight, overflow: "auto", fontSize: 12 }}>
+      {visible.map(([cat, color]) => (
+        <div key={cat} style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 2 }}>
+          <div
+            style={{
+              width: 12,
+              height: 12,
+              borderRadius: 2,
+              backgroundColor: `rgb(${color.join(",")})`,
+              flexShrink: 0,
+            }}
+          />
+          <span>{cat}</span>
+        </div>
+      ))}
+      {hasMore && (
+        <span
+          onClick={() => setExpanded(!expanded)}
+          style={{ color: "#1890ff", cursor: "pointer", fontSize: 11 }}
+        >
+          {expanded ? "Show less" : `Show all (${categories.length})`}
+        </span>
+      )}
+    </div>
+  );
+}
 
 function CollapsibleBreakdown({ col, breakdown, total }) {
   const [expanded, setExpanded] = useState(false);
@@ -353,12 +387,12 @@ export default function EmbeddingScatterplot({
 
   const sortedCategories = useMemo(() => {
     if (!colorData || Object.keys(categoryColorMap).length === 0) return [];
+    const counts = {};
+    for (const pt of points) {
+      counts[pt.category] = (counts[pt.category] || 0) + 1;
+    }
     return Object.entries(categoryColorMap)
-      .sort((a, b) => {
-        const countA = points.filter(p => p.category === a[0]).length;
-        const countB = points.filter(p => p.category === b[0]).length;
-        return countB - countA;
-      });
+      .sort((a, b) => (counts[b[0]] || 0) - (counts[a[0]] || 0));
   }, [categoryColorMap, colorData, points]);
 
   const selectionSummary = useMemo(() => {
@@ -608,21 +642,7 @@ export default function EmbeddingScatterplot({
 
         {/* Legend */}
         {colorColumn && sortedCategories.length > 1 && (
-          <div style={{ maxHeight: containerSize.height, overflow: "auto", fontSize: 12 }}>
-            {sortedCategories.map(([cat, color]) => (
-              <div key={cat} style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 2 }}>
-                <div
-                  style={{
-                    width: 12,
-                    height: 12,
-                    borderRadius: 2,
-                    backgroundColor: `rgb(${color.join(",")})`,
-                  }}
-                />
-                <span>{cat}</span>
-              </div>
-            ))}
-          </div>
+          <CollapsibleLegend categories={sortedCategories} maxHeight={containerSize.height} />
         )}
 
         {/* Gene expression color scale */}
