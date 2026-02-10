@@ -1,14 +1,12 @@
-import { Row, Col } from "antd";
-
 export default function TabLayout({ sidebar, children }) {
   return (
-    <Row gutter={[16, 16]}>
-      <Col xs={24} md={6}>
+    <div style={{ display: "flex", gap: 16 }}>
+      <div style={{ width: 220, flexShrink: 0 }}>
         {sidebar}
-      </Col>
-      <Col xs={24} md={18}>
+      </div>
+      <div style={{ flex: 1, minWidth: 0 }}>
         {children}
-      </Col>
-    </Row>
+      </div>
+    </div>
   );
 }

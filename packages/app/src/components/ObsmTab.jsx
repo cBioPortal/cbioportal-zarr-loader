@@ -9,6 +9,7 @@ import {
 } from "antd";
 import { ReloadOutlined } from "@ant-design/icons";
 import EmbeddingScatterplot from "./EmbeddingScatterplot";
+import SearchableList from "./SearchableList";
 import ColorColumnList from "./ColorColumnList";
 import GeneList from "./GeneList";
 import TooltipColumnList from "./TooltipColumnList";
@@ -44,25 +45,15 @@ export default function ObsmTab() {
     <TabLayout
       sidebar={
         <>
-          <Card title="Keys" size="small">
-            {obsmKeys.length ? (
-              <div>
-                {obsmKeys.map((k) => (
-                  <div key={k} style={{ padding: "4px 0" }}>
-                    <Button
-                      type={selectedObsm === k ? "primary" : "text"}
-                      size="small"
-                      onClick={() => fetchObsm(k)}
-                    >
-                      {k}
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <Text type="secondary">(none)</Text>
-            )}
-          </Card>
+          <SearchableList
+            title="Keys"
+            items={obsmKeys}
+            selected={selectedObsm}
+            onSelect={fetchObsm}
+            loading={obsmLoading ? selectedObsm : null}
+            placeholder="Search keys..."
+            height={200}
+          />
           <ColorColumnList height={250} style={{ marginTop: 16 }} />
           <GeneList height={300} style={{ marginTop: 16 }} />
           <TooltipColumnList height={250} style={{ marginTop: 16 }} />
@@ -79,9 +70,7 @@ export default function ObsmTab() {
               icon={<ReloadOutlined />}
               onClick={() => fetchObsm(selectedObsm)}
               loading={obsmLoading}
-            >
-              Reload
-            </Button>
+            />
           }
         >
           {obsmLoading ? (
