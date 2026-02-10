@@ -1,6 +1,6 @@
 import { useState, useMemo, useRef, useCallback, useLayoutEffect } from "react";
 import { Typography, Space, Button, Select } from "antd";
-import { ExpandOutlined, CompressOutlined, SelectOutlined, DragOutlined } from "@ant-design/icons";
+import { ExpandOutlined, CompressOutlined, SelectOutlined, EditOutlined } from "@ant-design/icons";
 import DeckGL from "@deck.gl/react";
 import { ScatterplotLayer } from "@deck.gl/layers";
 import { OrthographicView } from "@deck.gl/core";
@@ -9,6 +9,18 @@ import { calculatePlotDimensions } from "../utils/calculatePlotDimensions";
 import { CATEGORICAL_COLORS, COLOR_SCALES, interpolateColorScale, colorScaleGradient } from "../utils/colors";
 
 const { Text } = Typography;
+
+function pointInPolygon(x, y, polygon) {
+  let inside = false;
+  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+    const xi = polygon[i][0], yi = polygon[i][1];
+    const xj = polygon[j][0], yj = polygon[j][1];
+    if ((yi > y) !== (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi) {
+      inside = !inside;
+    }
+  }
+  return inside;
+}
 
 export default function EmbeddingScatterplot({
   data,
@@ -34,10 +46,12 @@ export default function EmbeddingScatterplot({
   const [hoverInfo, setHoverInfo] = useState(null);
   const [expanded, setExpanded] = useState(false);
   const [colorScaleName, setColorScaleName] = useState("viridis");
-  const [selectMode, setSelectMode] = useState(false);
+  const [selectMode, setSelectMode] = useState("pan");
   const dragStartRef = useRef(null);
   const dragEndRef = useRef(null);
   const selectionRectRef = useRef(null);
+  const lassoPointsRef = useRef([]);
+  const lassoSvgRef = useRef(null);
   const containerRef = useRef(null);
   const deckRef = useRef(null);
   const [containerSize, setContainerSize] = useState({ width: 600, height: 600 });
@@ -175,48 +189,94 @@ export default function EmbeddingScatterplot({
   }, []);
 
   const handleMouseDown = useCallback((e) => {
-    if (!selectMode) return;
+    if (selectMode === "pan") return;
     const rect = e.currentTarget.getBoundingClientRect();
     const pos = { x: e.clientX - rect.left, y: e.clientY - rect.top };
-    dragStartRef.current = pos;
-    dragEndRef.current = pos;
-    updateSelectionRect();
+    if (selectMode === "rectangle") {
+      dragStartRef.current = pos;
+      dragEndRef.current = pos;
+      updateSelectionRect();
+    } else if (selectMode === "lasso") {
+      lassoPointsRef.current = [pos];
+      const svg = lassoSvgRef.current;
+      if (svg) {
+        svg.style.display = "block";
+        svg.querySelector("polyline").setAttribute("points", `${pos.x},${pos.y}`);
+      }
+    }
   }, [selectMode, updateSelectionRect]);
 
   const handleMouseMove = useCallback((e) => {
-    if (!selectMode || !dragStartRef.current) return;
+    if (selectMode === "pan") return;
     const rect = e.currentTarget.getBoundingClientRect();
-    dragEndRef.current = { x: e.clientX - rect.left, y: e.clientY - rect.top };
-    updateSelectionRect();
+    const pos = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+    if (selectMode === "rectangle") {
+      if (!dragStartRef.current) return;
+      dragEndRef.current = pos;
+      updateSelectionRect();
+    } else if (selectMode === "lasso") {
+      if (lassoPointsRef.current.length === 0) return;
+      lassoPointsRef.current.push(pos);
+      const svg = lassoSvgRef.current;
+      if (svg) {
+        const pointsStr = lassoPointsRef.current.map(p => `${p.x},${p.y}`).join(" ");
+        svg.querySelector("polyline").setAttribute("points", pointsStr);
+      }
+    }
   }, [selectMode, updateSelectionRect]);
 
   const handleMouseUp = useCallback(() => {
-    if (!selectMode || !dragStartRef.current || !dragEndRef.current) return;
+    if (selectMode === "pan") return;
 
-    const start = dragStartRef.current;
-    const end = dragEndRef.current;
-    const viewport = deckRef.current?.deck?.getViewports()?.[0];
-    if (viewport) {
-      const [wx1, wy1] = viewport.unproject([start.x, start.y]);
-      const [wx2, wy2] = viewport.unproject([end.x, end.y]);
-      const minWx = Math.min(wx1, wx2);
-      const maxWx = Math.max(wx1, wx2);
-      const minWy = Math.min(wy1, wy2);
-      const maxWy = Math.max(wy1, wy2);
+    if (selectMode === "rectangle") {
+      if (!dragStartRef.current || !dragEndRef.current) return;
+      const start = dragStartRef.current;
+      const end = dragEndRef.current;
+      const viewport = deckRef.current?.deck?.getViewports()?.[0];
+      if (viewport) {
+        const [wx1, wy1] = viewport.unproject([start.x, start.y]);
+        const [wx2, wy2] = viewport.unproject([end.x, end.y]);
+        const minWx = Math.min(wx1, wx2);
+        const maxWx = Math.max(wx1, wx2);
+        const minWy = Math.min(wy1, wy2);
+        const maxWy = Math.max(wy1, wy2);
 
-      const indices = [];
-      for (const pt of points) {
-        const [px, py] = pt.position;
-        if (px >= minWx && px <= maxWx && py >= minWy && py <= maxWy) {
-          indices.push(pt.index);
+        const indices = [];
+        for (const pt of points) {
+          const [px, py] = pt.position;
+          if (px >= minWx && px <= maxWx && py >= minWy && py <= maxWy) {
+            indices.push(pt.index);
+          }
         }
+        setSelectedPoints(indices);
       }
-      setSelectedPoints(indices);
+      dragStartRef.current = null;
+      dragEndRef.current = null;
+      updateSelectionRect();
+    } else if (selectMode === "lasso") {
+      const lassoPoints = lassoPointsRef.current;
+      if (lassoPoints.length < 3) {
+        lassoPointsRef.current = [];
+        const svg = lassoSvgRef.current;
+        if (svg) svg.style.display = "none";
+        return;
+      }
+      const viewport = deckRef.current?.deck?.getViewports()?.[0];
+      if (viewport) {
+        const worldPolygon = lassoPoints.map(p => viewport.unproject([p.x, p.y]));
+        const indices = [];
+        for (const pt of points) {
+          const [px, py] = pt.position;
+          if (pointInPolygon(px, py, worldPolygon)) {
+            indices.push(pt.index);
+          }
+        }
+        setSelectedPoints(indices);
+      }
+      lassoPointsRef.current = [];
+      const svg = lassoSvgRef.current;
+      if (svg) svg.style.display = "none";
     }
-
-    dragStartRef.current = null;
-    dragEndRef.current = null;
-    updateSelectionRect();
   }, [selectMode, points, setSelectedPoints, updateSelectionRect]);
 
   // Build selected indices set for fast lookup in getFillColor
@@ -297,7 +357,7 @@ export default function EmbeddingScatterplot({
             position: "relative",
             border: "1px solid #d9d9d9",
             borderRadius: 4,
-            cursor: selectMode ? "crosshair" : undefined,
+            cursor: selectMode !== "pan" ? "crosshair" : undefined,
           }}
           onMouseDown={handleMouseDown}
           onMouseMove={handleMouseMove}
@@ -310,7 +370,7 @@ export default function EmbeddingScatterplot({
             height={containerSize.height}
             views={new OrthographicView({ id: "ortho" })}
             initialViewState={initialViewState}
-            controller={{ dragPan: !selectMode }}
+            controller={{ dragPan: selectMode === "pan" }}
             layers={layers}
           />
           {/* Selection rectangle overlay — styled directly via ref to avoid re-renders */}
@@ -325,23 +385,61 @@ export default function EmbeddingScatterplot({
               zIndex: 2,
             }}
           />
-          <Button
-            size="small"
-            type={selectMode ? "primary" : "default"}
-            icon={selectMode ? <SelectOutlined /> : <DragOutlined />}
-            onClick={() => {
-              setSelectMode(!selectMode);
-              if (selectMode) clearSelectedPoints();
-            }}
+          {/* Lasso SVG overlay — updated directly via ref to avoid re-renders */}
+          <svg
+            ref={lassoSvgRef}
             style={{
               position: "absolute",
-              top: 8,
-              left: 8,
-              zIndex: 1,
-              opacity: 0.85,
+              top: 0,
+              left: 0,
+              width: "100%",
+              height: "100%",
+              pointerEvents: "none",
+              zIndex: 2,
+              display: "none",
             }}
-            title={selectMode ? "Switch to pan mode" : "Switch to select mode"}
-          />
+          >
+            <polyline
+              fill="rgba(24, 144, 255, 0.15)"
+              stroke="rgba(24, 144, 255, 0.6)"
+              strokeWidth="1"
+              points=""
+            />
+          </svg>
+          <div style={{ position: "absolute", top: 8, left: 8, zIndex: 1, display: "flex", gap: 4 }}>
+            <Button
+              size="small"
+              type={selectMode === "rectangle" ? "primary" : "default"}
+              icon={<SelectOutlined />}
+              onClick={() => {
+                if (selectMode === "rectangle") {
+                  setSelectMode("pan");
+                  clearSelectedPoints();
+                } else {
+                  setSelectMode("rectangle");
+                  clearSelectedPoints();
+                }
+              }}
+              style={{ opacity: 0.85 }}
+              title="Rectangle select"
+            />
+            <Button
+              size="small"
+              type={selectMode === "lasso" ? "primary" : "default"}
+              icon={<EditOutlined />}
+              onClick={() => {
+                if (selectMode === "lasso") {
+                  setSelectMode("pan");
+                  clearSelectedPoints();
+                } else {
+                  setSelectMode("lasso");
+                  clearSelectedPoints();
+                }
+              }}
+              style={{ opacity: 0.85 }}
+              title="Lasso select"
+            />
+          </div>
           <Button
             size="small"
             icon={expanded ? <CompressOutlined /> : <ExpandOutlined />}
