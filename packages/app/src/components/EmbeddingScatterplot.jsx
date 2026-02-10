@@ -1,6 +1,6 @@
 import { useState, useMemo, useRef, useCallback, useLayoutEffect } from "react";
 import { Typography, Space, Button, Select } from "antd";
-import { ExpandOutlined, CompressOutlined, SelectOutlined, EditOutlined } from "@ant-design/icons";
+import { ExpandOutlined, CompressOutlined, SelectOutlined, EditOutlined, CloseCircleOutlined } from "@ant-design/icons";
 import DeckGL from "@deck.gl/react";
 import { ScatterplotLayer } from "@deck.gl/layers";
 import { OrthographicView } from "@deck.gl/core";
@@ -414,7 +414,6 @@ export default function EmbeddingScatterplot({
               onClick={() => {
                 if (selectMode === "rectangle") {
                   setSelectMode("pan");
-                  clearSelectedPoints();
                 } else {
                   setSelectMode("rectangle");
                   clearSelectedPoints();
@@ -430,7 +429,6 @@ export default function EmbeddingScatterplot({
               onClick={() => {
                 if (selectMode === "lasso") {
                   setSelectMode("pan");
-                  clearSelectedPoints();
                 } else {
                   setSelectMode("lasso");
                   clearSelectedPoints();
@@ -513,9 +511,17 @@ export default function EmbeddingScatterplot({
                 borderRadius: 4,
                 fontSize: 12,
                 zIndex: 1,
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
               }}
             >
               {selectedPointIndices.length.toLocaleString()} selected
+              <CloseCircleOutlined
+                onClick={clearSelectedPoints}
+                style={{ cursor: "pointer", fontSize: 14 }}
+                title="Clear selection"
+              />
             </div>
           )}
         </div>
