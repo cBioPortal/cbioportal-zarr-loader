@@ -22,6 +22,40 @@ function pointInPolygon(x, y, polygon) {
   return inside;
 }
 
+const BREAKDOWN_LIMIT = 5;
+
+function CollapsibleBreakdown({ col, breakdown, total }) {
+  const [expanded, setExpanded] = useState(false);
+  const hasMore = breakdown.length > BREAKDOWN_LIMIT;
+  const visible = expanded ? breakdown : breakdown.slice(0, BREAKDOWN_LIMIT);
+
+  return (
+    <div style={{ marginTop: 8 }}>
+      <Text type="secondary" style={{ fontSize: 11 }}>{col}</Text>
+      <table style={{ width: "100%", marginTop: 4, borderCollapse: "collapse" }}>
+        <tbody>
+          {visible.map(([val, count]) => (
+            <tr key={val}>
+              <td style={{ paddingRight: 8 }}>{val}</td>
+              <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
+                {count.toLocaleString()} ({((count / total) * 100).toFixed(1)}%)
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {hasMore && (
+        <span
+          onClick={() => setExpanded(!expanded)}
+          style={{ color: "#1890ff", cursor: "pointer", fontSize: 11 }}
+        >
+          {expanded ? "Show less" : `Show all (${breakdown.length})`}
+        </span>
+      )}
+    </div>
+  );
+}
+
 export default function EmbeddingScatterplot({
   data,
   shape,
@@ -662,21 +696,7 @@ export default function EmbeddingScatterplot({
             )}
 
             {Object.entries(selectionSummary.tooltipBreakdowns).map(([col, breakdown]) => (
-              <div key={col} style={{ marginTop: 8 }}>
-                <Text type="secondary" style={{ fontSize: 11 }}>{col}</Text>
-                <table style={{ width: "100%", marginTop: 4, borderCollapse: "collapse" }}>
-                  <tbody>
-                    {breakdown.map(([val, count]) => (
-                      <tr key={val}>
-                        <td style={{ paddingRight: 8 }}>{val}</td>
-                        <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
-                          {count.toLocaleString()} ({((count / selectedPointIndices.length) * 100).toFixed(1)}%)
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <CollapsibleBreakdown key={col} col={col} breakdown={breakdown} total={selectedPointIndices.length} />
             ))}
           </div>
         )}
