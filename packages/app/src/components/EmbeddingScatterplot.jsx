@@ -471,6 +471,7 @@ export default function EmbeddingScatterplot({
             position: "relative",
             border: "1px solid #d9d9d9",
             borderRadius: 4,
+            overflow: "hidden",
             cursor: selectMode !== "pan" ? "crosshair" : undefined,
           }}
           onMouseDown={handleMouseDown}
