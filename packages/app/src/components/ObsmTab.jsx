@@ -70,9 +70,7 @@ export default function ObsmTab() {
               icon={<ReloadOutlined />}
               onClick={() => fetchObsm(selectedObsm)}
               loading={obsmLoading}
-            >
-              Reload
-            </Button>
+            />
           }
         >
           {obsmLoading ? (
