@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Card, Typography, Spin, Radio, Select } from "antd";
+import { Card, Typography, Spin, Segmented, Select } from "antd";
 import { Box, Violin } from "@ant-design/charts";
 import SearchableList from "./SearchableList";
 import TabLayout from "./TabLayout";
@@ -131,11 +131,10 @@ export default function PlotsTab() {
               />
               <div style={{ marginTop: 8 }}>
                 <Text>Max points: </Text>
-                <Radio.Group
+                <Segmented
                   size="small"
                   value={maxPoints}
-                  onChange={(e) => setMaxPoints(e.target.value)}
-                  optionType="button"
+                  onChange={setMaxPoints}
                   options={(() => {
                     const opts = [5000, 10000];
                     for (let v = 50000; v < data.length; v += 50000) {
