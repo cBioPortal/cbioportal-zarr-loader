@@ -327,6 +327,52 @@ export default function EmbeddingScatterplot({
       });
   }, [categoryColorMap, colorData, points]);
 
+  const selectionSummary = useMemo(() => {
+    if (selectedSet.size === 0) return null;
+
+    // Category breakdown
+    let categoryBreakdown = null;
+    if (colorData) {
+      const counts = {};
+      for (const pt of points) {
+        if (!selectedSet.has(pt.index)) continue;
+        counts[pt.category] = (counts[pt.category] || 0) + 1;
+      }
+      categoryBreakdown = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+    }
+
+    // Expression stats
+    let expressionStats = null;
+    if (geneExpression) {
+      let min = Infinity, max = -Infinity, sum = 0, count = 0;
+      for (const pt of points) {
+        if (!selectedSet.has(pt.index) || pt.expression == null) continue;
+        const v = pt.expression;
+        if (v < min) min = v;
+        if (v > max) max = v;
+        sum += v;
+        count++;
+      }
+      if (count > 0) {
+        expressionStats = { min, max, mean: sum / count, count };
+      }
+    }
+
+    // Tooltip column breakdowns
+    const tooltipBreakdowns = {};
+    for (const [col, values] of Object.entries(tooltipData)) {
+      const counts = {};
+      for (const pt of points) {
+        if (!selectedSet.has(pt.index)) continue;
+        const val = String(values[pt.index]);
+        counts[val] = (counts[val] || 0) + 1;
+      }
+      tooltipBreakdowns[col] = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+    }
+
+    return { categoryBreakdown, expressionStats, tooltipBreakdowns };
+  }, [selectedSet, points, colorData, geneExpression, tooltipData]);
+
   return (
     <>
       <Space style={{ marginBottom: 16 }} wrap align="center">
@@ -562,6 +608,76 @@ export default function EmbeddingScatterplot({
               <span>{((expressionRange.max + expressionRange.min) / 2).toFixed(2)}</span>
               <span>{expressionRange.min.toFixed(2)}</span>
             </div>
+          </div>
+        )}
+
+        {/* Selection summary */}
+        {selectionSummary && (
+          <div style={{ maxHeight: containerSize.height, overflow: "auto", fontSize: 12, minWidth: 160, borderLeft: "1px solid #d9d9d9", paddingLeft: 16 }}>
+            <Text strong style={{ fontSize: 12 }}>
+              Selection ({selectedPointIndices.length.toLocaleString()} points)
+            </Text>
+
+            {selectionSummary.categoryBreakdown && (
+              <div style={{ marginTop: 8 }}>
+                <Text type="secondary" style={{ fontSize: 11 }}>{colorColumn}</Text>
+                <table style={{ width: "100%", marginTop: 4, borderCollapse: "collapse" }}>
+                  <tbody>
+                    {selectionSummary.categoryBreakdown.map(([cat, count]) => (
+                      <tr key={cat}>
+                        <td style={{ paddingRight: 8, display: "flex", alignItems: "center", gap: 4 }}>
+                          {categoryColorMap[cat] && (
+                            <span style={{
+                              display: "inline-block",
+                              width: 8,
+                              height: 8,
+                              borderRadius: 2,
+                              backgroundColor: `rgb(${categoryColorMap[cat].join(",")})`,
+                              flexShrink: 0,
+                            }} />
+                          )}
+                          <span>{cat}</span>
+                        </td>
+                        <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
+                          {count.toLocaleString()} ({((count / selectedPointIndices.length) * 100).toFixed(1)}%)
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {selectionSummary.expressionStats && (
+              <div style={{ marginTop: 8 }}>
+                <Text type="secondary" style={{ fontSize: 11 }}>{selectedGene} expression</Text>
+                <table style={{ width: "100%", marginTop: 4, borderCollapse: "collapse" }}>
+                  <tbody>
+                    <tr><td>Mean</td><td style={{ textAlign: "right" }}>{selectionSummary.expressionStats.mean.toFixed(4)}</td></tr>
+                    <tr><td>Min</td><td style={{ textAlign: "right" }}>{selectionSummary.expressionStats.min.toFixed(4)}</td></tr>
+                    <tr><td>Max</td><td style={{ textAlign: "right" }}>{selectionSummary.expressionStats.max.toFixed(4)}</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {Object.entries(selectionSummary.tooltipBreakdowns).map(([col, breakdown]) => (
+              <div key={col} style={{ marginTop: 8 }}>
+                <Text type="secondary" style={{ fontSize: 11 }}>{col}</Text>
+                <table style={{ width: "100%", marginTop: 4, borderCollapse: "collapse" }}>
+                  <tbody>
+                    {breakdown.map(([val, count]) => (
+                      <tr key={val}>
+                        <td style={{ paddingRight: 8 }}>{val}</td>
+                        <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
+                          {count.toLocaleString()} ({((count / selectedPointIndices.length) * 100).toFixed(1)}%)
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ))}
           </div>
         )}
 
