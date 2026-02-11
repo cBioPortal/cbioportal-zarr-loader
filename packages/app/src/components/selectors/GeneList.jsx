@@ -1,5 +1,5 @@
-import useAppStore from "../store/useAppStore";
-import SearchableList from "./SearchableList";
+import useAppStore from "../../store/useAppStore";
+import SearchableList from "../ui/SearchableList";
 
 export default function GeneList({ height = 300, width = 220, style = {} }) {
   const { metadata, selectedGene, setSelectedGene, clearGeneSelection } = useAppStore();

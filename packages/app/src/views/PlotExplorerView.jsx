@@ -1,13 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { Card, Typography, Spin, Segmented, Select } from "antd";
 import { Box, Violin } from "@ant-design/charts";
-import SearchableList from "./SearchableList";
-import TabLayout from "./TabLayout";
+import SearchableList from "../components/ui/SearchableList";
+import TabLayout from "../components/ui/TabLayout";
 import useAppStore from "../store/useAppStore";
 
 const { Text } = Typography;
 
-export default function PlotsTab() {
+export default function PlotExplorerView() {
   const {
     metadata,
     plotGene,

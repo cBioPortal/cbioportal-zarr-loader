@@ -4,9 +4,9 @@ import { ExpandOutlined, CompressOutlined, SelectOutlined, EditOutlined, CloseCi
 import DeckGL from "@deck.gl/react";
 import { ScatterplotLayer } from "@deck.gl/layers";
 import { OrthographicView } from "@deck.gl/core";
-import useAppStore from "../store/useAppStore";
-import { calculatePlotDimensions } from "../utils/calculatePlotDimensions";
-import { CATEGORICAL_COLORS, COLOR_SCALES, interpolateColorScale, colorScaleGradient } from "../utils/colors";
+import useAppStore from "../../store/useAppStore";
+import { calculatePlotDimensions } from "../../utils/calculatePlotDimensions";
+import { CATEGORICAL_COLORS, COLOR_SCALES, interpolateColorScale, colorScaleGradient } from "../../utils/colors";
 
 const { Text } = Typography;
 

@@ -1,4 +1,3 @@
-import { useEffect } from "react";
 import {
   Card,
   Typography,
@@ -8,52 +7,29 @@ import {
   Button,
 } from "antd";
 import { ReloadOutlined } from "@ant-design/icons";
-import EmbeddingScatterplot from "./EmbeddingScatterplot";
-import SearchableList from "./SearchableList";
-import ColorColumnList from "./ColorColumnList";
-import GeneList from "./GeneList";
-import TooltipColumnList from "./TooltipColumnList";
-import TabLayout from "./TabLayout";
-import useAppStore from "../store/useAppStore";
+import EmbeddingScatterplot from "../components/visualizations/EmbeddingScatterplot";
+import ColorColumnList from "../components/selectors/ColorColumnList";
+import GeneList from "../components/selectors/GeneList";
+import TooltipColumnList from "../components/selectors/TooltipColumnList";
+import TabLayout from "../components/ui/TabLayout";
 
 const { Text } = Typography;
 
-export default function ObsmTab() {
-  const {
-    metadata,
-    selectedObsm,
-    obsmData,
-    obsmLoading,
-    obsmTime,
-    fetchObsm,
-  } = useAppStore();
-
-  const { obsmKeys } = metadata;
+export default function EmbeddingExplorerView({
+  selectedObsm,
+  obsmData,
+  obsmLoading,
+  obsmTime,
+  onReload,
+  sidebar,
+}) {
   const isEmbedding = selectedObsm && /umap|tsne|pca/i.test(selectedObsm) && obsmData?.shape?.[1] >= 2;
-
-  // Auto-fetch UMAP embedding on mount
-  useEffect(() => {
-    if (!selectedObsm && obsmKeys.length > 0) {
-      const umapKey = obsmKeys.find(k => /umap/i.test(k));
-      if (umapKey) {
-        fetchObsm(umapKey);
-      }
-    }
-  }, [obsmKeys, selectedObsm, fetchObsm]);
 
   return (
     <TabLayout
       sidebar={
         <>
-          <SearchableList
-            title="Keys"
-            items={obsmKeys}
-            selected={selectedObsm}
-            onSelect={fetchObsm}
-            loading={obsmLoading ? selectedObsm : null}
-            placeholder="Search keys..."
-            height={200}
-          />
+          {sidebar}
           <ColorColumnList height={250} style={{ marginTop: 16 }} />
           <GeneList height={300} style={{ marginTop: 16 }} />
           <TooltipColumnList height={250} style={{ marginTop: 16 }} />
@@ -68,7 +44,7 @@ export default function ObsmTab() {
             <Button
               size="small"
               icon={<ReloadOutlined />}
-              onClick={() => fetchObsm(selectedObsm)}
+              onClick={onReload}
               loading={obsmLoading}
             />
           }

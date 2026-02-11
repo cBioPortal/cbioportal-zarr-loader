@@ -5,12 +5,12 @@ import {
   Table,
   Space,
 } from "antd";
-import TabLayout from "./TabLayout";
-import SearchableList from "./SearchableList";
+import TabLayout from "../components/ui/TabLayout";
+import SearchableList from "../components/ui/SearchableList";
 
 const { Text } = Typography;
 
-export default function ColumnExplorer({
+export default function ColumnExplorerView({
   columns,
   selectedColumns,
   columnsData,
