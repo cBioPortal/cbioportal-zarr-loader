@@ -1,6 +1,6 @@
 import { Typography, Space } from "antd";
 import EmbeddingScatterplot from "./EmbeddingScatterplot";
-import useAppStore from "../store/useAppStore";
+import useAppStore from "../../store/useAppStore";
 
 const { Text } = Typography;
 

@@ -1,5 +1,5 @@
-import useAppStore from "../store/useAppStore";
-import SearchableList from "./SearchableList";
+import useAppStore from "../../store/useAppStore";
+import SearchableList from "../ui/SearchableList";
 
 export default function ColorColumnList({ height = 300, width = 220, style = {} }) {
   const { metadata, colorColumn, colorLoading, setColorColumn } = useAppStore();
