@@ -55,17 +55,17 @@ export default function PlotsTab() {
   const data = useMemo(() => {
     if (!plotGeneExpression || !plotObsData) return null;
     const raw = Array.from(plotGeneExpression, (val, i) => ({
-      category: String(plotObsData[i]),
-      expression: Math.round(val * 10000) / 10000,
+      [plotObsColumn]: String(plotObsData[i]),
+      [plotGene]: Math.round(val * 10000) / 10000,
     }));
     if (filterExpression !== null) {
-      return raw.filter((d) => d.expression !== filterExpression);
+      return raw.filter((d) => d[plotGene] !== filterExpression);
     }
     return raw;
-  }, [plotGeneExpression, plotObsData, filterExpression]);
+  }, [plotGeneExpression, plotObsData, plotObsColumn, plotGene, filterExpression]);
 
   if (data) {
-    const categories = new Set(data.map((d) => d.category));
+    const categories = new Set(data.map((d) => d[plotObsColumn]));
     console.debug("[PlotsTab] Data built:", data.length, "points,", categories.size, "categories:", [...categories].slice(0, 10));
     console.debug("[PlotsTab] Sample data:", data.slice(0, 15));
   }
@@ -114,7 +114,7 @@ export default function PlotsTab() {
             <div style={{ marginBottom: 8 }}>
               <Text>
                 Data ready: {data.length.toLocaleString()} points,{" "}
-                {new Set(data.map((d) => d.category)).size} categories.
+                {new Set(data.map((d) => d[plotObsColumn])).size} categories.
                 {" "}Showing: {Math.min(maxPoints, data.length).toLocaleString()}
               </Text>
               <Text style={{ marginLeft: 16 }}>
@@ -151,14 +151,14 @@ export default function PlotsTab() {
             </div>
             <Box
               data={data.slice(0, maxPoints)}
-              xField="category"
-              yField="expression"
+              xField={plotObsColumn}
+              yField={plotGene}
               boxType="boxplot"
             />
             <Violin
               data={data.slice(0, maxPoints)}
-              xField="category"
-              yField="expression"
+              xField={plotObsColumn}
+              yField={plotGene}
             />
           </>
         ) : (
