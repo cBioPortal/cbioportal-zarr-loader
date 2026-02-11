@@ -6,89 +6,22 @@ import { ScatterplotLayer } from "@deck.gl/layers";
 import { OrthographicView } from "@deck.gl/core";
 import useAppStore from "../store/useAppStore";
 import { calculatePlotDimensions } from "../utils/calculatePlotDimensions";
-import { CATEGORICAL_COLORS, COLOR_SCALES, interpolateColorScale, colorScaleGradient } from "../utils/colors";
+import { COLOR_SCALES } from "../utils/colors";
+import {
+  pointInPolygon,
+  buildScatterplotPoints,
+  buildSelectionSummary,
+  computeRange,
+  computeViewState,
+  getPointFillColor,
+  sortCategoriesByCount,
+} from "../utils/scatterplotUtils";
+import HoverTooltip from "./HoverTooltip";
+import ExpressionLegend from "./ExpressionLegend";
+import SelectionSummaryPanel from "./SelectionSummaryPanel";
+import CollapsibleLegend from "./CollapsibleLegend";
 
 const { Text } = Typography;
-
-function pointInPolygon(x, y, polygon) {
-  let inside = false;
-  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
-    const xi = polygon[i][0], yi = polygon[i][1];
-    const xj = polygon[j][0], yj = polygon[j][1];
-    if ((yi > y) !== (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi) {
-      inside = !inside;
-    }
-  }
-  return inside;
-}
-
-const BREAKDOWN_LIMIT = 5;
-const LEGEND_LIMIT = 20;
-
-function CollapsibleLegend({ categories, maxHeight }) {
-  const [expanded, setExpanded] = useState(false);
-  const hasMore = categories.length > LEGEND_LIMIT;
-  const visible = expanded ? categories : categories.slice(0, LEGEND_LIMIT);
-
-  return (
-    <div style={{ maxHeight, overflow: "auto", fontSize: 12 }}>
-      {visible.map(([cat, color]) => (
-        <div key={cat} style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 2 }}>
-          <div
-            style={{
-              width: 12,
-              height: 12,
-              borderRadius: 2,
-              backgroundColor: `rgb(${color.join(",")})`,
-              flexShrink: 0,
-            }}
-          />
-          <span>{cat}</span>
-        </div>
-      ))}
-      {hasMore && (
-        <span
-          onClick={() => setExpanded(!expanded)}
-          style={{ color: "#1890ff", cursor: "pointer", fontSize: 11 }}
-        >
-          {expanded ? "Show less" : `Show all (${categories.length})`}
-        </span>
-      )}
-    </div>
-  );
-}
-
-function CollapsibleBreakdown({ col, breakdown, total }) {
-  const [expanded, setExpanded] = useState(false);
-  const hasMore = breakdown.length > BREAKDOWN_LIMIT;
-  const visible = expanded ? breakdown : breakdown.slice(0, BREAKDOWN_LIMIT);
-
-  return (
-    <div style={{ marginTop: 8 }}>
-      <Text type="secondary" style={{ fontSize: 11 }}>{col}</Text>
-      <table style={{ width: "100%", marginTop: 4, borderCollapse: "collapse" }}>
-        <tbody>
-          {visible.map(([val, count]) => (
-            <tr key={val}>
-              <td style={{ paddingRight: 8 }}>{val}</td>
-              <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
-                {count.toLocaleString()} ({((count / total) * 100).toFixed(1)}%)
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      {hasMore && (
-        <span
-          onClick={() => setExpanded(!expanded)}
-          style={{ color: "#1890ff", cursor: "pointer", fontSize: 11 }}
-        >
-          {expanded ? "Show less" : `Show all (${breakdown.length})`}
-        </span>
-      )}
-    </div>
-  );
-}
 
 export default function EmbeddingScatterplot({
   data,
@@ -124,73 +57,15 @@ export default function EmbeddingScatterplot({
   const deckRef = useRef(null);
   const [containerSize, setContainerSize] = useState({ width: 600, height: 600 });
 
-  // Compute expression range for normalization
-  const expressionRange = useMemo(() => {
-    if (!geneExpression) return null;
-    let min = Infinity, max = -Infinity;
-    for (let i = 0; i < geneExpression.length; i++) {
-      const val = geneExpression[i];
-      if (val < min) min = val;
-      if (val > max) max = val;
-    }
-    return { min, max };
-  }, [geneExpression]);
+  const expressionRange = useMemo(
+    () => computeRange(geneExpression),
+    [geneExpression],
+  );
 
-  const { points, categoryColorMap, bounds } = useMemo(() => {
-    if (!data || !shape) return { points: [], categoryColorMap: {}, bounds: null };
-
-    const cols = shape[1];
-    const step = Math.max(1, Math.floor(shape[0] / maxPoints));
-
-    // Build category color map (for obs columns)
-    const categories = new Map();
-    if (colorData) {
-      for (let i = 0; i < shape[0]; i += step) {
-        const cat = String(colorData[i]);
-        if (!categories.has(cat)) {
-          categories.set(cat, (categories.size % CATEGORICAL_COLORS.length));
-        }
-      }
-    }
-
-    // Build points array and calculate bounds
-    const pts = [];
-    let minX = Infinity, maxX = -Infinity;
-    let minY = Infinity, maxY = -Infinity;
-
-    for (let i = 0; i < shape[0]; i += step) {
-      const x = data[i * cols];
-      const y = -data[i * cols + 1]; // Flip Y axis
-
-      minX = Math.min(minX, x);
-      maxX = Math.max(maxX, x);
-      minY = Math.min(minY, y);
-      maxY = Math.max(maxY, y);
-
-      const cat = colorData ? String(colorData[i]) : "All";
-      const exprValue = geneExpression ? geneExpression[i] : null;
-
-      pts.push({
-        position: [x, y],
-        category: cat,
-        colorIndex: categories.get(cat) ?? 0,
-        index: i,
-        expression: exprValue,
-      });
-    }
-
-    // Convert categories map to object for legend
-    const colorMap = {};
-    categories.forEach((colorIdx, cat) => {
-      colorMap[cat] = CATEGORICAL_COLORS[colorIdx];
-    });
-
-    return {
-      points: pts,
-      categoryColorMap: colorMap,
-      bounds: { minX, maxX, minY, maxY },
-    };
-  }, [data, shape, colorData, geneExpression, maxPoints]);
+  const { points, categoryColorMap, bounds } = useMemo(
+    () => buildScatterplotPoints({ data, shape, maxPoints, colorData, geneExpression }),
+    [data, shape, colorData, geneExpression, maxPoints],
+  );
 
   // Calculate container dimensions based on available space and data aspect ratio
   useLayoutEffect(() => {
@@ -221,24 +96,10 @@ export default function EmbeddingScatterplot({
     return () => window.removeEventListener("resize", updateSize);
   }, [bounds, expanded]);
 
-  const initialViewState = useMemo(() => {
-    if (!bounds) return { target: [0, 0], zoom: 0 };
-
-    const centerX = (bounds.minX + bounds.maxX) / 2;
-    const centerY = (bounds.minY + bounds.maxY) / 2;
-    const rangeX = bounds.maxX - bounds.minX;
-    const rangeY = bounds.maxY - bounds.minY;
-    const maxRange = Math.max(rangeX, rangeY);
-
-    // Use the smaller container dimension to calculate zoom
-    const viewSize = Math.min(containerSize.width, containerSize.height);
-    const zoom = Math.log2(viewSize / maxRange) - 0.1;
-
-    return {
-      target: [centerX, centerY],
-      zoom: Math.max(-5, Math.min(zoom, 10)),
-    };
-  }, [bounds, containerSize]);
+  const initialViewState = useMemo(
+    () => computeViewState(bounds, containerSize),
+    [bounds, containerSize],
+  );
 
   // Selection rectangle mouse handlers — use refs + direct DOM updates to avoid re-renders during drag
   const updateSelectionRect = useCallback(() => {
@@ -358,20 +219,13 @@ export default function EmbeddingScatterplot({
       id: "scatterplot",
       data: points,
       getPosition: (d) => d.position,
-      getFillColor: (d) => {
-        const dimmed = selectedSet.size > 0 && !selectedSet.has(d.index);
-        if (dimmed) return [180, 180, 180, 60];
-
-        const scale = COLOR_SCALES[colorScaleName];
-        if (geneExpression && expressionRange && expressionRange.max > expressionRange.min) {
-          const t = (d.expression - expressionRange.min) / (expressionRange.max - expressionRange.min);
-          return interpolateColorScale(t, scale);
-        }
-        if (colorData) {
-          return CATEGORICAL_COLORS[d.colorIndex];
-        }
-        return [24, 144, 255];
-      },
+      getFillColor: (d) => getPointFillColor(d, {
+        selectedSet,
+        geneExpression,
+        expressionRange,
+        hasColorData: !!colorData,
+        colorScale: COLOR_SCALES[colorScaleName],
+      }),
       getRadius: 1,
       radiusUnits: "pixels",
       radiusMinPixels: 0.5,
@@ -385,61 +239,21 @@ export default function EmbeddingScatterplot({
     }),
   ];
 
-  const sortedCategories = useMemo(() => {
-    if (!colorData || Object.keys(categoryColorMap).length === 0) return [];
-    const counts = {};
-    for (const pt of points) {
-      counts[pt.category] = (counts[pt.category] || 0) + 1;
-    }
-    return Object.entries(categoryColorMap)
-      .sort((a, b) => (counts[b[0]] || 0) - (counts[a[0]] || 0));
-  }, [categoryColorMap, colorData, points]);
+  const sortedCategories = useMemo(
+    () => colorData ? sortCategoriesByCount(categoryColorMap, points) : [],
+    [categoryColorMap, colorData, points],
+  );
 
-  const selectionSummary = useMemo(() => {
-    if (selectedSet.size === 0) return null;
-
-    // Category breakdown
-    let categoryBreakdown = null;
-    if (colorData) {
-      const counts = {};
-      for (const pt of points) {
-        if (!selectedSet.has(pt.index)) continue;
-        counts[pt.category] = (counts[pt.category] || 0) + 1;
-      }
-      categoryBreakdown = Object.entries(counts).sort((a, b) => b[1] - a[1]);
-    }
-
-    // Expression stats
-    let expressionStats = null;
-    if (geneExpression) {
-      let min = Infinity, max = -Infinity, sum = 0, count = 0;
-      for (const pt of points) {
-        if (!selectedSet.has(pt.index) || pt.expression == null) continue;
-        const v = pt.expression;
-        if (v < min) min = v;
-        if (v > max) max = v;
-        sum += v;
-        count++;
-      }
-      if (count > 0) {
-        expressionStats = { min, max, mean: sum / count, count };
-      }
-    }
-
-    // Tooltip column breakdowns
-    const tooltipBreakdowns = {};
-    for (const [col, values] of Object.entries(tooltipData)) {
-      const counts = {};
-      for (const pt of points) {
-        if (!selectedSet.has(pt.index)) continue;
-        const val = String(values[pt.index]);
-        counts[val] = (counts[val] || 0) + 1;
-      }
-      tooltipBreakdowns[col] = Object.entries(counts).sort((a, b) => b[1] - a[1]);
-    }
-
-    return { categoryBreakdown, expressionStats, tooltipBreakdowns };
-  }, [selectedSet, points, colorData, geneExpression, tooltipData]);
+  const selectionSummary = useMemo(
+    () => buildSelectionSummary({
+      selectedSet,
+      points,
+      hasColorData: !!colorData,
+      hasGeneExpression: !!geneExpression,
+      tooltipData,
+    }),
+    [selectedSet, points, colorData, geneExpression, tooltipData],
+  );
 
   return (
     <>
@@ -567,27 +381,14 @@ export default function EmbeddingScatterplot({
             }}
           />
           {hoverInfo && (
-            <div
-              style={{
-                position: "absolute",
-                left: hoverInfo.x + 10,
-                top: hoverInfo.y + 10,
-                background: "rgba(0,0,0,0.8)",
-                color: "white",
-                padding: "4px 8px",
-                borderRadius: 4,
-                fontSize: 12,
-                pointerEvents: "none",
-              }}
-            >
-              <div>x: {hoverInfo.object.position[0].toFixed(4)}</div>
-              <div>y: {hoverInfo.object.position[1].toFixed(4)}</div>
-              {colorData && <div>{colorColumn}: {hoverInfo.object.category}</div>}
-              {geneExpression && <div>{selectedGene}: {hoverInfo.object.expression?.toFixed(4)}</div>}
-              {Object.entries(tooltipData).map(([col, values]) => (
-                <div key={col}>{col}: {values[hoverInfo.object.index]}</div>
-              ))}
-            </div>
+            <HoverTooltip
+              hoverInfo={hoverInfo}
+              colorColumn={colorColumn}
+              selectedGene={selectedGene}
+              tooltipData={tooltipData}
+              hasColorData={!!colorData}
+              hasGeneExpression={!!geneExpression}
+            />
           )}
 
           {/* Axis labels */}
@@ -649,78 +450,23 @@ export default function EmbeddingScatterplot({
 
         {/* Gene expression color scale */}
         {geneExpression && expressionRange && (
-          <div style={{ fontSize: 12 }}>
-            <div style={{ marginBottom: 4 }}>{selectedGene}</div>
-            <div
-              style={{
-                width: 20,
-                height: 200,
-                background: colorScaleGradient(COLOR_SCALES[colorScaleName], "to bottom"),
-                borderRadius: 2,
-              }}
-            />
-            <div style={{ display: "flex", flexDirection: "column", justifyContent: "space-between", height: 200, marginLeft: 4, position: "relative", top: -200 }}>
-              <span>{expressionRange.max.toFixed(2)}</span>
-              <span>{((expressionRange.max + expressionRange.min) / 2).toFixed(2)}</span>
-              <span>{expressionRange.min.toFixed(2)}</span>
-            </div>
-          </div>
+          <ExpressionLegend
+            selectedGene={selectedGene}
+            expressionRange={expressionRange}
+            colorScaleName={colorScaleName}
+          />
         )}
 
         {/* Selection summary */}
         {selectionSummary && (
-          <div style={{ maxHeight: containerSize.height, overflow: "auto", fontSize: 12, minWidth: 160, borderLeft: "1px solid #d9d9d9", paddingLeft: 16 }}>
-            <Text strong style={{ fontSize: 12 }}>
-              Selection ({selectedPointIndices.length.toLocaleString()} points)
-            </Text>
-
-            {selectionSummary.categoryBreakdown && (
-              <div style={{ marginTop: 8 }}>
-                <Text type="secondary" style={{ fontSize: 11 }}>{colorColumn}</Text>
-                <table style={{ width: "100%", marginTop: 4, borderCollapse: "collapse" }}>
-                  <tbody>
-                    {selectionSummary.categoryBreakdown.map(([cat, count]) => (
-                      <tr key={cat}>
-                        <td style={{ paddingRight: 8, display: "flex", alignItems: "center", gap: 4 }}>
-                          {categoryColorMap[cat] && (
-                            <span style={{
-                              display: "inline-block",
-                              width: 8,
-                              height: 8,
-                              borderRadius: 2,
-                              backgroundColor: `rgb(${categoryColorMap[cat].join(",")})`,
-                              flexShrink: 0,
-                            }} />
-                          )}
-                          <span>{cat}</span>
-                        </td>
-                        <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
-                          {count.toLocaleString()} ({((count / selectedPointIndices.length) * 100).toFixed(1)}%)
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-
-            {selectionSummary.expressionStats && (
-              <div style={{ marginTop: 8 }}>
-                <Text type="secondary" style={{ fontSize: 11 }}>{selectedGene} expression</Text>
-                <table style={{ width: "100%", marginTop: 4, borderCollapse: "collapse" }}>
-                  <tbody>
-                    <tr><td>Mean</td><td style={{ textAlign: "right" }}>{selectionSummary.expressionStats.mean.toFixed(4)}</td></tr>
-                    <tr><td>Min</td><td style={{ textAlign: "right" }}>{selectionSummary.expressionStats.min.toFixed(4)}</td></tr>
-                    <tr><td>Max</td><td style={{ textAlign: "right" }}>{selectionSummary.expressionStats.max.toFixed(4)}</td></tr>
-                  </tbody>
-                </table>
-              </div>
-            )}
-
-            {Object.entries(selectionSummary.tooltipBreakdowns).map(([col, breakdown]) => (
-              <CollapsibleBreakdown key={col} col={col} breakdown={breakdown} total={selectedPointIndices.length} />
-            ))}
-          </div>
+          <SelectionSummaryPanel
+            selectionSummary={selectionSummary}
+            selectedCount={selectedPointIndices.length}
+            categoryColorMap={categoryColorMap}
+            colorColumn={colorColumn}
+            selectedGene={selectedGene}
+            maxHeight={containerSize.height}
+          />
         )}
 
       </div>
