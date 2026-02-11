@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef, useCallback, useLayoutEffect } from "react";
-import { Typography, Space, Button, Select } from "antd";
+import { Typography, Space, Button, Select, Alert } from "antd";
 import { ExpandOutlined, CompressOutlined, SelectOutlined, EditOutlined, CloseCircleOutlined } from "@ant-design/icons";
 import DeckGL from "@deck.gl/react";
 import { ScatterplotLayer } from "@deck.gl/layers";
@@ -124,9 +124,46 @@ export default function EmbeddingScatterplot({
   const deckRef = useRef(null);
   const [containerSize, setContainerSize] = useState({ width: 600, height: 600 });
 
-  // Compute expression range for normalization
+  // Validate gene expression data
+  const expressionValidation = useMemo(() => {
+    if (!geneExpression || !selectedGene) return { valid: true };
+    
+    let hasNonZero = false;
+    let allZero = true;
+    let allNull = true;
+    
+    for (let i = 0; i < geneExpression.length; i++) {
+      const val = geneExpression[i];
+      if (val != null) {
+        allNull = false;
+        if (val !== 0) {
+          allZero = false;
+          hasNonZero = true;
+          break;
+        }
+      }
+    }
+    
+    if (allNull) {
+      return {
+        valid: false,
+        message: `Gene "${selectedGene}" has no expression data. Please select a different gene.`
+      };
+    }
+    
+    if (allZero) {
+      return {
+        valid: false,
+        message: `Gene "${selectedGene}" has zero expression across all cells. Please select a different gene.`
+      };
+    }
+    
+    return { valid: true };
+  }, [geneExpression, selectedGene]);
+
+  // Compute expression range for normalization (only if valid)
   const expressionRange = useMemo(() => {
-    if (!geneExpression) return null;
+    if (!geneExpression || !expressionValidation.valid) return null;
     let min = Infinity, max = -Infinity;
     for (let i = 0; i < geneExpression.length; i++) {
       const val = geneExpression[i];
@@ -134,7 +171,7 @@ export default function EmbeddingScatterplot({
       if (val > max) max = val;
     }
     return { min, max };
-  }, [geneExpression]);
+  }, [geneExpression, expressionValidation.valid]);
 
   const { points, categoryColorMap, bounds } = useMemo(() => {
     if (!data || !shape) return { points: [], categoryColorMap: {}, bounds: null };
@@ -462,6 +499,15 @@ export default function EmbeddingScatterplot({
           </Text>
         )}
       </Space>
+
+      {!expressionValidation.valid && (
+        <Alert
+          message={expressionValidation.message}
+          type="warning"
+          showIcon
+          style={{ marginBottom: 16 }}
+        />
+      )}
 
       <div ref={containerRef} style={{ display: "flex", gap: 16 }}>
         <div
