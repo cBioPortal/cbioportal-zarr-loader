@@ -6,7 +6,7 @@ import { ScatterplotLayer } from "@deck.gl/layers";
 import { OrthographicView } from "@deck.gl/core";
 import useAppStore from "../store/useAppStore";
 import { calculatePlotDimensions } from "../utils/calculatePlotDimensions";
-import { CATEGORICAL_COLORS, COLOR_SCALES, interpolateColorScale, colorScaleGradient } from "../utils/colors";
+import { CATEGORICAL_COLORS, COLOR_SCALES, interpolateColorScale } from "../utils/colors";
 import {
   pointInPolygon,
   buildScatterplotPoints,
@@ -14,9 +14,11 @@ import {
   computeRange,
   computeViewState,
 } from "../utils/scatterplotUtils";
+import HoverTooltip from "./HoverTooltip";
+import ExpressionLegend from "./ExpressionLegend";
+import SelectionSummaryPanel from "./SelectionSummaryPanel";
 
 const { Text } = Typography;
-const BREAKDOWN_LIMIT = 5;
 const LEGEND_LIMIT = 20;
 
 function CollapsibleLegend({ categories, maxHeight }) {
@@ -46,38 +48,6 @@ function CollapsibleLegend({ categories, maxHeight }) {
           style={{ color: "#1890ff", cursor: "pointer", fontSize: 11 }}
         >
           {expanded ? "Show less" : `Show all (${categories.length})`}
-        </span>
-      )}
-    </div>
-  );
-}
-
-function CollapsibleBreakdown({ col, breakdown, total }) {
-  const [expanded, setExpanded] = useState(false);
-  const hasMore = breakdown.length > BREAKDOWN_LIMIT;
-  const visible = expanded ? breakdown : breakdown.slice(0, BREAKDOWN_LIMIT);
-
-  return (
-    <div style={{ marginTop: 8 }}>
-      <Text type="secondary" style={{ fontSize: 11 }}>{col}</Text>
-      <table style={{ width: "100%", marginTop: 4, borderCollapse: "collapse" }}>
-        <tbody>
-          {visible.map(([val, count]) => (
-            <tr key={val}>
-              <td style={{ paddingRight: 8 }}>{val}</td>
-              <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
-                {count.toLocaleString()} ({((count / total) * 100).toFixed(1)}%)
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      {hasMore && (
-        <span
-          onClick={() => setExpanded(!expanded)}
-          style={{ color: "#1890ff", cursor: "pointer", fontSize: 11 }}
-        >
-          {expanded ? "Show less" : `Show all (${breakdown.length})`}
         </span>
       )}
     </div>
@@ -454,27 +424,14 @@ export default function EmbeddingScatterplot({
             }}
           />
           {hoverInfo && (
-            <div
-              style={{
-                position: "absolute",
-                left: hoverInfo.x + 10,
-                top: hoverInfo.y + 10,
-                background: "rgba(0,0,0,0.8)",
-                color: "white",
-                padding: "4px 8px",
-                borderRadius: 4,
-                fontSize: 12,
-                pointerEvents: "none",
-              }}
-            >
-              <div>x: {hoverInfo.object.position[0].toFixed(4)}</div>
-              <div>y: {hoverInfo.object.position[1].toFixed(4)}</div>
-              {colorData && <div>{colorColumn}: {hoverInfo.object.category}</div>}
-              {geneExpression && <div>{selectedGene}: {hoverInfo.object.expression?.toFixed(4)}</div>}
-              {Object.entries(tooltipData).map(([col, values]) => (
-                <div key={col}>{col}: {values[hoverInfo.object.index]}</div>
-              ))}
-            </div>
+            <HoverTooltip
+              hoverInfo={hoverInfo}
+              colorColumn={colorColumn}
+              selectedGene={selectedGene}
+              tooltipData={tooltipData}
+              hasColorData={!!colorData}
+              hasGeneExpression={!!geneExpression}
+            />
           )}
 
           {/* Axis labels */}
@@ -536,78 +493,23 @@ export default function EmbeddingScatterplot({
 
         {/* Gene expression color scale */}
         {geneExpression && expressionRange && (
-          <div style={{ fontSize: 12 }}>
-            <div style={{ marginBottom: 4 }}>{selectedGene}</div>
-            <div
-              style={{
-                width: 20,
-                height: 200,
-                background: colorScaleGradient(COLOR_SCALES[colorScaleName], "to bottom"),
-                borderRadius: 2,
-              }}
-            />
-            <div style={{ display: "flex", flexDirection: "column", justifyContent: "space-between", height: 200, marginLeft: 4, position: "relative", top: -200 }}>
-              <span>{expressionRange.max.toFixed(2)}</span>
-              <span>{((expressionRange.max + expressionRange.min) / 2).toFixed(2)}</span>
-              <span>{expressionRange.min.toFixed(2)}</span>
-            </div>
-          </div>
+          <ExpressionLegend
+            selectedGene={selectedGene}
+            expressionRange={expressionRange}
+            colorScaleName={colorScaleName}
+          />
         )}
 
         {/* Selection summary */}
         {selectionSummary && (
-          <div style={{ maxHeight: containerSize.height, overflow: "auto", fontSize: 12, minWidth: 160, borderLeft: "1px solid #d9d9d9", paddingLeft: 16 }}>
-            <Text strong style={{ fontSize: 12 }}>
-              Selection ({selectedPointIndices.length.toLocaleString()} points)
-            </Text>
-
-            {selectionSummary.categoryBreakdown && (
-              <div style={{ marginTop: 8 }}>
-                <Text type="secondary" style={{ fontSize: 11 }}>{colorColumn}</Text>
-                <table style={{ width: "100%", marginTop: 4, borderCollapse: "collapse" }}>
-                  <tbody>
-                    {selectionSummary.categoryBreakdown.map(([cat, count]) => (
-                      <tr key={cat}>
-                        <td style={{ paddingRight: 8, display: "flex", alignItems: "center", gap: 4 }}>
-                          {categoryColorMap[cat] && (
-                            <span style={{
-                              display: "inline-block",
-                              width: 8,
-                              height: 8,
-                              borderRadius: 2,
-                              backgroundColor: `rgb(${categoryColorMap[cat].join(",")})`,
-                              flexShrink: 0,
-                            }} />
-                          )}
-                          <span>{cat}</span>
-                        </td>
-                        <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
-                          {count.toLocaleString()} ({((count / selectedPointIndices.length) * 100).toFixed(1)}%)
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-
-            {selectionSummary.expressionStats && (
-              <div style={{ marginTop: 8 }}>
-                <Text type="secondary" style={{ fontSize: 11 }}>{selectedGene} expression</Text>
-                <table style={{ width: "100%", marginTop: 4, borderCollapse: "collapse" }}>
-                  <tbody>
-                    <tr><td>Mean</td><td style={{ textAlign: "right" }}>{selectionSummary.expressionStats.mean.toFixed(4)}</td></tr>
-                    <tr><td>Min</td><td style={{ textAlign: "right" }}>{selectionSummary.expressionStats.min.toFixed(4)}</td></tr>
-                    <tr><td>Max</td><td style={{ textAlign: "right" }}>{selectionSummary.expressionStats.max.toFixed(4)}</td></tr>
-                  </tbody>
-                </table>
-              </div>
-            )}
-
-            {Object.entries(selectionSummary.tooltipBreakdowns).map(([col, breakdown]) => (
-              <CollapsibleBreakdown key={col} col={col} breakdown={breakdown} total={selectedPointIndices.length} />
-            ))}
-          </div>
+          <SelectionSummaryPanel
+            selectionSummary={selectionSummary}
+            selectedCount={selectedPointIndices.length}
+            categoryColorMap={categoryColorMap}
+            colorColumn={colorColumn}
+            selectedGene={selectedGene}
+            maxHeight={containerSize.height}
+          />
         )}
 
       </div>
