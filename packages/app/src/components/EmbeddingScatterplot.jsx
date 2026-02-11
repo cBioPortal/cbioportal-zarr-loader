@@ -7,21 +7,15 @@ import { OrthographicView } from "@deck.gl/core";
 import useAppStore from "../store/useAppStore";
 import { calculatePlotDimensions } from "../utils/calculatePlotDimensions";
 import { CATEGORICAL_COLORS, COLOR_SCALES, interpolateColorScale, colorScaleGradient } from "../utils/colors";
+import {
+  pointInPolygon,
+  buildScatterplotPoints,
+  buildSelectionSummary,
+  computeRange,
+  computeViewState,
+} from "../utils/scatterplotUtils";
 
 const { Text } = Typography;
-
-function pointInPolygon(x, y, polygon) {
-  let inside = false;
-  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
-    const xi = polygon[i][0], yi = polygon[i][1];
-    const xj = polygon[j][0], yj = polygon[j][1];
-    if ((yi > y) !== (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi) {
-      inside = !inside;
-    }
-  }
-  return inside;
-}
-
 const BREAKDOWN_LIMIT = 5;
 const LEGEND_LIMIT = 20;
 
@@ -124,73 +118,15 @@ export default function EmbeddingScatterplot({
   const deckRef = useRef(null);
   const [containerSize, setContainerSize] = useState({ width: 600, height: 600 });
 
-  // Compute expression range for normalization
-  const expressionRange = useMemo(() => {
-    if (!geneExpression) return null;
-    let min = Infinity, max = -Infinity;
-    for (let i = 0; i < geneExpression.length; i++) {
-      const val = geneExpression[i];
-      if (val < min) min = val;
-      if (val > max) max = val;
-    }
-    return { min, max };
-  }, [geneExpression]);
+  const expressionRange = useMemo(
+    () => computeRange(geneExpression),
+    [geneExpression],
+  );
 
-  const { points, categoryColorMap, bounds } = useMemo(() => {
-    if (!data || !shape) return { points: [], categoryColorMap: {}, bounds: null };
-
-    const cols = shape[1];
-    const step = Math.max(1, Math.floor(shape[0] / maxPoints));
-
-    // Build category color map (for obs columns)
-    const categories = new Map();
-    if (colorData) {
-      for (let i = 0; i < shape[0]; i += step) {
-        const cat = String(colorData[i]);
-        if (!categories.has(cat)) {
-          categories.set(cat, (categories.size % CATEGORICAL_COLORS.length));
-        }
-      }
-    }
-
-    // Build points array and calculate bounds
-    const pts = [];
-    let minX = Infinity, maxX = -Infinity;
-    let minY = Infinity, maxY = -Infinity;
-
-    for (let i = 0; i < shape[0]; i += step) {
-      const x = data[i * cols];
-      const y = -data[i * cols + 1]; // Flip Y axis
-
-      minX = Math.min(minX, x);
-      maxX = Math.max(maxX, x);
-      minY = Math.min(minY, y);
-      maxY = Math.max(maxY, y);
-
-      const cat = colorData ? String(colorData[i]) : "All";
-      const exprValue = geneExpression ? geneExpression[i] : null;
-
-      pts.push({
-        position: [x, y],
-        category: cat,
-        colorIndex: categories.get(cat) ?? 0,
-        index: i,
-        expression: exprValue,
-      });
-    }
-
-    // Convert categories map to object for legend
-    const colorMap = {};
-    categories.forEach((colorIdx, cat) => {
-      colorMap[cat] = CATEGORICAL_COLORS[colorIdx];
-    });
-
-    return {
-      points: pts,
-      categoryColorMap: colorMap,
-      bounds: { minX, maxX, minY, maxY },
-    };
-  }, [data, shape, colorData, geneExpression, maxPoints]);
+  const { points, categoryColorMap, bounds } = useMemo(
+    () => buildScatterplotPoints({ data, shape, maxPoints, colorData, geneExpression }),
+    [data, shape, colorData, geneExpression, maxPoints],
+  );
 
   // Calculate container dimensions based on available space and data aspect ratio
   useLayoutEffect(() => {
@@ -221,24 +157,10 @@ export default function EmbeddingScatterplot({
     return () => window.removeEventListener("resize", updateSize);
   }, [bounds, expanded]);
 
-  const initialViewState = useMemo(() => {
-    if (!bounds) return { target: [0, 0], zoom: 0 };
-
-    const centerX = (bounds.minX + bounds.maxX) / 2;
-    const centerY = (bounds.minY + bounds.maxY) / 2;
-    const rangeX = bounds.maxX - bounds.minX;
-    const rangeY = bounds.maxY - bounds.minY;
-    const maxRange = Math.max(rangeX, rangeY);
-
-    // Use the smaller container dimension to calculate zoom
-    const viewSize = Math.min(containerSize.width, containerSize.height);
-    const zoom = Math.log2(viewSize / maxRange) - 0.1;
-
-    return {
-      target: [centerX, centerY],
-      zoom: Math.max(-5, Math.min(zoom, 10)),
-    };
-  }, [bounds, containerSize]);
+  const initialViewState = useMemo(
+    () => computeViewState(bounds, containerSize),
+    [bounds, containerSize],
+  );
 
   // Selection rectangle mouse handlers — use refs + direct DOM updates to avoid re-renders during drag
   const updateSelectionRect = useCallback(() => {
@@ -395,51 +317,16 @@ export default function EmbeddingScatterplot({
       .sort((a, b) => (counts[b[0]] || 0) - (counts[a[0]] || 0));
   }, [categoryColorMap, colorData, points]);
 
-  const selectionSummary = useMemo(() => {
-    if (selectedSet.size === 0) return null;
-
-    // Category breakdown
-    let categoryBreakdown = null;
-    if (colorData) {
-      const counts = {};
-      for (const pt of points) {
-        if (!selectedSet.has(pt.index)) continue;
-        counts[pt.category] = (counts[pt.category] || 0) + 1;
-      }
-      categoryBreakdown = Object.entries(counts).sort((a, b) => b[1] - a[1]);
-    }
-
-    // Expression stats
-    let expressionStats = null;
-    if (geneExpression) {
-      let min = Infinity, max = -Infinity, sum = 0, count = 0;
-      for (const pt of points) {
-        if (!selectedSet.has(pt.index) || pt.expression == null) continue;
-        const v = pt.expression;
-        if (v < min) min = v;
-        if (v > max) max = v;
-        sum += v;
-        count++;
-      }
-      if (count > 0) {
-        expressionStats = { min, max, mean: sum / count, count };
-      }
-    }
-
-    // Tooltip column breakdowns
-    const tooltipBreakdowns = {};
-    for (const [col, values] of Object.entries(tooltipData)) {
-      const counts = {};
-      for (const pt of points) {
-        if (!selectedSet.has(pt.index)) continue;
-        const val = String(values[pt.index]);
-        counts[val] = (counts[val] || 0) + 1;
-      }
-      tooltipBreakdowns[col] = Object.entries(counts).sort((a, b) => b[1] - a[1]);
-    }
-
-    return { categoryBreakdown, expressionStats, tooltipBreakdowns };
-  }, [selectedSet, points, colorData, geneExpression, tooltipData]);
+  const selectionSummary = useMemo(
+    () => buildSelectionSummary({
+      selectedSet,
+      points,
+      hasColorData: !!colorData,
+      hasGeneExpression: !!geneExpression,
+      tooltipData,
+    }),
+    [selectedSet, points, colorData, geneExpression, tooltipData],
+  );
 
   return (
     <>
