@@ -6,13 +6,15 @@ import { ScatterplotLayer } from "@deck.gl/layers";
 import { OrthographicView } from "@deck.gl/core";
 import useAppStore from "../store/useAppStore";
 import { calculatePlotDimensions } from "../utils/calculatePlotDimensions";
-import { CATEGORICAL_COLORS, COLOR_SCALES, interpolateColorScale } from "../utils/colors";
+import { COLOR_SCALES } from "../utils/colors";
 import {
   pointInPolygon,
   buildScatterplotPoints,
   buildSelectionSummary,
   computeRange,
   computeViewState,
+  getPointFillColor,
+  sortCategoriesByCount,
 } from "../utils/scatterplotUtils";
 import HoverTooltip from "./HoverTooltip";
 import ExpressionLegend from "./ExpressionLegend";
@@ -217,20 +219,13 @@ export default function EmbeddingScatterplot({
       id: "scatterplot",
       data: points,
       getPosition: (d) => d.position,
-      getFillColor: (d) => {
-        const dimmed = selectedSet.size > 0 && !selectedSet.has(d.index);
-        if (dimmed) return [180, 180, 180, 60];
-
-        const scale = COLOR_SCALES[colorScaleName];
-        if (geneExpression && expressionRange && expressionRange.max > expressionRange.min) {
-          const t = (d.expression - expressionRange.min) / (expressionRange.max - expressionRange.min);
-          return interpolateColorScale(t, scale);
-        }
-        if (colorData) {
-          return CATEGORICAL_COLORS[d.colorIndex];
-        }
-        return [24, 144, 255];
-      },
+      getFillColor: (d) => getPointFillColor(d, {
+        selectedSet,
+        geneExpression,
+        expressionRange,
+        hasColorData: !!colorData,
+        colorScale: COLOR_SCALES[colorScaleName],
+      }),
       getRadius: 1,
       radiusUnits: "pixels",
       radiusMinPixels: 0.5,
@@ -244,15 +239,10 @@ export default function EmbeddingScatterplot({
     }),
   ];
 
-  const sortedCategories = useMemo(() => {
-    if (!colorData || Object.keys(categoryColorMap).length === 0) return [];
-    const counts = {};
-    for (const pt of points) {
-      counts[pt.category] = (counts[pt.category] || 0) + 1;
-    }
-    return Object.entries(categoryColorMap)
-      .sort((a, b) => (counts[b[0]] || 0) - (counts[a[0]] || 0));
-  }, [categoryColorMap, colorData, points]);
+  const sortedCategories = useMemo(
+    () => colorData ? sortCategoriesByCount(categoryColorMap, points) : [],
+    [categoryColorMap, colorData, points],
+  );
 
   const selectionSummary = useMemo(
     () => buildSelectionSummary({

@@ -5,8 +5,10 @@ import {
   computeViewState,
   buildScatterplotPoints,
   buildSelectionSummary,
+  getPointFillColor,
+  sortCategoriesByCount,
 } from "./scatterplotUtils";
-import { CATEGORICAL_COLORS } from "./colors";
+import { CATEGORICAL_COLORS, COLOR_SCALES, interpolateColorScale } from "./colors";
 
 // ---------------------------------------------------------------------------
 // pointInPolygon
@@ -479,5 +481,160 @@ describe("buildSelectionSummary", () => {
       expect(result.tooltipBreakdowns.status[0]).toEqual(["x", 3]);
       expect(result.tooltipBreakdowns.status[1]).toEqual(["y", 2]);
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// getPointFillColor
+// ---------------------------------------------------------------------------
+
+const colorOpts = {
+  selectedSet: new Set(),
+  geneExpression: null,
+  expressionRange: null,
+  hasColorData: false,
+  colorScale: COLOR_SCALES.viridis,
+};
+
+describe("getPointFillColor", () => {
+  it("returns default blue when no coloring is active", () => {
+    const point = { index: 0, expression: null, colorIndex: 0 };
+    expect(getPointFillColor(point, colorOpts)).toEqual([24, 144, 255]);
+  });
+
+  it("returns dimmed color when point is not in selection", () => {
+    const point = { index: 0, expression: null, colorIndex: 0 };
+    const opts = { ...colorOpts, selectedSet: new Set([1, 2]) };
+    expect(getPointFillColor(point, opts)).toEqual([180, 180, 180, 60]);
+  });
+
+  it("returns full color when point is in selection", () => {
+    const point = { index: 1, expression: null, colorIndex: 0 };
+    const opts = { ...colorOpts, selectedSet: new Set([1, 2]) };
+    // Not dimmed, no expression, no color data → default blue
+    expect(getPointFillColor(point, opts)).toEqual([24, 144, 255]);
+  });
+
+  it("returns categorical color when hasColorData is true", () => {
+    const point = { index: 0, expression: null, colorIndex: 2 };
+    const opts = { ...colorOpts, hasColorData: true };
+    expect(getPointFillColor(point, opts)).toEqual(CATEGORICAL_COLORS[2]);
+  });
+
+  it("returns expression-based color when gene expression is active", () => {
+    const expr = new Float32Array([0, 5, 10]);
+    const range = { min: 0, max: 10 };
+    const point = { index: 1, expression: 5, colorIndex: 0 };
+    const opts = {
+      ...colorOpts,
+      geneExpression: expr,
+      expressionRange: range,
+      colorScale: COLOR_SCALES.viridis,
+    };
+    const result = getPointFillColor(point, opts);
+    // t = 0.5, should match interpolateColorScale at midpoint
+    expect(result).toEqual(interpolateColorScale(0.5, COLOR_SCALES.viridis));
+  });
+
+  it("expression coloring takes priority over categorical", () => {
+    const expr = new Float32Array([0, 10]);
+    const range = { min: 0, max: 10 };
+    const point = { index: 0, expression: 0, colorIndex: 3 };
+    const opts = {
+      ...colorOpts,
+      geneExpression: expr,
+      expressionRange: range,
+      hasColorData: true,
+      colorScale: COLOR_SCALES.viridis,
+    };
+    const result = getPointFillColor(point, opts);
+    // Should use expression (t=0), not categorical
+    expect(result).toEqual(interpolateColorScale(0, COLOR_SCALES.viridis));
+  });
+
+  it("falls back to categorical when expression range is flat", () => {
+    const expr = new Float32Array([5, 5]);
+    const range = { min: 5, max: 5 };
+    const point = { index: 0, expression: 5, colorIndex: 1 };
+    const opts = {
+      ...colorOpts,
+      geneExpression: expr,
+      expressionRange: range,
+      hasColorData: true,
+    };
+    // max === min, so expression branch is skipped
+    expect(getPointFillColor(point, opts)).toEqual(CATEGORICAL_COLORS[1]);
+  });
+
+  it("dimming takes priority over all other coloring", () => {
+    const expr = new Float32Array([0, 10]);
+    const range = { min: 0, max: 10 };
+    const point = { index: 0, expression: 0, colorIndex: 0 };
+    const opts = {
+      ...colorOpts,
+      selectedSet: new Set([1]),
+      geneExpression: expr,
+      expressionRange: range,
+      hasColorData: true,
+    };
+    expect(getPointFillColor(point, opts)).toEqual([180, 180, 180, 60]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// sortCategoriesByCount
+// ---------------------------------------------------------------------------
+
+describe("sortCategoriesByCount", () => {
+  it("returns empty array for empty categoryColorMap", () => {
+    expect(sortCategoriesByCount({}, [])).toEqual([]);
+  });
+
+  it("sorts categories by point count descending", () => {
+    const colorMap = {
+      A: [255, 0, 0],
+      B: [0, 255, 0],
+      C: [0, 0, 255],
+    };
+    const pts = [
+      { category: "B" },
+      { category: "A" },
+      { category: "B" },
+      { category: "C" },
+      { category: "B" },
+    ];
+    const result = sortCategoriesByCount(colorMap, pts);
+    expect(result).toEqual([
+      ["B", [0, 255, 0]],
+      ["A", [255, 0, 0]],
+      ["C", [0, 0, 255]],
+    ]);
+  });
+
+  it("preserves color arrays in output", () => {
+    const colorMap = { X: [10, 20, 30] };
+    const pts = [{ category: "X" }];
+    const result = sortCategoriesByCount(colorMap, pts);
+    expect(result[0][1]).toEqual([10, 20, 30]);
+  });
+
+  it("handles categories in colorMap with zero points", () => {
+    const colorMap = {
+      A: [255, 0, 0],
+      B: [0, 255, 0],
+    };
+    const pts = [{ category: "A" }, { category: "A" }];
+    const result = sortCategoriesByCount(colorMap, pts);
+    // A has 2, B has 0
+    expect(result[0][0]).toBe("A");
+    expect(result[1][0]).toBe("B");
+  });
+
+  it("handles single category", () => {
+    const colorMap = { Only: [1, 2, 3] };
+    const pts = [{ category: "Only" }, { category: "Only" }];
+    const result = sortCategoriesByCount(colorMap, pts);
+    expect(result).toHaveLength(1);
+    expect(result[0]).toEqual(["Only", [1, 2, 3]]);
   });
 });

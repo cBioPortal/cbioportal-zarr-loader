@@ -1,4 +1,4 @@
-import { CATEGORICAL_COLORS } from "./colors";
+import { CATEGORICAL_COLORS, interpolateColorScale } from "./colors";
 
 /**
  * Ray-casting point-in-polygon test.
@@ -199,4 +199,48 @@ export function buildSelectionSummary({
   }
 
   return { categoryBreakdown, expressionStats, tooltipBreakdowns };
+}
+
+/**
+ * Determine the fill color for a scatterplot point based on selection state,
+ * gene expression, or categorical coloring.
+ *
+ * @param {Object} point - A scatterplot point with index, expression, colorIndex
+ * @param {Object} options
+ * @param {Set<number>} options.selectedSet - Currently selected point indices
+ * @param {Float32Array|number[]|null} options.geneExpression - Per-row expression values
+ * @param {{ min: number, max: number }|null} options.expressionRange - Range of expression values
+ * @param {boolean} options.hasColorData - Whether categorical coloring is active
+ * @param {Array} options.colorScale - Color scale array (e.g. COLOR_SCALES.viridis)
+ * @returns {number[]} RGBA or RGB color array
+ */
+export function getPointFillColor(point, { selectedSet, geneExpression, expressionRange, hasColorData, colorScale }) {
+  const dimmed = selectedSet.size > 0 && !selectedSet.has(point.index);
+  if (dimmed) return [180, 180, 180, 60];
+
+  if (geneExpression && expressionRange && expressionRange.max > expressionRange.min) {
+    const t = (point.expression - expressionRange.min) / (expressionRange.max - expressionRange.min);
+    return interpolateColorScale(t, colorScale);
+  }
+  if (hasColorData) {
+    return CATEGORICAL_COLORS[point.colorIndex];
+  }
+  return [24, 144, 255];
+}
+
+/**
+ * Sort categories by point count descending for legend display.
+ *
+ * @param {Object} categoryColorMap - Map of category name to RGB color array
+ * @param {Array} points - Array of scatterplot points with .category property
+ * @returns {Array<[string, number[]]>} Sorted array of [category, colorArray] pairs
+ */
+export function sortCategoriesByCount(categoryColorMap, points) {
+  if (Object.keys(categoryColorMap).length === 0) return [];
+  const counts = {};
+  for (const pt of points) {
+    counts[pt.category] = (counts[pt.category] || 0) + 1;
+  }
+  return Object.entries(categoryColorMap)
+    .sort((a, b) => (counts[b[0]] || 0) - (counts[a[0]] || 0));
 }
