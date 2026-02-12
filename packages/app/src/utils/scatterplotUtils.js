@@ -22,6 +22,66 @@ export function pointInPolygon(x, y, polygon) {
 }
 
 /**
+ * Simplify a polygon using the Ramer-Douglas-Peucker algorithm.
+ * Reduces dense lasso traces to a compact set of vertices while preserving shape.
+ *
+ * @param {Array<[number, number]>} polygon - Array of [x, y] vertices
+ * @param {number} [epsilon] - Distance tolerance. If omitted, auto-computed as 0.1% of the bounding diagonal.
+ * @returns {Array<[number, number]>} Simplified polygon
+ */
+export function simplifyPolygon(polygon, epsilon) {
+  if (polygon.length <= 3) return polygon;
+
+  if (epsilon === undefined) {
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (const [x, y] of polygon) {
+      if (x < minX) minX = x;
+      if (x > maxX) maxX = x;
+      if (y < minY) minY = y;
+      if (y > maxY) maxY = y;
+    }
+    const diagonal = Math.sqrt((maxX - minX) ** 2 + (maxY - minY) ** 2);
+    epsilon = diagonal * 0.001;
+  }
+
+  return rdp(polygon, epsilon);
+}
+
+function rdp(points, epsilon) {
+  let maxDist = 0;
+  let maxIdx = 0;
+  const first = points[0];
+  const last = points[points.length - 1];
+
+  for (let i = 1; i < points.length - 1; i++) {
+    const dist = perpendicularDist(points[i], first, last);
+    if (dist > maxDist) {
+      maxDist = dist;
+      maxIdx = i;
+    }
+  }
+
+  if (maxDist > epsilon) {
+    const left = rdp(points.slice(0, maxIdx + 1), epsilon);
+    const right = rdp(points.slice(maxIdx), epsilon);
+    return left.slice(0, -1).concat(right);
+  }
+
+  return [first, last];
+}
+
+function perpendicularDist(point, lineStart, lineEnd) {
+  const [px, py] = point;
+  const [x1, y1] = lineStart;
+  const [x2, y2] = lineEnd;
+  const dx = x2 - x1;
+  const dy = y2 - y1;
+  const lenSq = dx * dx + dy * dy;
+  if (lenSq === 0) return Math.sqrt((px - x1) ** 2 + (py - y1) ** 2);
+  return Math.abs(dy * px - dx * py + x2 * y1 - y2 * x1) / Math.sqrt(lenSq);
+}
+
+/**
  * Compute the min and max of a numeric array.
  *
  * @param {Float32Array|number[]|null} values

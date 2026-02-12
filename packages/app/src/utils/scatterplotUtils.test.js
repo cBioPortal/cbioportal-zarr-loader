@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   pointInPolygon,
+  simplifyPolygon,
   computeRange,
   computeViewState,
   buildScatterplotPoints,
@@ -68,6 +69,59 @@ describe("pointInPolygon", () => {
 
   it("handles an empty polygon", () => {
     expect(pointInPolygon(0, 0, [])).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// simplifyPolygon
+// ---------------------------------------------------------------------------
+
+describe("simplifyPolygon", () => {
+  it("returns polygon as-is when 3 or fewer points", () => {
+    const tri = [[0, 0], [1, 0], [0, 1]];
+    expect(simplifyPolygon(tri)).toEqual(tri);
+  });
+
+  it("removes collinear points", () => {
+    // Straight line from (0,0) to (4,0) with intermediate points
+    const line = [[0, 0], [1, 0], [2, 0], [3, 0], [4, 0]];
+    const result = simplifyPolygon(line, 0.01);
+    expect(result).toEqual([[0, 0], [4, 0]]);
+  });
+
+  it("preserves corners of a square", () => {
+    // Square with many interpolated points along each edge
+    const dense = [];
+    for (let i = 0; i <= 10; i++) dense.push([i, 0]);
+    for (let i = 0; i <= 10; i++) dense.push([10, i]);
+    for (let i = 10; i >= 0; i--) dense.push([i, 10]);
+    for (let i = 10; i >= 0; i--) dense.push([0, i]);
+    const result = simplifyPolygon(dense, 0.01);
+    // Should keep the 4 corners + closure
+    expect(result.length).toBeLessThanOrEqual(5);
+    expect(result[0]).toEqual([0, 0]);
+    expect(result[result.length - 1]).toEqual([0, 0]);
+  });
+
+  it("reduces a dense polygon significantly", () => {
+    // Circle approximated with 200 points
+    const dense = [];
+    for (let i = 0; i < 200; i++) {
+      const angle = (2 * Math.PI * i) / 200;
+      dense.push([Math.cos(angle) * 100, Math.sin(angle) * 100]);
+    }
+    const result = simplifyPolygon(dense);
+    expect(result.length).toBeLessThan(dense.length);
+    expect(result.length).toBeGreaterThan(3);
+  });
+
+  it("auto-computes epsilon from bounding box", () => {
+    // Large-scale polygon should still simplify
+    const dense = [];
+    for (let i = 0; i < 100; i++) dense.push([i * 10, 0]);
+    dense.push([990, 500]);
+    const result = simplifyPolygon(dense);
+    expect(result.length).toBeLessThan(dense.length);
   });
 });
 

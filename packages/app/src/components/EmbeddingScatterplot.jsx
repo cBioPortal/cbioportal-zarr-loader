@@ -9,6 +9,7 @@ import { calculatePlotDimensions } from "../utils/calculatePlotDimensions";
 import { COLOR_SCALES } from "../utils/colors";
 import {
   pointInPolygon,
+  simplifyPolygon,
   buildScatterplotPoints,
   buildSelectionSummary,
   computeRange,
@@ -206,7 +207,7 @@ export default function EmbeddingScatterplot({
             indices.push(pt.index);
           }
         }
-        setSelectionGeometry({ type: "lasso", polygon: worldPolygon });
+        setSelectionGeometry({ type: "lasso", polygon: simplifyPolygon(worldPolygon) });
         setSelectedPoints(indices);
       }
       lassoPointsRef.current = [];
@@ -439,6 +440,7 @@ export default function EmbeddingScatterplot({
                 alignItems: "center",
                 gap: 6,
               }}
+              onMouseDown={(e) => e.stopPropagation()}
             >
               {selectedPointIndices.length.toLocaleString()} selected
               {selectionGeometry && onSaveSelection && (
