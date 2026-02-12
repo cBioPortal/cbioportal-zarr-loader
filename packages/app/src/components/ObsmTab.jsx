@@ -28,6 +28,30 @@ import {
 
 const { Text } = Typography;
 
+const EXAMPLE_FILTER = JSON.stringify({
+  defaults: { embedding_key: "X_umap50", active_tooltips: ["cell_type", "author_sample_id"], color_by: { type: "category", value: "cell_type" } },
+  initial_view: "OV-070 by cell_type",
+  saved_views: [
+    {
+      name: "OV-070 by cell_type",
+      selection: { target: "donor_id", values: ["SPECTRUM-OV-070"] },
+      active_tooltips: ["cell_type", "author_sample_id"],
+      color_by: { type: "category", value: "cell_type" }
+    },
+    {
+      name: "OV-090 & OV-022 by cell_type",
+      selection: { target: "donor_id", values: ["SPECTRUM-OV-090", "SPECTRUM-OV-022"] },
+      active_tooltips: ["cell_type", "author_sample_id", "Phase"],
+      color_by: { type: "category", value: "cell_type" }
+    },
+    {
+      selection: { target: "donor_id", values: ["SPECTRUM-OV-041"] },
+      active_tooltips: ["cell_type", "author_sample_id", "Phase"],
+      color_by: { type: "gene", value: "dapl1", color_scale: "magma" }
+    }
+  ]
+}, null, 2);
+
 export default function ObsmTab() {
   const {
     metadata,
@@ -46,29 +70,7 @@ export default function ObsmTab() {
     setColorScaleName,
   } = useAppStore();
 
-  const [filterJson, setFilterJson] = useState(JSON.stringify({
-    defaults: { embedding_key: "X_umap50", active_tooltips: ["cell_type", "author_sample_id"], color_by: { type: "category", value: "cell_type" } },
-    initial_view: "OV-070 by cell_type",
-    saved_views: [
-      {
-        name: "OV-070 by cell_type",
-        selection: { target: "donor_id", values: ["SPECTRUM-OV-070"] },
-        active_tooltips: ["cell_type", "author_sample_id"],
-        color_by: { type: "category", value: "cell_type" }
-      },
-      {
-        name: "OV-090 & OV-022 by cell_type",
-        selection: { target: "donor_id", values: ["SPECTRUM-OV-090", "SPECTRUM-OV-022"] },
-        active_tooltips: ["cell_type", "author_sample_id", "Phase"],
-        color_by: { type: "category", value: "cell_type" }
-      },
-      {
-        selection: { target: "donor_id", values: ["SPECTRUM-OV-041"] },
-        active_tooltips: ["cell_type", "author_sample_id", "Phase"],
-        color_by: { type: "gene", value: "dapl1", color_scale: "magma" }
-      }
-    ]
-  }, null, 2));
+  const [filterJson, setFilterJson] = useState("");
   const [appliedSelections, setAppliedSelections] = useState([]);
   const [activeSelectionIndex, setActiveSelectionIndex] = useState(undefined);
   const [defaults, setDefaults] = useState({});
@@ -261,6 +263,19 @@ export default function ObsmTab() {
               placeholder='{"initial_view": "my view", "saved_views": [{"name": "my view", ...}]}'
             />
             <Space style={{ marginTop: 8 }}>
+              <Button
+                size="small"
+                onClick={() => setFilterJson(EXAMPLE_FILTER)}
+              >
+                Example
+              </Button>
+              <Button
+                size="small"
+                onClick={() => setFilterJson("")}
+                disabled={!filterJson}
+              >
+                Clear
+              </Button>
               <Button
                 size="small"
                 onClick={() => {
