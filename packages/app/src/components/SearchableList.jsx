@@ -25,6 +25,14 @@ export default function SearchableList({
 
   if (!items || items.length === 0) return null;
 
+  const ITEM_HEIGHT = 25;
+  const HEADER_HEIGHT = 38;
+  const SEARCH_HEIGHT = 41;
+  const SEARCH_THRESHOLD = 10;
+  const showSearch = items.length > SEARCH_THRESHOLD;
+  const contentHeight = HEADER_HEIGHT + (showSearch ? SEARCH_HEIGHT : 0) + items.length * ITEM_HEIGHT;
+  const autoHeight = Math.min(contentHeight, height);
+
   const isSelected = multiSelect
     ? (item) => selected.includes(item)
     : (item) => selected === item;
@@ -40,7 +48,7 @@ export default function SearchableList({
           Clear
         </Button>
       ) : null}
-      style={{ width, height, ...style }}
+      style={{ width, height: autoHeight, ...style }}
       styles={{
         body: {
           padding: 0,
@@ -51,15 +59,17 @@ export default function SearchableList({
         },
       }}
     >
-      <div style={{ padding: 8, borderBottom: "1px solid #f0f0f0" }}>
-        <Input.Search
-          placeholder={placeholder}
-          size="small"
-          value={searchText}
-          onChange={(e) => setSearchText(e.target.value)}
-          allowClear
-        />
-      </div>
+      {showSearch && (
+        <div style={{ padding: 8, borderBottom: "1px solid #f0f0f0" }}>
+          <Input.Search
+            placeholder={placeholder}
+            size="small"
+            value={searchText}
+            onChange={(e) => setSearchText(e.target.value)}
+            allowClear
+          />
+        </div>
+      )}
       <div style={{ flex: 1, overflow: "auto" }}>
         {filteredItems.map((item) => (
           <div
