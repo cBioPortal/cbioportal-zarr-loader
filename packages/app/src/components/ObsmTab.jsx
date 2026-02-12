@@ -168,6 +168,7 @@ export default function ObsmTab() {
     // Populate the dropdown with all saved_views
     setAppliedSelections(saved_views);
     setActiveSelectionIndex(saved_views.indexOf(initialMatch));
+    setDrawerOpen(false);
   };
 
   const handleSelectionPick = async (index) => {
@@ -225,7 +226,7 @@ export default function ObsmTab() {
                   size="small"
                   icon={<EditOutlined />}
                   onClick={() => setDrawerOpen(true)}
-                  title="Edit JSON filter"
+                  title="Edit JSON config"
                 />
                 <Button
                   size="small"
@@ -259,7 +260,7 @@ export default function ObsmTab() {
             )}
           </Card>
           <Drawer
-            title="Edit JSON Filter"
+            title="Edit JSON Config"
             placement="right"
             width={480}
             open={drawerOpen}
@@ -271,20 +272,7 @@ export default function ObsmTab() {
               onChange={e => setFilterJson(e.target.value)}
               placeholder='{"initial_view": "my view", "saved_views": [{"name": "my view", ...}]}'
             />
-            <Space style={{ marginTop: 8 }}>
-              <Button
-                size="small"
-                onClick={() => setFilterJson(EXAMPLE_FILTER)}
-              >
-                Example
-              </Button>
-              <Button
-                size="small"
-                onClick={() => setFilterJson("")}
-                disabled={!filterJson}
-              >
-                Clear
-              </Button>
+            <div style={{ marginTop: 8, display: "flex", justifyContent: "space-between" }}>
               <Button
                 size="small"
                 onClick={() => {
@@ -297,14 +285,22 @@ export default function ObsmTab() {
               >
                 Format
               </Button>
-              <Button
-                type="primary"
-                size="small"
-                onClick={handleFilterApply}
-              >
-                Apply Filter
-              </Button>
-            </Space>
+              <Space>
+                <Button
+                  size="small"
+                  onClick={() => setFilterJson(EXAMPLE_FILTER)}
+                >
+                  Example
+                </Button>
+                <Button
+                  type="primary"
+                  size="small"
+                  onClick={handleFilterApply}
+                >
+                  Load Config
+                </Button>
+              </Space>
+            </div>
           </Drawer>
         </>
       ) : (
