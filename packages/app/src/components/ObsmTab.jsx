@@ -262,7 +262,7 @@ export default function ObsmTab() {
           <Drawer
             title="Edit JSON Config"
             placement="right"
-            width={480}
+            size={480}
             open={drawerOpen}
             onClose={() => setDrawerOpen(false)}
           >
