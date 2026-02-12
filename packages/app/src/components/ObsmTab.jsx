@@ -16,9 +16,15 @@ import ColorColumnList from "./ColorColumnList";
 import GeneList from "./GeneList";
 import TooltipColumnList from "./TooltipColumnList";
 import TabLayout from "./TabLayout";
+import { z } from "zod";
 import useAppStore from "../store/useAppStore";
 
 const { Text } = Typography;
+
+const filterSchema = z.object({
+  obs_category: z.string(),
+  values: z.array(z.union([z.string(), z.number()])),
+});
 
 export default function ObsmTab() {
   const {
@@ -50,19 +56,21 @@ export default function ObsmTab() {
   }, [obsmKeys, selectedObsm, fetchObsm]);
 
   const handleFilterApply = async () => {
-    let parsed;
+    let raw;
     try {
-      parsed = JSON.parse(filterJson);
+      raw = JSON.parse(filterJson);
     } catch {
       message.error("Invalid JSON");
       return;
     }
 
-    const { obs_category, values } = parsed;
-    if (typeof obs_category !== "string" || !Array.isArray(values)) {
-      message.error('JSON must have "obs_category" (string) and "values" (array)');
+    const result = filterSchema.safeParse(raw);
+    if (!result.success) {
+      message.error(result.error.issues.map(i => i.message).join("; "));
       return;
     }
+
+    const { obs_category, values } = result.data;
 
     // Load the tooltip column if not already loaded
     if (!tooltipColumns.includes(obs_category)) {
