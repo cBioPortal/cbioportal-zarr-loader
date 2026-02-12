@@ -6,10 +6,27 @@ export const ColorBySchema = z.object({
   color_scale: z.enum(["viridis", "magma"]).optional(),
 });
 
-export const SelectionSchema = z.object({
+const CategorySelectionSchema = z.object({
+  type: z.literal("category").default("category"),
   target: z.string(),
   values: z.array(z.union([z.string(), z.number()])),
 });
+
+const RectangleSelectionSchema = z.object({
+  type: z.literal("rectangle"),
+  bounds: z.tuple([z.number(), z.number(), z.number(), z.number()]),
+});
+
+const LassoSelectionSchema = z.object({
+  type: z.literal("lasso"),
+  polygon: z.array(z.tuple([z.number(), z.number()])),
+});
+
+export const SelectionSchema = z.union([
+  CategorySelectionSchema,
+  RectangleSelectionSchema,
+  LassoSelectionSchema,
+]);
 
 export const ViewSchema = z.object({
   name: z.string().optional(),
