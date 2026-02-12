@@ -34,7 +34,7 @@ export default function ObsmTab() {
     setSelectedPoints,
   } = useAppStore();
 
-  const [filterJson, setFilterJson] = useState('{"obs_category": "donor_id", "values": ["SPECTRUM-OV-070"]}');
+  const [filterJson, setFilterJson] = useState(JSON.stringify({ obs_category: "donor_id", values: ["SPECTRUM-OV-070"] }, null, 2));
 
   const { obsmKeys } = metadata;
   const isEmbedding = selectedObsm && /umap|tsne|pca/i.test(selectedObsm) && obsmData?.shape?.[1] >= 2;
@@ -149,14 +149,27 @@ export default function ObsmTab() {
               onChange={e => setFilterJson(e.target.value)}
               placeholder='{"obs_category": "donor_id", "values": ["SPECTRUM-OV-070"]}'
             />
-            <Button
-              type="primary"
-              size="small"
-              onClick={handleFilterApply}
-              style={{ marginTop: 8 }}
-            >
-              Apply Filter
-            </Button>
+            <Space style={{ marginTop: 8 }}>
+              <Button
+                size="small"
+                onClick={() => {
+                  try {
+                    setFilterJson(JSON.stringify(JSON.parse(filterJson), null, 2));
+                  } catch {
+                    message.error("Invalid JSON — cannot format");
+                  }
+                }}
+              >
+                Format
+              </Button>
+              <Button
+                type="primary"
+                size="small"
+                onClick={handleFilterApply}
+              >
+                Apply Filter
+              </Button>
+            </Space>
           </Card>
         </>
       ) : (
