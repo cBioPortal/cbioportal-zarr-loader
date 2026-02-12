@@ -58,6 +58,7 @@ const useAppStore = create((set, get) => ({
 
   // Selection state
   selectedPointIndices: [],
+  selectionGeometry: null, // { type: "rectangle", bounds: [x1,y1,x2,y2] } or { type: "lasso", polygon: [[x,y],...] }
 
   // Cached indices
   obsIndex: null,
@@ -446,8 +447,10 @@ const useAppStore = create((set, get) => ({
     set({ selectedPointIndices: indices });
   },
 
+  setSelectionGeometry: (geometry) => set({ selectionGeometry: geometry }),
+
   clearSelectedPoints: () => {
-    set({ selectedPointIndices: [] });
+    set({ selectedPointIndices: [], selectionGeometry: null });
   },
 }));
 
