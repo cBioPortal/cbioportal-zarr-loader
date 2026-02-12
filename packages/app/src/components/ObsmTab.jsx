@@ -41,8 +41,14 @@ const ViewSchema = z.object({
   color_by: ColorBySchema.optional(),
 });
 
+const DefaultsSchema = z.object({
+  embedding_key: z.string().optional(),
+  active_tooltips: z.array(z.string()).optional(),
+  color_by: ColorBySchema.optional(),
+});
+
 const FilterSchema = z.object({
-  default_embedding_key: z.string().optional(),
+  defaults: DefaultsSchema.optional(),
   initial_view: z.union([z.string(), z.number().int().nonnegative()]),
   saved_views: z.array(ViewSchema),
 });
@@ -66,7 +72,7 @@ export default function ObsmTab() {
   } = useAppStore();
 
   const [filterJson, setFilterJson] = useState(JSON.stringify({
-    default_embedding_key: "X_umap50",
+    defaults: { embedding_key: "X_umap50", active_tooltips: ["cell_type", "author_sample_id"], color_by: { type: "category", value: "cell_type" } },
     initial_view: "OV-070 by cell_type",
     saved_views: [
       {
@@ -90,7 +96,7 @@ export default function ObsmTab() {
   }, null, 2));
   const [appliedSelections, setAppliedSelections] = useState([]);
   const [activeSelectionIndex, setActiveSelectionIndex] = useState(undefined);
-  const [defaultEmbeddingKey, setDefaultEmbeddingKey] = useState(null);
+  const [defaults, setDefaults] = useState({});
 
   const { obsmKeys } = metadata;
   const isEmbedding = selectedObsm && /umap|tsne|pca/i.test(selectedObsm) && obsmData?.shape?.[1] >= 2;
@@ -105,9 +111,9 @@ export default function ObsmTab() {
     }
   }, [obsmKeys, selectedObsm, fetchObsm]);
 
-  const applyView = async ({ embedding_key, selection, active_tooltips = [], color_by }) => {
+  const applyView = async ({ embedding_key, selection, active_tooltips, color_by }) => {
     // Load embedding: use view-specific key, fall back to default
-    const embeddingKey = embedding_key || defaultEmbeddingKey;
+    const embeddingKey = embedding_key || defaults.embedding_key;
     if (embeddingKey) {
       await fetchObsm(embeddingKey);
     }
@@ -116,7 +122,8 @@ export default function ObsmTab() {
 
     // Clear existing tooltips and load only the ones specified
     clearTooltipColumns();
-    const columnsToLoad = [target, ...active_tooltips];
+    const tooltips = active_tooltips || defaults.active_tooltips || [];
+    const columnsToLoad = [target, ...tooltips];
     await Promise.all(columnsToLoad.map(col => toggleTooltipColumn(col)));
 
     const columnData = useAppStore.getState().tooltipData[target];
@@ -133,21 +140,22 @@ export default function ObsmTab() {
       }
     }
 
-    // Apply color_by if specified
-    if (color_by) {
+    // Apply color_by: use view-specific, fall back to default
+    const resolvedColorBy = color_by || defaults.color_by;
+    if (resolvedColorBy) {
       try {
-        if (color_by.type === "category") {
-          await setColorColumn(color_by.value);
-        } else if (color_by.type === "gene") {
+        if (resolvedColorBy.type === "category") {
+          await setColorColumn(resolvedColorBy.value);
+        } else if (resolvedColorBy.type === "gene") {
           const { geneNames } = useAppStore.getState().metadata;
-          const match = geneNames.find(g => g.toLowerCase() === color_by.value.toLowerCase());
+          const match = geneNames.find(g => g.toLowerCase() === resolvedColorBy.value.toLowerCase());
           if (!match) {
-            throw new Error(`Gene "${color_by.value}" not found`);
+            throw new Error(`Gene "${resolvedColorBy.value}" not found`);
           }
           await setSelectedGene(match);
         }
-        if (color_by.color_scale) {
-          setColorScaleName(color_by.color_scale);
+        if (resolvedColorBy.color_scale) {
+          setColorScaleName(resolvedColorBy.color_scale);
         }
       } catch (err) {
         message.error(`color_by: ${err.message}`);
@@ -173,8 +181,8 @@ export default function ObsmTab() {
       return;
     }
 
-    const { default_embedding_key, initial_view, saved_views } = result.data;
-    setDefaultEmbeddingKey(default_embedding_key);
+    const { defaults: parsedDefaults = {}, initial_view, saved_views } = result.data;
+    setDefaults(parsedDefaults);
     let initialMatch;
     if (typeof initial_view === "number") {
       if (initial_view >= saved_views.length) {
