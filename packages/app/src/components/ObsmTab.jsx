@@ -24,6 +24,7 @@ const { Text } = Typography;
 const filterSchema = z.object({
   obs_category: z.string(),
   values: z.array(z.union([z.string(), z.number()])),
+  tooltips: z.array(z.string()).optional(),
 });
 
 export default function ObsmTab() {
@@ -40,7 +41,7 @@ export default function ObsmTab() {
     setSelectedPoints,
   } = useAppStore();
 
-  const [filterJson, setFilterJson] = useState(JSON.stringify({ obs_category: "donor_id", values: ["SPECTRUM-OV-070"] }, null, 2));
+  const [filterJson, setFilterJson] = useState(JSON.stringify({ obs_category: "donor_id", values: ["SPECTRUM-OV-070"], tooltips: ["cell_type", "author_sample_id"] }, null, 2));
 
   const { obsmKeys } = metadata;
   const isEmbedding = selectedObsm && /umap|tsne|pca/i.test(selectedObsm) && obsmData?.shape?.[1] >= 2;
@@ -70,12 +71,13 @@ export default function ObsmTab() {
       return;
     }
 
-    const { obs_category, values } = result.data;
+    const { obs_category, values, tooltips = [] } = result.data;
 
-    // Load the tooltip column if not already loaded
-    if (!tooltipColumns.includes(obs_category)) {
-      await toggleTooltipColumn(obs_category);
-    }
+    // Load the obs_category and any extra tooltip columns if not already loaded
+    const columnsToLoad = [obs_category, ...tooltips].filter(
+      col => !tooltipColumns.includes(col)
+    );
+    await Promise.all(columnsToLoad.map(col => toggleTooltipColumn(col)));
 
     const columnData = useAppStore.getState().tooltipData[obs_category];
     if (!columnData) {
