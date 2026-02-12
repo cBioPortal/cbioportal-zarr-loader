@@ -7,6 +7,7 @@ import {
   Space,
   Button,
   Input,
+  Select,
   message,
 } from "antd";
 import { ReloadOutlined } from "@ant-design/icons";
@@ -43,13 +44,26 @@ export default function ObsmTab() {
     tooltipData,
     tooltipColumns,
     toggleTooltipColumn,
+    clearTooltipColumns,
     setSelectedPoints,
   } = useAppStore();
 
   const [filterJson, setFilterJson] = useState(JSON.stringify({
-    selection: { target: "donor_id", values: ["SPECTRUM-OV-070"], active_tooltips: ["cell_type", "author_sample_id"] },
-    saved_selections: [{ target: "cell_type", values: ["Tumor"], active_tooltips: ["donor_id"] }],
+    selection: {
+      target: "donor_id",
+      values: ["SPECTRUM-OV-070"],
+      active_tooltips: ["cell_type", "author_sample_id"]
+    },
+    saved_selections: [
+      {
+        target: "donor_id",
+        values: ["SPECTRUM-OV-090", "SPECTRUM-OV-022"],
+        active_tooltips: ["cell_type", "author_sample_id", "Phase"]
+      }
+    ]
   }, null, 2));
+  const [appliedSelections, setAppliedSelections] = useState([]);
+  const [activeSelectionIndex, setActiveSelectionIndex] = useState(undefined);
 
   const { obsmKeys } = metadata;
   const isEmbedding = selectedObsm && /umap|tsne|pca/i.test(selectedObsm) && obsmData?.shape?.[1] >= 2;
@@ -64,27 +78,10 @@ export default function ObsmTab() {
     }
   }, [obsmKeys, selectedObsm, fetchObsm]);
 
-  const handleFilterApply = async () => {
-    let raw;
-    try {
-      raw = JSON.parse(filterJson);
-    } catch {
-      message.error("Invalid JSON");
-      return;
-    }
-
-    const result = filterSchema.safeParse(raw);
-    if (!result.success) {
-      message.error(result.error.issues.map(i => i.message).join("; "));
-      return;
-    }
-
-    const { target, values, active_tooltips = [] } = result.data.selection;
-
-    // Load the target and any extra tooltip columns if not already loaded
-    const columnsToLoad = [target, ...active_tooltips].filter(
-      col => !tooltipColumns.includes(col)
-    );
+  const applySelection = async ({ target, values, active_tooltips = [] }) => {
+    // Clear existing tooltips and load only the ones specified
+    clearTooltipColumns();
+    const columnsToLoad = [target, ...active_tooltips];
     await Promise.all(columnsToLoad.map(col => toggleTooltipColumn(col)));
 
     const columnData = useAppStore.getState().tooltipData[target];
@@ -103,6 +100,40 @@ export default function ObsmTab() {
 
     setSelectedPoints(matchingIndices);
     message.success(`Selected ${matchingIndices.length} points`);
+  };
+
+  const handleFilterApply = async () => {
+    let raw;
+    try {
+      raw = JSON.parse(filterJson);
+    } catch {
+      message.error("Invalid JSON");
+      return;
+    }
+
+    const result = filterSchema.safeParse(raw);
+    if (!result.success) {
+      message.error(result.error.issues.map(i => i.message).join("; "));
+      return;
+    }
+
+    await applySelection(result.data.selection);
+
+    // Save the applied selection and any saved_selections to the dropdown history
+    const selectionKey = JSON.stringify(result.data.selection);
+    const newSelections = [result.data.selection, ...(result.data.saved_selections ?? [])];
+    setAppliedSelections(prev => {
+      const existing = new Set(prev.map(s => JSON.stringify(s)));
+      const toAdd = newSelections.filter(s => !existing.has(JSON.stringify(s)));
+      const next = toAdd.length > 0 ? [...prev, ...toAdd] : prev;
+      setActiveSelectionIndex(next.findIndex(s => JSON.stringify(s) === selectionKey));
+      return next;
+    });
+  };
+
+  const handleSelectionPick = async (index) => {
+    setActiveSelectionIndex(index);
+    await applySelection(appliedSelections[index]);
   };
 
   return (
@@ -161,6 +192,16 @@ export default function ObsmTab() {
             )}
           </Card>
           <Card title="Selection Filter" size="small" style={{ marginTop: 16 }}>
+            <Select
+              placeholder="No applied selections"
+              style={{ width: "100%", marginBottom: 8 }}
+              onChange={handleSelectionPick}
+              value={activeSelectionIndex}
+              options={appliedSelections.map((s, i) => ({
+                value: i,
+                label: `${s.target}: ${s.values.join(", ")}`,
+              }))}
+            />
             <Input.TextArea
               autoSize={{ minRows: 2 }}
               value={filterJson}
