@@ -172,6 +172,7 @@ export default function ObsmTab() {
   };
 
   const handleSelectionPick = async (index) => {
+    if (index === undefined) return;
     setActiveSelectionIndex(index);
     await applyView(appliedSelections[index]);
   };
