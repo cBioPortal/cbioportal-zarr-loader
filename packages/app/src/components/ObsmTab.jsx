@@ -21,10 +21,15 @@ import useAppStore from "../store/useAppStore";
 
 const { Text } = Typography;
 
-const filterSchema = z.object({
-  obs_category: z.string(),
+const selectionSchema = z.object({
+  target: z.string(),
   values: z.array(z.union([z.string(), z.number()])),
-  tooltips: z.array(z.string()).optional(),
+  active_tooltips: z.array(z.string()).optional(),
+});
+
+const filterSchema = z.object({
+  selection: selectionSchema,
+  saved_selections: z.array(selectionSchema).optional(),
 });
 
 export default function ObsmTab() {
@@ -41,7 +46,10 @@ export default function ObsmTab() {
     setSelectedPoints,
   } = useAppStore();
 
-  const [filterJson, setFilterJson] = useState(JSON.stringify({ obs_category: "donor_id", values: ["SPECTRUM-OV-070"], tooltips: ["cell_type", "author_sample_id"] }, null, 2));
+  const [filterJson, setFilterJson] = useState(JSON.stringify({
+    selection: { target: "donor_id", values: ["SPECTRUM-OV-070"], active_tooltips: ["cell_type", "author_sample_id"] },
+    saved_selections: [{ target: "cell_type", values: ["Tumor"], active_tooltips: ["donor_id"] }],
+  }, null, 2));
 
   const { obsmKeys } = metadata;
   const isEmbedding = selectedObsm && /umap|tsne|pca/i.test(selectedObsm) && obsmData?.shape?.[1] >= 2;
@@ -71,17 +79,17 @@ export default function ObsmTab() {
       return;
     }
 
-    const { obs_category, values, tooltips = [] } = result.data;
+    const { target, values, active_tooltips = [] } = result.data.selection;
 
-    // Load the obs_category and any extra tooltip columns if not already loaded
-    const columnsToLoad = [obs_category, ...tooltips].filter(
+    // Load the target and any extra tooltip columns if not already loaded
+    const columnsToLoad = [target, ...active_tooltips].filter(
       col => !tooltipColumns.includes(col)
     );
     await Promise.all(columnsToLoad.map(col => toggleTooltipColumn(col)));
 
-    const columnData = useAppStore.getState().tooltipData[obs_category];
+    const columnData = useAppStore.getState().tooltipData[target];
     if (!columnData) {
-      message.error(`Failed to load column "${obs_category}".`);
+      message.error(`Failed to load column "${target}".`);
       return;
     }
 
@@ -157,7 +165,7 @@ export default function ObsmTab() {
               autoSize={{ minRows: 2 }}
               value={filterJson}
               onChange={e => setFilterJson(e.target.value)}
-              placeholder='{"obs_category": "donor_id", "values": ["SPECTRUM-OV-070"]}'
+              placeholder='{"selection": {"target": "donor_id", "values": ["SPECTRUM-OV-070"]}}'
             />
             <Space style={{ marginTop: 8 }}>
               <Button
