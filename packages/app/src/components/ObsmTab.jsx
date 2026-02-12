@@ -17,41 +17,15 @@ import ColorColumnList from "./ColorColumnList";
 import GeneList from "./GeneList";
 import TooltipColumnList from "./TooltipColumnList";
 import TabLayout from "./TabLayout";
-import { z } from "zod";
 import useAppStore from "../store/useAppStore";
+import {
+  FilterSchema,
+  findMatchingIndices,
+  resolveInitialView,
+  resolveViewWithDefaults,
+} from "../utils/filterUtils";
 
 const { Text } = Typography;
-
-const ColorBySchema = z.object({
-  type: z.enum(["category", "gene"]),
-  value: z.string(),
-  color_scale: z.enum(["viridis", "magma"]).optional(),
-});
-
-const SelectionSchema = z.object({
-  target: z.string(),
-  values: z.array(z.union([z.string(), z.number()])),
-});
-
-const ViewSchema = z.object({
-  name: z.string().optional(),
-  embedding_key: z.string().optional(),
-  selection: SelectionSchema,
-  active_tooltips: z.array(z.string()).optional(),
-  color_by: ColorBySchema.optional(),
-});
-
-const DefaultsSchema = z.object({
-  embedding_key: z.string().optional(),
-  active_tooltips: z.array(z.string()).optional(),
-  color_by: ColorBySchema.optional(),
-});
-
-const FilterSchema = z.object({
-  defaults: DefaultsSchema.optional(),
-  initial_view: z.union([z.string(), z.number().int().nonnegative()]),
-  saved_views: z.array(ViewSchema),
-});
 
 export default function ObsmTab() {
   const {
@@ -111,19 +85,19 @@ export default function ObsmTab() {
     }
   }, [obsmKeys, selectedObsm, fetchObsm]);
 
-  const applyView = async ({ embedding_key, selection, active_tooltips, color_by }) => {
-    // Load embedding: use view-specific key, fall back to default
-    const embeddingKey = embedding_key || defaults.embedding_key;
-    if (embeddingKey) {
-      await fetchObsm(embeddingKey);
+  const applyView = async (view) => {
+    const resolved = resolveViewWithDefaults(view, defaults);
+
+    // Load embedding
+    if (resolved.embeddingKey) {
+      await fetchObsm(resolved.embeddingKey);
     }
 
-    const { target, values } = selection;
+    const { target, values } = resolved.selection;
 
     // Clear existing tooltips and load only the ones specified
     clearTooltipColumns();
-    const tooltips = active_tooltips || defaults.active_tooltips || [];
-    const columnsToLoad = [target, ...tooltips];
+    const columnsToLoad = [target, ...resolved.activeTooltips];
     await Promise.all(columnsToLoad.map(col => toggleTooltipColumn(col)));
 
     const columnData = useAppStore.getState().tooltipData[target];
@@ -132,30 +106,23 @@ export default function ObsmTab() {
       return;
     }
 
-    const valueSet = new Set(values.map(String));
-    const matchingIndices = [];
-    for (let i = 0; i < columnData.length; i++) {
-      if (valueSet.has(String(columnData[i]))) {
-        matchingIndices.push(i);
-      }
-    }
+    const matchingIndices = findMatchingIndices(columnData, values);
 
-    // Apply color_by: use view-specific, fall back to default
-    const resolvedColorBy = color_by || defaults.color_by;
-    if (resolvedColorBy) {
+    // Apply color_by
+    if (resolved.colorBy) {
       try {
-        if (resolvedColorBy.type === "category") {
-          await setColorColumn(resolvedColorBy.value);
-        } else if (resolvedColorBy.type === "gene") {
+        if (resolved.colorBy.type === "category") {
+          await setColorColumn(resolved.colorBy.value);
+        } else if (resolved.colorBy.type === "gene") {
           const { geneNames } = useAppStore.getState().metadata;
-          const match = geneNames.find(g => g.toLowerCase() === resolvedColorBy.value.toLowerCase());
+          const match = geneNames.find(g => g.toLowerCase() === resolved.colorBy.value.toLowerCase());
           if (!match) {
-            throw new Error(`Gene "${resolvedColorBy.value}" not found`);
+            throw new Error(`Gene "${resolved.colorBy.value}" not found`);
           }
           await setSelectedGene(match);
         }
-        if (resolvedColorBy.color_scale) {
-          setColorScaleName(resolvedColorBy.color_scale);
+        if (resolved.colorBy.color_scale) {
+          setColorScaleName(resolved.colorBy.color_scale);
         }
       } catch (err) {
         message.error(`color_by: ${err.message}`);
@@ -183,19 +150,13 @@ export default function ObsmTab() {
 
     const { defaults: parsedDefaults = {}, initial_view, saved_views } = result.data;
     setDefaults(parsedDefaults);
-    let initialMatch;
-    if (typeof initial_view === "number") {
-      if (initial_view >= saved_views.length) {
-        message.error(`Index ${initial_view} out of range (${saved_views.length} saved views, use 0-${saved_views.length - 1})`);
-        return;
-      }
-      initialMatch = saved_views[initial_view];
-    } else {
-      initialMatch = saved_views.find(s => s.name === initial_view);
-      if (!initialMatch) {
-        message.error(`View "${initial_view}" not found in saved_views`);
-        return;
-      }
+    const initialMatch = resolveInitialView(initial_view, saved_views);
+    if (!initialMatch) {
+      const msg = typeof initial_view === "number"
+        ? `Index ${initial_view} out of range (${saved_views.length} saved views, use 0-${saved_views.length - 1})`
+        : `View "${initial_view}" not found in saved_views`;
+      message.error(msg);
+      return;
     }
 
     await applyView(initialMatch);
