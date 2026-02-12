@@ -101,8 +101,10 @@ export default function ObsmTab() {
 
     // Clear existing tooltips and load only the ones specified
     clearTooltipColumns();
-    const columnsToLoad = [target, ...resolved.activeTooltips];
-    await Promise.all(columnsToLoad.map(col => toggleTooltipColumn(col)));
+    const columnsToLoad = [...new Set([target, ...resolved.activeTooltips])];
+    for (const col of columnsToLoad) {
+      await toggleTooltipColumn(col);
+    }
 
     const columnData = useAppStore.getState().tooltipData[target];
     if (!columnData) {
