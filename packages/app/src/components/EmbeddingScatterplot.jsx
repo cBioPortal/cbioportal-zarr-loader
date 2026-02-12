@@ -1,6 +1,6 @@
 import { useState, useMemo, useRef, useCallback, useLayoutEffect } from "react";
 import { Typography, Space, Button, Select } from "antd";
-import { ExpandOutlined, CompressOutlined, SelectOutlined, EditOutlined, CloseCircleOutlined } from "@ant-design/icons";
+import { ExpandOutlined, CompressOutlined, SelectOutlined, EditOutlined, CloseCircleOutlined, SaveOutlined } from "@ant-design/icons";
 import DeckGL from "@deck.gl/react";
 import { ScatterplotLayer } from "@deck.gl/layers";
 import { OrthographicView } from "@deck.gl/core";
@@ -28,6 +28,7 @@ export default function EmbeddingScatterplot({
   shape,
   label,
   maxPoints = Infinity,
+  onSaveSelection,
 }) {
   const {
     // Color by obs column
@@ -42,6 +43,8 @@ export default function EmbeddingScatterplot({
     selectedPointIndices,
     setSelectedPoints,
     clearSelectedPoints,
+    selectionGeometry,
+    setSelectionGeometry,
     // Color scale
     colorScaleName,
     setColorScaleName,
@@ -179,6 +182,7 @@ export default function EmbeddingScatterplot({
             indices.push(pt.index);
           }
         }
+        setSelectionGeometry({ type: "rectangle", bounds: [minWx, minWy, maxWx, maxWy] });
         setSelectedPoints(indices);
       }
       dragStartRef.current = null;
@@ -202,13 +206,14 @@ export default function EmbeddingScatterplot({
             indices.push(pt.index);
           }
         }
+        setSelectionGeometry({ type: "lasso", polygon: worldPolygon });
         setSelectedPoints(indices);
       }
       lassoPointsRef.current = [];
       const svg = lassoSvgRef.current;
       if (svg) svg.style.display = "none";
     }
-  }, [selectMode, points, setSelectedPoints, updateSelectionRect]);
+  }, [selectMode, points, setSelectedPoints, setSelectionGeometry, updateSelectionRect]);
 
   // Build selected indices set for fast lookup in getFillColor
   const selectedSet = useMemo(
@@ -436,6 +441,13 @@ export default function EmbeddingScatterplot({
               }}
             >
               {selectedPointIndices.length.toLocaleString()} selected
+              {selectionGeometry && onSaveSelection && (
+                <SaveOutlined
+                  onClick={onSaveSelection}
+                  style={{ cursor: "pointer", fontSize: 14 }}
+                  title="Save selection to config"
+                />
+              )}
               <CloseCircleOutlined
                 onClick={clearSelectedPoints}
                 style={{ cursor: "pointer", fontSize: 14 }}

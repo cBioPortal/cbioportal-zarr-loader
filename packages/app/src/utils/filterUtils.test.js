@@ -64,6 +64,40 @@ describe("FilterSchema", () => {
   it("rejects empty object", () => {
     expect(FilterSchema.safeParse({}).success).toBe(false);
   });
+
+  it("accepts filter with geometry-based saved views", () => {
+    const filter = {
+      initial_view: 0,
+      saved_views: [
+        {
+          name: "rect view",
+          selection: { type: "rectangle", bounds: [1, 2, 3, 4] },
+        },
+        {
+          name: "lasso view",
+          selection: { type: "lasso", polygon: [[0, 0], [1, 0], [1, 1]] },
+        },
+      ],
+    };
+    expect(FilterSchema.safeParse(filter).success).toBe(true);
+  });
+
+  it("accepts filter mixing category and geometry views", () => {
+    const filter = {
+      initial_view: "cat view",
+      saved_views: [
+        {
+          name: "cat view",
+          selection: { target: "donor_id", values: ["A"] },
+        },
+        {
+          name: "rect view",
+          selection: { type: "rectangle", bounds: [0, 0, 10, 10] },
+        },
+      ],
+    };
+    expect(FilterSchema.safeParse(filter).success).toBe(true);
+  });
 });
 
 describe("ViewSchema", () => {
@@ -93,6 +127,23 @@ describe("ViewSchema", () => {
     const view = { selection: { target: "donor_id", values: [] } };
     expect(ViewSchema.safeParse(view).success).toBe(true);
   });
+
+  it("accepts view with rectangle selection", () => {
+    const view = {
+      name: "rect view",
+      embedding_key: "X_umap",
+      selection: { type: "rectangle", bounds: [1, 2, 3, 4] },
+    };
+    expect(ViewSchema.safeParse(view).success).toBe(true);
+  });
+
+  it("accepts view with lasso selection", () => {
+    const view = {
+      name: "lasso view",
+      selection: { type: "lasso", polygon: [[0, 0], [1, 0], [1, 1]] },
+    };
+    expect(ViewSchema.safeParse(view).success).toBe(true);
+  });
 });
 
 describe("SelectionSchema", () => {
@@ -119,6 +170,43 @@ describe("SelectionSchema", () => {
   it("rejects missing values", () => {
     const sel = { target: "donor_id" };
     expect(SelectionSchema.safeParse(sel).success).toBe(false);
+  });
+
+  it("accepts rectangle selection", () => {
+    const sel = { type: "rectangle", bounds: [1.0, 2.0, 3.0, 4.0] };
+    expect(SelectionSchema.safeParse(sel).success).toBe(true);
+  });
+
+  it("accepts lasso selection", () => {
+    const sel = { type: "lasso", polygon: [[0, 0], [1, 0], [1, 1], [0, 1]] };
+    expect(SelectionSchema.safeParse(sel).success).toBe(true);
+  });
+
+  it("rejects rectangle with wrong bounds length", () => {
+    const sel = { type: "rectangle", bounds: [1.0, 2.0, 3.0] };
+    expect(SelectionSchema.safeParse(sel).success).toBe(false);
+  });
+
+  it("rejects lasso with non-pair coordinates", () => {
+    const sel = { type: "lasso", polygon: [[0, 0, 0], [1, 0, 0]] };
+    expect(SelectionSchema.safeParse(sel).success).toBe(false);
+  });
+
+  it("rejects rectangle with missing bounds", () => {
+    const sel = { type: "rectangle" };
+    expect(SelectionSchema.safeParse(sel).success).toBe(false);
+  });
+
+  it("rejects lasso with missing polygon", () => {
+    const sel = { type: "lasso" };
+    expect(SelectionSchema.safeParse(sel).success).toBe(false);
+  });
+
+  it("still accepts category selection without explicit type (backward compat)", () => {
+    const sel = { target: "donor_id", values: ["A", "B"] };
+    const result = SelectionSchema.safeParse(sel);
+    expect(result.success).toBe(true);
+    expect(result.data.type).toBe("category");
   });
 });
 

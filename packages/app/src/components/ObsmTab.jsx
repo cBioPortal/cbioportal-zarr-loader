@@ -25,6 +25,10 @@ import {
   resolveInitialView,
   resolveViewWithDefaults,
 } from "../utils/filterUtils";
+import {
+  pointInPolygon,
+  buildScatterplotPoints,
+} from "../utils/scatterplotUtils";
 
 const { Text } = Typography;
 
@@ -65,9 +69,14 @@ export default function ObsmTab() {
     toggleTooltipColumn,
     clearTooltipColumns,
     setSelectedPoints,
+    selectionGeometry,
+    setSelectionGeometry,
     setColorColumn,
     setSelectedGene,
     setColorScaleName,
+    colorColumn,
+    selectedGene,
+    colorScaleName,
   } = useAppStore();
 
   const [filterJson, setFilterJson] = useState("");
@@ -97,46 +106,114 @@ export default function ObsmTab() {
       await fetchObsm(resolved.embeddingKey);
     }
 
-    const { target, values } = resolved.selection;
+    const selection = resolved.selection;
+    const selType = selection.type || "category";
 
-    // Clear existing tooltips and load only the ones specified
-    clearTooltipColumns();
-    const columnsToLoad = [...new Set([target, ...resolved.activeTooltips])];
-    for (const col of columnsToLoad) {
-      await toggleTooltipColumn(col);
-    }
+    if (selType === "category") {
+      const { target, values } = selection;
 
-    const columnData = useAppStore.getState().tooltipData[target];
-    if (!columnData) {
-      message.error(`Failed to load column "${target}".`);
-      return;
-    }
-
-    const matchingIndices = findMatchingIndices(columnData, values);
-
-    // Apply color_by
-    if (resolved.colorBy) {
-      try {
-        if (resolved.colorBy.type === "category") {
-          await setColorColumn(resolved.colorBy.value);
-        } else if (resolved.colorBy.type === "gene") {
-          const { geneNames } = useAppStore.getState().metadata;
-          const match = geneNames.find(g => g.toLowerCase() === resolved.colorBy.value.toLowerCase());
-          if (!match) {
-            throw new Error(`Gene "${resolved.colorBy.value}" not found`);
-          }
-          await setSelectedGene(match);
-        }
-        if (resolved.colorBy.color_scale) {
-          setColorScaleName(resolved.colorBy.color_scale);
-        }
-      } catch (err) {
-        message.error(`color_by: ${err.message}`);
+      // Clear existing tooltips and load only the ones specified
+      clearTooltipColumns();
+      const columnsToLoad = [...new Set([target, ...resolved.activeTooltips])];
+      for (const col of columnsToLoad) {
+        await toggleTooltipColumn(col);
       }
-    }
 
-    setSelectedPoints(matchingIndices);
-    message.success(`Selected ${matchingIndices.length} points`);
+      const columnData = useAppStore.getState().tooltipData[target];
+      if (!columnData) {
+        message.error(`Failed to load column "${target}".`);
+        return;
+      }
+
+      const matchingIndices = findMatchingIndices(columnData, values);
+
+      // Apply color_by
+      if (resolved.colorBy) {
+        try {
+          if (resolved.colorBy.type === "category") {
+            await setColorColumn(resolved.colorBy.value);
+          } else if (resolved.colorBy.type === "gene") {
+            const { geneNames } = useAppStore.getState().metadata;
+            const match = geneNames.find(g => g.toLowerCase() === resolved.colorBy.value.toLowerCase());
+            if (!match) {
+              throw new Error(`Gene "${resolved.colorBy.value}" not found`);
+            }
+            await setSelectedGene(match);
+          }
+          if (resolved.colorBy.color_scale) {
+            setColorScaleName(resolved.colorBy.color_scale);
+          }
+        } catch (err) {
+          message.error(`color_by: ${err.message}`);
+        }
+      }
+
+      setSelectionGeometry(null);
+      setSelectedPoints(matchingIndices);
+      message.success(`Selected ${matchingIndices.length} points`);
+    } else if (selType === "rectangle" || selType === "lasso") {
+      // Load tooltips if specified
+      clearTooltipColumns();
+      for (const col of resolved.activeTooltips) {
+        await toggleTooltipColumn(col);
+      }
+
+      // Apply color_by
+      if (resolved.colorBy) {
+        try {
+          if (resolved.colorBy.type === "category") {
+            await setColorColumn(resolved.colorBy.value);
+          } else if (resolved.colorBy.type === "gene") {
+            const { geneNames } = useAppStore.getState().metadata;
+            const match = geneNames.find(g => g.toLowerCase() === resolved.colorBy.value.toLowerCase());
+            if (!match) {
+              throw new Error(`Gene "${resolved.colorBy.value}" not found`);
+            }
+            await setSelectedGene(match);
+          }
+          if (resolved.colorBy.color_scale) {
+            setColorScaleName(resolved.colorBy.color_scale);
+          }
+        } catch (err) {
+          message.error(`color_by: ${err.message}`);
+        }
+      }
+
+      // Re-derive points from current obsmData
+      const currentObsm = useAppStore.getState().obsmData;
+      if (!currentObsm?.data || !currentObsm?.shape) {
+        message.error("No embedding data available for geometry selection.");
+        return;
+      }
+
+      const { points } = buildScatterplotPoints({
+        data: currentObsm.data,
+        shape: currentObsm.shape,
+      });
+
+      const indices = [];
+      if (selType === "rectangle") {
+        const [minX, minY, maxX, maxY] = selection.bounds;
+        for (const pt of points) {
+          const [px, py] = pt.position;
+          if (px >= minX && px <= maxX && py >= minY && py <= maxY) {
+            indices.push(pt.index);
+          }
+        }
+        setSelectionGeometry({ type: "rectangle", bounds: selection.bounds });
+      } else {
+        for (const pt of points) {
+          const [px, py] = pt.position;
+          if (pointInPolygon(px, py, selection.polygon)) {
+            indices.push(pt.index);
+          }
+        }
+        setSelectionGeometry({ type: "lasso", polygon: selection.polygon });
+      }
+
+      setSelectedPoints(indices);
+      message.success(`Selected ${indices.length} points`);
+    }
   };
 
   const handleFilterApply = async () => {
@@ -171,6 +248,65 @@ export default function ObsmTab() {
     setAppliedSelections(saved_views);
     setActiveSelectionIndex(saved_views.indexOf(initialMatch));
     setDrawerOpen(false);
+  };
+
+  const handleSaveSelection = () => {
+    const geo = useAppStore.getState().selectionGeometry;
+    if (!geo) {
+      message.warning("No selection geometry to save.");
+      return;
+    }
+
+    // Build a new view from current state
+    const newView = {
+      name: `${geo.type} selection`,
+      selection: geo.type === "rectangle"
+        ? { type: "rectangle", bounds: geo.bounds }
+        : { type: "lasso", polygon: geo.polygon },
+    };
+
+    // Add embedding_key if set
+    if (selectedObsm) {
+      newView.embedding_key = selectedObsm;
+    }
+
+    // Add tooltips if set
+    const currentTooltips = useAppStore.getState().tooltipColumns;
+    if (currentTooltips.length > 0) {
+      newView.active_tooltips = currentTooltips;
+    }
+
+    // Add color_by if set
+    const currentColorCol = useAppStore.getState().colorColumn;
+    const currentGene = useAppStore.getState().selectedGene;
+    const currentScale = useAppStore.getState().colorScaleName;
+    if (currentColorCol) {
+      newView.color_by = { type: "category", value: currentColorCol };
+    } else if (currentGene) {
+      newView.color_by = { type: "gene", value: currentGene };
+      if (currentScale !== "viridis") {
+        newView.color_by.color_scale = currentScale;
+      }
+    }
+
+    // Append to current filterJson config
+    let config;
+    try {
+      config = JSON.parse(filterJson);
+      if (!config.saved_views) config.saved_views = [];
+    } catch {
+      config = { initial_view: 0, saved_views: [] };
+    }
+
+    config.saved_views.push(newView);
+    const updated = JSON.stringify(config, null, 2);
+    setFilterJson(updated);
+
+    // Update applied selections dropdown
+    setAppliedSelections(config.saved_views);
+    setActiveSelectionIndex(config.saved_views.length - 1);
+
+    message.success("Selection saved to config");
   };
 
   const handleSelectionPick = async (index) => {
@@ -222,7 +358,7 @@ export default function ObsmTab() {
                   value={activeSelectionIndex}
                   options={appliedSelections.map((s, i) => ({
                     value: i,
-                    label: `${i}: ${s.name || `${s.selection.target}: ${s.selection.values.join(", ")}`}`,
+                    label: `${i}: ${s.name || (s.selection.target ? `${s.selection.target}: ${s.selection.values.join(", ")}` : `${s.selection.type} selection`)}`,
                   }))}
                 />
                 <Button
@@ -257,6 +393,7 @@ export default function ObsmTab() {
                     data={obsmData.data}
                     shape={obsmData.shape}
                     label={selectedObsm}
+                    onSaveSelection={handleSaveSelection}
                   />
                 )}
               </>
