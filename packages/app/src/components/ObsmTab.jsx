@@ -154,7 +154,7 @@ export default function ObsmTab() {
           </Card>
           <Card title="Selection Filter" size="small" style={{ marginTop: 16 }}>
             <Input.TextArea
-              rows={4}
+              autoSize={{ minRows: 2 }}
               value={filterJson}
               onChange={e => setFilterJson(e.target.value)}
               placeholder='{"obs_category": "donor_id", "values": ["SPECTRUM-OV-070"]}'
