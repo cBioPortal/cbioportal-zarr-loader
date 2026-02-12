@@ -11,7 +11,7 @@ import {
   Select,
   message,
 } from "antd";
-import { ReloadOutlined, EditOutlined } from "@ant-design/icons";
+import { ReloadOutlined, EditOutlined, CopyOutlined } from "@ant-design/icons";
 import EmbeddingScatterplot from "./EmbeddingScatterplot";
 import SearchableList from "./SearchableList";
 import ColorColumnList from "./ColorColumnList";
@@ -276,9 +276,21 @@ export default function ObsmTab() {
               placeholder='{"initial_view": "my view", "saved_views": [{"name": "my view", ...}]}'
             />
             <div style={{ marginTop: 8, display: "flex", justifyContent: "space-between" }}>
-              <Button
-                size="small"
-                onClick={() => {
+              <Space>
+                <Button
+                  size="small"
+                  onClick={() => {
+                    navigator.clipboard.writeText(filterJson);
+                    message.success("Copied to clipboard");
+                  }}
+                  disabled={!filterJson}
+                  icon={<CopyOutlined />}
+                >
+                  Copy
+                </Button>
+                <Button
+                  size="small"
+                  onClick={() => {
                   try {
                     setFilterJson(JSON.stringify(JSON.parse(filterJson), null, 2));
                   } catch {
@@ -288,6 +300,7 @@ export default function ObsmTab() {
               >
                 Format
               </Button>
+              </Space>
               <Space>
                 <Button
                   size="small"
