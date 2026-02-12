@@ -1,6 +1,6 @@
 import { useState, useMemo, useRef, useCallback, useLayoutEffect } from "react";
 import { Typography, Space, Button, Select } from "antd";
-import { ExpandOutlined, CompressOutlined, SelectOutlined, EditOutlined, CloseCircleOutlined } from "@ant-design/icons";
+import { ExpandOutlined, CompressOutlined, SelectOutlined, EditOutlined, CloseCircleOutlined, SaveOutlined } from "@ant-design/icons";
 import DeckGL from "@deck.gl/react";
 import { ScatterplotLayer } from "@deck.gl/layers";
 import { OrthographicView } from "@deck.gl/core";
@@ -9,6 +9,7 @@ import { calculatePlotDimensions } from "../utils/calculatePlotDimensions";
 import { COLOR_SCALES } from "../utils/colors";
 import {
   pointInPolygon,
+  simplifyPolygon,
   buildScatterplotPoints,
   buildSelectionSummary,
   computeRange,
@@ -28,6 +29,7 @@ export default function EmbeddingScatterplot({
   shape,
   label,
   maxPoints = Infinity,
+  onSaveSelection,
 }) {
   const {
     // Color by obs column
@@ -42,11 +44,15 @@ export default function EmbeddingScatterplot({
     selectedPointIndices,
     setSelectedPoints,
     clearSelectedPoints,
+    selectionGeometry,
+    setSelectionGeometry,
+    // Color scale
+    colorScaleName,
+    setColorScaleName,
   } = useAppStore();
 
   const [hoverInfo, setHoverInfo] = useState(null);
   const [expanded, setExpanded] = useState(false);
-  const [colorScaleName, setColorScaleName] = useState("viridis");
   const [selectMode, setSelectMode] = useState("pan");
   const dragStartRef = useRef(null);
   const dragEndRef = useRef(null);
@@ -145,6 +151,8 @@ export default function EmbeddingScatterplot({
       updateSelectionRect();
     } else if (selectMode === "lasso") {
       if (lassoPointsRef.current.length === 0) return;
+      const last = lassoPointsRef.current[lassoPointsRef.current.length - 1];
+      if ((pos.x - last.x) ** 2 + (pos.y - last.y) ** 2 < 25) return; // 5px min distance
       lassoPointsRef.current.push(pos);
       const svg = lassoSvgRef.current;
       if (svg) {
@@ -177,6 +185,7 @@ export default function EmbeddingScatterplot({
             indices.push(pt.index);
           }
         }
+        setSelectionGeometry({ type: "rectangle", bounds: [minWx, minWy, maxWx, maxWy] });
         setSelectedPoints(indices);
       }
       dragStartRef.current = null;
@@ -200,13 +209,14 @@ export default function EmbeddingScatterplot({
             indices.push(pt.index);
           }
         }
+        setSelectionGeometry({ type: "lasso", polygon: simplifyPolygon(worldPolygon) });
         setSelectedPoints(indices);
       }
       lassoPointsRef.current = [];
       const svg = lassoSvgRef.current;
       if (svg) svg.style.display = "none";
     }
-  }, [selectMode, points, setSelectedPoints, updateSelectionRect]);
+  }, [selectMode, points, setSelectedPoints, setSelectionGeometry, updateSelectionRect]);
 
   // Build selected indices set for fast lookup in getFillColor
   const selectedSet = useMemo(
@@ -432,8 +442,16 @@ export default function EmbeddingScatterplot({
                 alignItems: "center",
                 gap: 6,
               }}
+              onMouseDown={(e) => e.stopPropagation()}
             >
               {selectedPointIndices.length.toLocaleString()} selected
+              {selectionGeometry && onSaveSelection && (
+                <SaveOutlined
+                  onClick={onSaveSelection}
+                  style={{ cursor: "pointer", fontSize: 14 }}
+                  title="Save selection to config"
+                />
+              )}
               <CloseCircleOutlined
                 onClick={clearSelectedPoints}
                 style={{ cursor: "pointer", fontSize: 14 }}
