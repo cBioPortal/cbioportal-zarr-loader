@@ -42,11 +42,13 @@ export default function EmbeddingScatterplot({
     selectedPointIndices,
     setSelectedPoints,
     clearSelectedPoints,
+    // Color scale
+    colorScaleName,
+    setColorScaleName,
   } = useAppStore();
 
   const [hoverInfo, setHoverInfo] = useState(null);
   const [expanded, setExpanded] = useState(false);
-  const [colorScaleName, setColorScaleName] = useState("viridis");
   const [selectMode, setSelectMode] = useState("pan");
   const dragStartRef = useRef(null);
   const dragEndRef = useRef(null);

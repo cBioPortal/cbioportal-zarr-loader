@@ -22,15 +22,29 @@ import useAppStore from "../store/useAppStore";
 
 const { Text } = Typography;
 
-const selectionSchema = z.object({
-  target: z.string(),
-  values: z.array(z.union([z.string(), z.number()])),
-  active_tooltips: z.array(z.string()).optional(),
+const ColorBySchema = z.object({
+  type: z.enum(["category", "gene"]),
+  value: z.string(),
+  color_scale: z.enum(["viridis", "magma"]).optional(),
 });
 
-const filterSchema = z.object({
-  selection: selectionSchema,
-  saved_selections: z.array(selectionSchema).optional(),
+const SelectionSchema = z.object({
+  target: z.string(),
+  values: z.array(z.union([z.string(), z.number()])),
+});
+
+const ViewSchema = z.object({
+  name: z.string().optional(),
+  embedding_key: z.string().optional(),
+  selection: SelectionSchema,
+  active_tooltips: z.array(z.string()).optional(),
+  color_by: ColorBySchema.optional(),
+});
+
+const FilterSchema = z.object({
+  default_embedding_key: z.string().optional(),
+  initial_view: z.union([z.string(), z.number().int().nonnegative()]),
+  saved_views: z.array(ViewSchema),
 });
 
 export default function ObsmTab() {
@@ -46,24 +60,37 @@ export default function ObsmTab() {
     toggleTooltipColumn,
     clearTooltipColumns,
     setSelectedPoints,
+    setColorColumn,
+    setSelectedGene,
+    setColorScaleName,
   } = useAppStore();
 
   const [filterJson, setFilterJson] = useState(JSON.stringify({
-    selection: {
-      target: "donor_id",
-      values: ["SPECTRUM-OV-070"],
-      active_tooltips: ["cell_type", "author_sample_id"]
-    },
-    saved_selections: [
+    default_embedding_key: "X_umap50",
+    initial_view: "OV-070 by cell_type",
+    saved_views: [
       {
-        target: "donor_id",
-        values: ["SPECTRUM-OV-090", "SPECTRUM-OV-022"],
-        active_tooltips: ["cell_type", "author_sample_id", "Phase"]
+        name: "OV-070 by cell_type",
+        selection: { target: "donor_id", values: ["SPECTRUM-OV-070"] },
+        active_tooltips: ["cell_type", "author_sample_id"],
+        color_by: { type: "category", value: "cell_type" }
+      },
+      {
+        name: "OV-090 & OV-022 by cell_type",
+        selection: { target: "donor_id", values: ["SPECTRUM-OV-090", "SPECTRUM-OV-022"] },
+        active_tooltips: ["cell_type", "author_sample_id", "Phase"],
+        color_by: { type: "category", value: "cell_type" }
+      },
+      {
+        selection: { target: "donor_id", values: ["SPECTRUM-OV-041"] },
+        active_tooltips: ["cell_type", "author_sample_id", "Phase"],
+        color_by: { type: "gene", value: "dapl1", color_scale: "magma" }
       }
     ]
   }, null, 2));
   const [appliedSelections, setAppliedSelections] = useState([]);
   const [activeSelectionIndex, setActiveSelectionIndex] = useState(undefined);
+  const [defaultEmbeddingKey, setDefaultEmbeddingKey] = useState(null);
 
   const { obsmKeys } = metadata;
   const isEmbedding = selectedObsm && /umap|tsne|pca/i.test(selectedObsm) && obsmData?.shape?.[1] >= 2;
@@ -78,7 +105,15 @@ export default function ObsmTab() {
     }
   }, [obsmKeys, selectedObsm, fetchObsm]);
 
-  const applySelection = async ({ target, values, active_tooltips = [] }) => {
+  const applyView = async ({ embedding_key, selection, active_tooltips = [], color_by }) => {
+    // Load embedding: use view-specific key, fall back to default
+    const embeddingKey = embedding_key || defaultEmbeddingKey;
+    if (embeddingKey) {
+      await fetchObsm(embeddingKey);
+    }
+
+    const { target, values } = selection;
+
     // Clear existing tooltips and load only the ones specified
     clearTooltipColumns();
     const columnsToLoad = [target, ...active_tooltips];
@@ -98,6 +133,27 @@ export default function ObsmTab() {
       }
     }
 
+    // Apply color_by if specified
+    if (color_by) {
+      try {
+        if (color_by.type === "category") {
+          await setColorColumn(color_by.value);
+        } else if (color_by.type === "gene") {
+          const { geneNames } = useAppStore.getState().metadata;
+          const match = geneNames.find(g => g.toLowerCase() === color_by.value.toLowerCase());
+          if (!match) {
+            throw new Error(`Gene "${color_by.value}" not found`);
+          }
+          await setSelectedGene(match);
+        }
+        if (color_by.color_scale) {
+          setColorScaleName(color_by.color_scale);
+        }
+      } catch (err) {
+        message.error(`color_by: ${err.message}`);
+      }
+    }
+
     setSelectedPoints(matchingIndices);
     message.success(`Selected ${matchingIndices.length} points`);
   };
@@ -111,29 +167,39 @@ export default function ObsmTab() {
       return;
     }
 
-    const result = filterSchema.safeParse(raw);
+    const result = FilterSchema.safeParse(raw);
     if (!result.success) {
       message.error(result.error.issues.map(i => i.message).join("; "));
       return;
     }
 
-    await applySelection(result.data.selection);
+    const { default_embedding_key, initial_view, saved_views } = result.data;
+    setDefaultEmbeddingKey(default_embedding_key);
+    let initialMatch;
+    if (typeof initial_view === "number") {
+      if (initial_view >= saved_views.length) {
+        message.error(`Index ${initial_view} out of range (${saved_views.length} saved views, use 0-${saved_views.length - 1})`);
+        return;
+      }
+      initialMatch = saved_views[initial_view];
+    } else {
+      initialMatch = saved_views.find(s => s.name === initial_view);
+      if (!initialMatch) {
+        message.error(`View "${initial_view}" not found in saved_views`);
+        return;
+      }
+    }
 
-    // Save the applied selection and any saved_selections to the dropdown history
-    const selectionKey = JSON.stringify(result.data.selection);
-    const newSelections = [result.data.selection, ...(result.data.saved_selections ?? [])];
-    setAppliedSelections(prev => {
-      const existing = new Set(prev.map(s => JSON.stringify(s)));
-      const toAdd = newSelections.filter(s => !existing.has(JSON.stringify(s)));
-      const next = toAdd.length > 0 ? [...prev, ...toAdd] : prev;
-      setActiveSelectionIndex(next.findIndex(s => JSON.stringify(s) === selectionKey));
-      return next;
-    });
+    await applyView(initialMatch);
+
+    // Populate the dropdown with all saved_views
+    setAppliedSelections(saved_views);
+    setActiveSelectionIndex(saved_views.indexOf(initialMatch));
   };
 
   const handleSelectionPick = async (index) => {
     setActiveSelectionIndex(index);
-    await applySelection(appliedSelections[index]);
+    await applyView(appliedSelections[index]);
   };
 
   return (
@@ -199,14 +265,14 @@ export default function ObsmTab() {
               value={activeSelectionIndex}
               options={appliedSelections.map((s, i) => ({
                 value: i,
-                label: `${s.target}: ${s.values.join(", ")}`,
+                label: s.name || `${s.selection.target}: ${s.selection.values.join(", ")}`,
               }))}
             />
             <Input.TextArea
               autoSize={{ minRows: 2 }}
               value={filterJson}
               onChange={e => setFilterJson(e.target.value)}
-              placeholder='{"selection": {"target": "donor_id", "values": ["SPECTRUM-OV-070"]}}'
+              placeholder='{"initial_view": "my view", "saved_views": [{"name": "my view", "target": "donor_id", "values": ["..."]}]}'
             />
             <Space style={{ marginTop: 8 }}>
               <Button

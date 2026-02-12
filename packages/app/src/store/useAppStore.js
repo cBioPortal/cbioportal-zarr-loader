@@ -41,6 +41,7 @@ const useAppStore = create((set, get) => ({
   colorColumn: null,
   colorData: null,
   colorLoading: false,
+  colorScaleName: "viridis",
 
   // Tooltip obs columns for scatterplot
   tooltipColumns: [],
@@ -310,6 +311,8 @@ const useAppStore = create((set, get) => ({
       set({ colorData: null, colorLoading: false });
     }
   },
+
+  setColorScaleName: (name) => set({ colorScaleName: name }),
 
   setSelectedGene: async (geneName) => {
     const { adata, metadata } = get();
