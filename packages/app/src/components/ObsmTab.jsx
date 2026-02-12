@@ -204,8 +204,17 @@ export default function ObsmTab() {
                 <Select
                   placeholder="No applied views"
                   size="small"
+                  allowClear
                   style={{ width: 240 }}
                   onChange={handleSelectionPick}
+                  onClear={() => {
+                    setActiveSelectionIndex(undefined);
+                    setSelectedPoints([]);
+                    clearTooltipColumns();
+                    setColorColumn(null);
+                    setSelectedGene(null);
+                    setColorScaleName("viridis");
+                  }}
                   value={activeSelectionIndex}
                   options={appliedSelections.map((s, i) => ({
                     value: i,
