@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import {
   Card,
+  Drawer,
   Typography,
   Spin,
   Alert,
@@ -10,7 +11,7 @@ import {
   Select,
   message,
 } from "antd";
-import { ReloadOutlined } from "@ant-design/icons";
+import { ReloadOutlined, EditOutlined } from "@ant-design/icons";
 import EmbeddingScatterplot from "./EmbeddingScatterplot";
 import SearchableList from "./SearchableList";
 import ColorColumnList from "./ColorColumnList";
@@ -71,6 +72,7 @@ export default function ObsmTab() {
   const [appliedSelections, setAppliedSelections] = useState([]);
   const [activeSelectionIndex, setActiveSelectionIndex] = useState(undefined);
   const [defaults, setDefaults] = useState({});
+  const [drawerOpen, setDrawerOpen] = useState(false);
 
   const { obsmKeys } = metadata;
   const isEmbedding = selectedObsm && /umap|tsne|pca/i.test(selectedObsm) && obsmData?.shape?.[1] >= 2;
@@ -196,12 +198,31 @@ export default function ObsmTab() {
             title={`obsm: ${selectedObsm}`}
             size="small"
             extra={
-              <Button
-                size="small"
-                icon={<ReloadOutlined />}
-                onClick={() => fetchObsm(selectedObsm)}
-                loading={obsmLoading}
-              />
+              <Space>
+                <Select
+                  placeholder="No applied views"
+                  size="small"
+                  style={{ width: 240 }}
+                  onChange={handleSelectionPick}
+                  value={activeSelectionIndex}
+                  options={appliedSelections.map((s, i) => ({
+                    value: i,
+                    label: `${i}: ${s.name || `${s.selection.target}: ${s.selection.values.join(", ")}`}`,
+                  }))}
+                />
+                <Button
+                  size="small"
+                  icon={<EditOutlined />}
+                  onClick={() => setDrawerOpen(true)}
+                  title="Edit JSON filter"
+                />
+                <Button
+                  size="small"
+                  icon={<ReloadOutlined />}
+                  onClick={() => fetchObsm(selectedObsm)}
+                  loading={obsmLoading}
+                />
+              </Space>
             }
           >
             {obsmLoading ? (
@@ -226,22 +247,18 @@ export default function ObsmTab() {
               </>
             )}
           </Card>
-          <Card title="Selection Filter" size="small" style={{ marginTop: 16 }}>
-            <Select
-              placeholder="No applied selections"
-              style={{ width: "100%", marginBottom: 8 }}
-              onChange={handleSelectionPick}
-              value={activeSelectionIndex}
-              options={appliedSelections.map((s, i) => ({
-                value: i,
-                label: s.name || `${s.selection.target}: ${s.selection.values.join(", ")}`,
-              }))}
-            />
+          <Drawer
+            title="Edit JSON Filter"
+            placement="right"
+            width={480}
+            open={drawerOpen}
+            onClose={() => setDrawerOpen(false)}
+          >
             <Input.TextArea
               autoSize={{ minRows: 2 }}
               value={filterJson}
               onChange={e => setFilterJson(e.target.value)}
-              placeholder='{"initial_view": "my view", "saved_views": [{"name": "my view", "target": "donor_id", "values": ["..."]}]}'
+              placeholder='{"initial_view": "my view", "saved_views": [{"name": "my view", ...}]}'
             />
             <Space style={{ marginTop: 8 }}>
               <Button
@@ -264,7 +281,7 @@ export default function ObsmTab() {
                 Apply Filter
               </Button>
             </Space>
-          </Card>
+          </Drawer>
         </>
       ) : (
         <Card size="small">
