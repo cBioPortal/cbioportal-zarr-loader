@@ -151,6 +151,8 @@ export default function EmbeddingScatterplot({
       updateSelectionRect();
     } else if (selectMode === "lasso") {
       if (lassoPointsRef.current.length === 0) return;
+      const last = lassoPointsRef.current[lassoPointsRef.current.length - 1];
+      if ((pos.x - last.x) ** 2 + (pos.y - last.y) ** 2 < 25) return; // 5px min distance
       lassoPointsRef.current.push(pos);
       const svg = lassoSvgRef.current;
       if (svg) {
