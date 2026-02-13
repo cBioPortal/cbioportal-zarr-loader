@@ -73,9 +73,10 @@ export default function ObsmTab() {
     applyFilterConfig,
     setActiveSelectionIndex,
     setAppliedSelections,
+    filterJson,
+    setFilterJson,
   } = useAppStore();
 
-  const [filterJson, setFilterJson] = useState("");
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   const { obsmKeys } = metadata;

@@ -72,6 +72,7 @@ const useAppStore = create((set, get) => ({
   selectionGeometry: null, // { type: "rectangle", bounds: [x1,y1,x2,y2] } or { type: "lasso", polygon: [[x,y],...] }
 
   // View config state (from JSON config or postMessage)
+  filterJson: "",
   viewConfigDefaults: {},
   appliedSelections: [],
   activeSelectionIndex: undefined,
@@ -612,7 +613,7 @@ const useAppStore = create((set, get) => ({
       }
 
       const { defaults: parsedDefaults = {}, initial_view, saved_views } = result.data;
-      set({ viewConfigDefaults: parsedDefaults });
+      set({ viewConfigDefaults: parsedDefaults, filterJson: JSON.stringify(raw, null, 2) });
 
       const initialMatch = resolveInitialView(initial_view, saved_views);
       if (!initialMatch) {
@@ -638,6 +639,8 @@ const useAppStore = create((set, get) => ({
   setActiveSelectionIndex: (index) => set({ activeSelectionIndex: index }),
 
   setAppliedSelections: (selections) => set({ appliedSelections: selections }),
+
+  setFilterJson: (json) => set({ filterJson: json }),
 }));
 
 export default useAppStore;
