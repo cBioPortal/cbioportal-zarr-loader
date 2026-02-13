@@ -55,6 +55,7 @@ jobs:
         env:
           VITE_BASE_URL: /cbioportal-zarr-loader/
           DOCS_BASE_URL: /cbioportal-zarr-loader/docs/
+          VITE_POSTMESSAGE_ORIGIN: https://www.cbioportal.org
       - uses: actions/upload-pages-artifact@v3
         if: github.ref == 'refs/heads/main'
         with:
