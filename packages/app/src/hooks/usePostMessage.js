@@ -11,19 +11,31 @@ import { useEffect } from "react";
  */
 export default function usePostMessage(handlers, allowedOrigin = "*") {
   useEffect(() => {
+    console.debug("[CZL:postMessage] Listener registered, allowedOrigin:", allowedOrigin);
+
     const listener = (event) => {
-      if (allowedOrigin !== "*" && event.origin !== allowedOrigin) return;
+      if (allowedOrigin !== "*" && event.origin !== allowedOrigin) {
+        console.warn("[CZL:postMessage] Rejected message from origin:", event.origin, "— expected:", allowedOrigin);
+        return;
+      }
 
       const { data } = event;
       if (!data || typeof data !== "object" || typeof data.type !== "string") return;
 
+      console.debug("[CZL:postMessage] Received message:", { type: data.type, origin: event.origin, payload: data.payload });
+
       const handler = handlers[data.type];
       if (typeof handler === "function") {
         handler(data.payload);
+      } else {
+        console.warn("[CZL:postMessage] No handler for message type:", data.type);
       }
     };
 
     window.addEventListener("message", listener);
-    return () => window.removeEventListener("message", listener);
+    return () => {
+      console.debug("[CZL:postMessage] Listener removed");
+      window.removeEventListener("message", listener);
+    };
   }, [handlers, allowedOrigin]);
 }

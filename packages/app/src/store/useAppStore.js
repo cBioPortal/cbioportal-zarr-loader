@@ -17,6 +17,7 @@ const useAppStore = create((set, get) => ({
   metadata: null,
   loading: true,
   error: null,
+  pendingFilterConfig: null,
 
   // Obs column state (multi-select)
   obsColumnsSelected: [],
@@ -71,6 +72,7 @@ const useAppStore = create((set, get) => ({
   selectionGeometry: null, // { type: "rectangle", bounds: [x1,y1,x2,y2] } or { type: "lasso", polygon: [[x,y],...] }
 
   // View config state (from JSON config or postMessage)
+  filterJson: "",
   viewConfigDefaults: {},
   appliedSelections: [],
   activeSelectionIndex: undefined,
@@ -145,6 +147,14 @@ const useAppStore = create((set, get) => ({
         loading: false,
         error: null,
       });
+
+      // Drain queued config that arrived before initialization completed
+      const { pendingFilterConfig } = get();
+      if (pendingFilterConfig) {
+        console.debug("[CZL:postMessage] Applying queued config after initialization");
+        set({ pendingFilterConfig: null });
+        await get().applyFilterConfig(pendingFilterConfig);
+      }
     } catch (err) {
       set({ error: err.message, loading: false });
       console.error(err);
@@ -589,6 +599,13 @@ const useAppStore = create((set, get) => ({
   // Validate raw config, resolve initial view, apply it, and populate selections
   applyFilterConfig: async (raw) => {
     try {
+      const { adata, loading } = get();
+      if (!adata || loading) {
+        console.debug("[CZL:postMessage] Store not ready, queuing config for after initialization");
+        set({ pendingFilterConfig: raw });
+        return { success: true, queued: true };
+      }
+
       const result = FilterSchema.safeParse(raw);
       if (!result.success) {
         const errorMsg = result.error.issues.map(i => i.message).join("; ");
@@ -596,7 +613,7 @@ const useAppStore = create((set, get) => ({
       }
 
       const { defaults: parsedDefaults = {}, initial_view, saved_views } = result.data;
-      set({ viewConfigDefaults: parsedDefaults });
+      set({ viewConfigDefaults: parsedDefaults, filterJson: JSON.stringify(raw, null, 2) });
 
       const initialMatch = resolveInitialView(initial_view, saved_views);
       if (!initialMatch) {
@@ -622,6 +639,8 @@ const useAppStore = create((set, get) => ({
   setActiveSelectionIndex: (index) => set({ activeSelectionIndex: index }),
 
   setAppliedSelections: (selections) => set({ appliedSelections: selections }),
+
+  setFilterJson: (json) => set({ filterJson: json }),
 }));
 
 export default useAppStore;
