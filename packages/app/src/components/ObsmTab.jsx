@@ -19,16 +19,6 @@ import GeneList from "./GeneList";
 import TooltipColumnList from "./TooltipColumnList";
 import TabLayout from "./TabLayout";
 import useAppStore from "../store/useAppStore";
-import {
-  FilterSchema,
-  findMatchingIndices,
-  resolveInitialView,
-  resolveViewWithDefaults,
-} from "../utils/filterUtils";
-import {
-  pointInPolygon,
-  buildScatterplotPoints,
-} from "../utils/scatterplotUtils";
 
 const { Text } = Typography;
 
@@ -77,12 +67,15 @@ export default function ObsmTab() {
     colorColumn,
     selectedGene,
     colorScaleName,
+    appliedSelections,
+    activeSelectionIndex,
+    applyView,
+    applyFilterConfig,
+    setActiveSelectionIndex,
+    setAppliedSelections,
   } = useAppStore();
 
   const [filterJson, setFilterJson] = useState("");
-  const [appliedSelections, setAppliedSelections] = useState([]);
-  const [activeSelectionIndex, setActiveSelectionIndex] = useState(undefined);
-  const [defaults, setDefaults] = useState({});
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   const { obsmKeys } = metadata;
@@ -98,133 +91,6 @@ export default function ObsmTab() {
     }
   }, [obsmKeys, selectedObsm, fetchObsm]);
 
-  const applyView = async (view) => {
-    const resolved = resolveViewWithDefaults(view, defaults);
-    const { adata } = useAppStore.getState();
-
-    // Load embedding (skip if already on the same key)
-    if (resolved.embeddingKey && resolved.embeddingKey !== useAppStore.getState().selectedObsm) {
-      await fetchObsm(resolved.embeddingKey);
-    }
-
-    const selection = resolved.selection;
-    const selType = selection.type || "category";
-
-    // Build the set of obs columns to fetch in parallel
-    const tooltipCols = selType === "category"
-      ? [...new Set([selection.target, ...resolved.activeTooltips])]
-      : [...resolved.activeTooltips];
-
-    // Determine color_by fetch — runs in parallel with tooltip columns
-    const colorByCategoryCol = resolved.colorBy?.type === "category" ? resolved.colorBy.value : null;
-    let geneQueryName = null;
-    if (resolved.colorBy?.type === "gene") {
-      const { geneNames, varNames } = useAppStore.getState().metadata;
-      const match = geneNames.find(g => g.toLowerCase() === resolved.colorBy.value.toLowerCase());
-      if (!match) {
-        message.error(`color_by: Gene "${resolved.colorBy.value}" not found`);
-      } else {
-        geneQueryName = match;
-        if (geneNames !== varNames) {
-          const idx = geneNames.indexOf(match);
-          if (idx !== -1) geneQueryName = varNames[idx];
-        }
-      }
-    }
-
-    // Fetch all obs columns + color/gene in parallel
-    const allObsCols = [...new Set([...tooltipCols, ...(colorByCategoryCol ? [colorByCategoryCol] : [])])];
-    const fetches = allObsCols.map(col => adata.obsColumn(col).catch(() => null));
-    if (geneQueryName) {
-      fetches.push(adata.geneExpression(geneQueryName).catch(() => null));
-    }
-
-    const results = await Promise.all(fetches);
-
-    // Unpack obs column results
-    const obsResults = {};
-    allObsCols.forEach((col, i) => { obsResults[col] = results[i]; });
-
-    // Apply tooltips — single store write
-    const newTooltipData = {};
-    for (const col of tooltipCols) {
-      if (obsResults[col]) newTooltipData[col] = obsResults[col];
-    }
-    useAppStore.setState({ tooltipColumns: tooltipCols, tooltipData: newTooltipData, tooltipColumnLoading: null });
-
-    // Apply color_by
-    if (colorByCategoryCol && obsResults[colorByCategoryCol]) {
-      useAppStore.setState({
-        colorColumn: colorByCategoryCol,
-        colorData: obsResults[colorByCategoryCol],
-        colorLoading: false,
-        selectedGene: null,
-        geneExpression: null,
-      });
-    } else if (geneQueryName) {
-      const geneValues = results[results.length - 1]; // last fetch was gene
-      if (geneValues) {
-        useAppStore.setState({
-          selectedGene: resolved.colorBy.value,
-          geneExpression: geneValues,
-          geneLoading: false,
-          colorColumn: null,
-          colorData: null,
-        });
-      }
-    }
-    if (resolved.colorBy?.color_scale) {
-      setColorScaleName(resolved.colorBy.color_scale);
-    }
-
-    // Apply selection
-    if (selType === "category") {
-      const columnData = obsResults[selection.target];
-      if (!columnData) {
-        message.error(`Failed to load column "${selection.target}".`);
-        return;
-      }
-      const matchingIndices = findMatchingIndices(columnData, selection.values);
-      setSelectionGeometry(null);
-      setSelectedPoints(matchingIndices);
-      message.success(`Selected ${matchingIndices.length} points`);
-    } else if (selType === "rectangle" || selType === "lasso") {
-      const currentObsm = useAppStore.getState().obsmData;
-      if (!currentObsm?.data || !currentObsm?.shape) {
-        message.error("No embedding data available for geometry selection.");
-        return;
-      }
-
-      const { points } = buildScatterplotPoints({
-        data: currentObsm.data,
-        shape: currentObsm.shape,
-      });
-
-      const indices = [];
-      if (selType === "rectangle") {
-        const [minX, minY, maxX, maxY] = selection.bounds;
-        for (const pt of points) {
-          const [px, py] = pt.position;
-          if (px >= minX && px <= maxX && py >= minY && py <= maxY) {
-            indices.push(pt.index);
-          }
-        }
-        setSelectionGeometry({ type: "rectangle", bounds: selection.bounds });
-      } else {
-        for (const pt of points) {
-          const [px, py] = pt.position;
-          if (pointInPolygon(px, py, selection.polygon)) {
-            indices.push(pt.index);
-          }
-        }
-        setSelectionGeometry({ type: "lasso", polygon: selection.polygon });
-      }
-
-      setSelectedPoints(indices);
-      message.success(`Selected ${indices.length} points`);
-    }
-  };
-
   const handleFilterApply = async () => {
     let raw;
     try {
@@ -234,28 +100,12 @@ export default function ObsmTab() {
       return;
     }
 
-    const result = FilterSchema.safeParse(raw);
+    const result = await applyFilterConfig(raw);
     if (!result.success) {
-      message.error(result.error.issues.map(i => i.message).join("; "));
+      message.error(result.error);
       return;
     }
 
-    const { defaults: parsedDefaults = {}, initial_view, saved_views } = result.data;
-    setDefaults(parsedDefaults);
-    const initialMatch = resolveInitialView(initial_view, saved_views);
-    if (!initialMatch) {
-      const msg = typeof initial_view === "number"
-        ? `Index ${initial_view} out of range (${saved_views.length} saved views, use 0-${saved_views.length - 1})`
-        : `View "${initial_view}" not found in saved_views`;
-      message.error(msg);
-      return;
-    }
-
-    await applyView(initialMatch);
-
-    // Populate the dropdown with all saved_views
-    setAppliedSelections(saved_views);
-    setActiveSelectionIndex(saved_views.indexOf(initialMatch));
     setDrawerOpen(false);
   };
 
