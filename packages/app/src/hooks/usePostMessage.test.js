@@ -101,6 +101,37 @@ describe("usePostMessage", () => {
     expect(handler).not.toHaveBeenCalled();
   });
 
+  it("accepts messages matching a wildcard origin pattern", () => {
+    const handler = vi.fn();
+    renderHook(() =>
+      usePostMessage(
+        { applyConfig: handler },
+        "https://www.cbioportal.org, https://deploy-preview-*--cbioportalfrontend.netlify.app",
+      ),
+    );
+
+    dispatchMessage({ type: "applyConfig", payload: "a" }, "https://www.cbioportal.org");
+    dispatchMessage({ type: "applyConfig", payload: "b" }, "https://deploy-preview-5395--cbioportalfrontend.netlify.app");
+    dispatchMessage({ type: "applyConfig", payload: "c" }, "https://deploy-preview-99--cbioportalfrontend.netlify.app");
+
+    expect(handler).toHaveBeenCalledTimes(3);
+  });
+
+  it("rejects messages not matching any wildcard origin pattern", () => {
+    const handler = vi.fn();
+    renderHook(() =>
+      usePostMessage(
+        { applyConfig: handler },
+        "https://www.cbioportal.org, https://deploy-preview-*--cbioportalfrontend.netlify.app",
+      ),
+    );
+
+    dispatchMessage({ type: "applyConfig", payload: {} }, "https://evil.com");
+    dispatchMessage({ type: "applyConfig", payload: {} }, "https://other.netlify.app");
+
+    expect(handler).not.toHaveBeenCalled();
+  });
+
   it("dispatches to multiple handlers independently", () => {
     const configHandler = vi.fn();
     const stateHandler = vi.fn();
