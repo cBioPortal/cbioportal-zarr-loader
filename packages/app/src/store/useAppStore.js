@@ -17,6 +17,7 @@ const useAppStore = create((set, get) => ({
   metadata: null,
   loading: true,
   error: null,
+  pendingFilterConfig: null,
 
   // Obs column state (multi-select)
   obsColumnsSelected: [],
@@ -145,6 +146,14 @@ const useAppStore = create((set, get) => ({
         loading: false,
         error: null,
       });
+
+      // Drain queued config that arrived before initialization completed
+      const { pendingFilterConfig } = get();
+      if (pendingFilterConfig) {
+        console.debug("[CZL:postMessage] Applying queued config after initialization");
+        set({ pendingFilterConfig: null });
+        await get().applyFilterConfig(pendingFilterConfig);
+      }
     } catch (err) {
       set({ error: err.message, loading: false });
       console.error(err);
@@ -589,6 +598,13 @@ const useAppStore = create((set, get) => ({
   // Validate raw config, resolve initial view, apply it, and populate selections
   applyFilterConfig: async (raw) => {
     try {
+      const { adata, loading } = get();
+      if (!adata || loading) {
+        console.debug("[CZL:postMessage] Store not ready, queuing config for after initialization");
+        set({ pendingFilterConfig: raw });
+        return { success: true, queued: true };
+      }
+
       const result = FilterSchema.safeParse(raw);
       if (!result.success) {
         const errorMsg = result.error.issues.map(i => i.message).join("; ");
