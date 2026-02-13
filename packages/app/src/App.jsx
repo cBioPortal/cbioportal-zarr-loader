@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import {
   Card,
   Typography,
@@ -12,6 +12,7 @@ import ObsmTab from "./components/ObsmTab";
 import PlotsTab from "./components/PlotsTab";
 
 import useAppStore from "./store/useAppStore";
+import usePostMessage from "./hooks/usePostMessage";
 
 const { Title, Text } = Typography;
 
@@ -45,6 +46,15 @@ export default function App() {
   useEffect(() => {
     initialize(URL);
   }, [initialize]);
+
+  const postMessageHandlers = useMemo(() => ({
+    applyConfig: async (payload) => {
+      const result = await useAppStore.getState().applyFilterConfig(payload);
+      if (!result.success) console.error("postMessage applyConfig failed:", result.error);
+    },
+  }), []);
+
+  usePostMessage(postMessageHandlers, import.meta.env.VITE_POSTMESSAGE_ORIGIN || "*");
 
   if (loading) {
     return (
