@@ -58,6 +58,22 @@ iframe.contentWindow.postMessage({
 
 This minimal example will load the `X_umap50` embedding, select all points where `donor_id` equals `"SPECTRUM-OV-070"`, and display `cell_type` in the tooltip.
 
+## Timing & Queuing
+
+The app needs to load its dataset before it can apply a config. If a `postMessage` arrives before the data has finished loading, the config is automatically queued and applied once initialization completes. This means the parent can fire-and-forget without waiting for the iframe to be ready.
+
+The flow:
+
+1. Parent sends `postMessage` with `applyConfig` — iframe may still be loading data
+2. The app queues the config and logs: `[CZL:postMessage] Store not ready, queuing config for after initialization`
+3. Once the dataset finishes loading, the queued config is applied automatically and logs: `[CZL:postMessage] Applying queued config after initialization`
+
+If the message arrives after the app has already initialized, it is applied immediately.
+
+:::note
+If multiple configs are sent while the app is loading, only the **last one** is kept. Earlier configs are overwritten in the queue.
+:::
+
 ## Message Format
 
 All messages sent to the iframe must use the following envelope format:
@@ -297,17 +313,30 @@ The app handles invalid input gracefully without crashing:
 
 | Error Condition | Behavior |
 |----------------|----------|
-| Invalid schema (payload doesn't match `FilterSchema`) | Error logged to console: `"postMessage applyConfig failed: <error>"` |
-| Unknown message type | Message silently ignored |
-| Message from unauthorized origin | Message silently ignored |
+| Invalid schema (payload doesn't match `FilterSchema`) | Error logged: `[CZL:postMessage] applyConfig failed: <error>` |
+| Unknown message type | Warning logged: `[CZL:postMessage] No handler for message type: <type>` |
+| Message from unauthorized origin | Warning logged: `[CZL:postMessage] Rejected message from origin: <origin>` |
 | Missing required fields | Validation error logged to console |
+| Message arrives before data is loaded | Config is queued and applied after initialization (see [Timing & Queuing](#timing--queuing)) |
 
 The viewer will continue to function normally after receiving invalid messages. Check the browser console for error messages if your configuration isn't being applied.
 
 ### Debugging Tips
 
-1. Open the browser console in the iframe (if possible) or parent window
-2. Look for messages starting with `"postMessage applyConfig failed:"`
+All log messages from this app are prefixed with `[CZL:postMessage]`. Filter your browser console with **CZL** to see only relevant messages.
+
+| Log Message | Meaning |
+|-------------|---------|
+| `Listener registered, allowedOrigin: ...` | Hook is mounted and listening |
+| `Received message: { type, origin, payload }` | A valid envelope was received |
+| `Store not ready, queuing config for after initialization` | Config arrived before data loaded — it will be applied automatically |
+| `Applying queued config after initialization` | Queued config is now being applied |
+| `applyConfig failed: ...` | Config was rejected (check the error message for details) |
+| `Rejected message from origin: ...` | Origin didn't match `VITE_POSTMESSAGE_ORIGIN` |
+| `No handler for message type: ...` | Received an unrecognized message type |
+
+1. Open the browser console in the iframe's window
+2. Filter by `CZL` to see only messages from this app
 3. Verify the payload structure matches the schema exactly
 4. Check that string values match column/gene names in your data
 5. Ensure numeric indices are non-negative integers
