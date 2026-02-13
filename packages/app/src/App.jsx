@@ -50,7 +50,7 @@ export default function App() {
   const postMessageHandlers = useMemo(() => ({
     applyConfig: async (payload) => {
       const result = await useAppStore.getState().applyFilterConfig(payload);
-      if (!result.success) console.error("postMessage applyConfig failed:", result.error);
+      if (!result.success) console.error("[CZL:postMessage] applyConfig failed:", result.error);
     },
   }), []);
 
