@@ -54,6 +54,12 @@ const config = {
           },
           {
             type: 'docSidebar',
+            sidebarId: 'guides',
+            position: 'left',
+            label: 'Guides',
+          },
+          {
+            type: 'docSidebar',
             sidebarId: 'progress',
             position: 'left',
             label: 'Progress',
