@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { sparseToDense, toStringArray } from "./decoders.js";
+import { sparseToDense, toStringArray } from "./decoders";
+import type { SparseMatrix } from "./decoders";
 
 describe("sparseToDense", () => {
   it("converts a CSR sparse matrix to dense", () => {
@@ -7,7 +8,7 @@ describe("sparseToDense", () => {
     // [1, 0, 2]
     // [0, 0, 3]
     // [4, 5, 0]
-    const sparse = {
+    const sparse: SparseMatrix = {
       format: "csr",
       data: new Float64Array([1, 2, 3, 4, 5]),
       indices: new Int32Array([0, 2, 2, 0, 1]),
@@ -18,7 +19,7 @@ describe("sparseToDense", () => {
     const result = sparseToDense(sparse);
 
     expect(result.shape).toEqual([3, 3]);
-    expect(Array.from(result.data)).toEqual([1, 0, 2, 0, 0, 3, 4, 5, 0]);
+    expect(Array.from(result.data as Float64Array)).toEqual([1, 0, 2, 0, 0, 3, 4, 5, 0]);
   });
 
   it("converts a CSC sparse matrix to dense", () => {
@@ -26,7 +27,7 @@ describe("sparseToDense", () => {
     // [1, 0, 2]
     // [0, 0, 3]
     // [4, 5, 0]
-    const sparse = {
+    const sparse: SparseMatrix = {
       format: "csc",
       data: new Float64Array([1, 4, 5, 2, 3]),
       indices: new Int32Array([0, 2, 2, 0, 1]),
@@ -37,11 +38,11 @@ describe("sparseToDense", () => {
     const result = sparseToDense(sparse);
 
     expect(result.shape).toEqual([3, 3]);
-    expect(Array.from(result.data)).toEqual([1, 0, 2, 0, 0, 3, 4, 5, 0]);
+    expect(Array.from(result.data as Float64Array)).toEqual([1, 0, 2, 0, 0, 3, 4, 5, 0]);
   });
 
   it("handles an empty sparse matrix", () => {
-    const sparse = {
+    const sparse: SparseMatrix = {
       format: "csr",
       data: new Float64Array([]),
       indices: new Int32Array([]),
@@ -52,11 +53,11 @@ describe("sparseToDense", () => {
     const result = sparseToDense(sparse);
 
     expect(result.shape).toEqual([2, 3]);
-    expect(Array.from(result.data)).toEqual([0, 0, 0, 0, 0, 0]);
+    expect(Array.from(result.data as Float64Array)).toEqual([0, 0, 0, 0, 0, 0]);
   });
 
   it("handles a 1x1 sparse matrix", () => {
-    const sparse = {
+    const sparse: SparseMatrix = {
       format: "csr",
       data: new Float64Array([7]),
       indices: new Int32Array([0]),
@@ -67,11 +68,11 @@ describe("sparseToDense", () => {
     const result = sparseToDense(sparse);
 
     expect(result.shape).toEqual([1, 1]);
-    expect(Array.from(result.data)).toEqual([7]);
+    expect(Array.from(result.data as Float64Array)).toEqual([7]);
   });
 
   it("throws on unknown sparse format", () => {
-    const sparse = {
+    const sparse: SparseMatrix = {
       format: "coo",
       data: new Float64Array([1]),
       indices: new Int32Array([0]),
@@ -92,7 +93,7 @@ describe("toStringArray", () => {
   it("converts array-like of strings", () => {
     const input = { 0: "x", 1: "y", length: 2, [Symbol.iterator]: Array.prototype[Symbol.iterator] };
     // toStringArray should handle iterables with string elements
-    const result = toStringArray(Array.from(input));
+    const result = toStringArray(Array.from(input as Iterable<string>));
     expect(result).toEqual(["x", "y"]);
   });
 

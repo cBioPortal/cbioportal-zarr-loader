@@ -1,5 +1,6 @@
 import * as zarr from "zarrita";
-import { ZarrStore } from "./ZarrStore.js";
+import type { Readable } from "zarrita";
+import { ZarrStore } from "./ZarrStore";
 import {
   readArray,
   decodeDataframe,
@@ -8,34 +9,58 @@ import {
   decodeSparseMatrix,
   decodeNode,
   toStringArray,
-} from "./decoders.js";
+} from "./decoders";
+import type {
+  ArrayResult,
+  SparseMatrix,
+  Dataframe,
+  DecodeNodeResult,
+} from "./decoders";
+
+type ZarrGroup = zarr.Group<Readable>;
+type ZarrArray = zarr.Array<zarr.DataType, Readable>;
+
+interface ConsolidatedMetadata {
+  [key: string]: unknown;
+}
+
+interface ObsmBatch {
+  data: zarr.TypedArray<zarr.DataType>;
+  shape: number[];
+  offset: number;
+  total: number;
+}
 
 export class AnnDataStore {
-  #zarrStore;
-  #shape;
-  #attrs;
-  #consolidatedMetadata;
-  #cache = new Map();
+  #zarrStore: ZarrStore;
+  #shape: number[];
+  #attrs: Record<string, unknown>;
+  #consolidatedMetadata: ConsolidatedMetadata | null;
+  #cache = new Map<string, Promise<unknown>>();
 
-  constructor(zarrStore, shape, consolidatedMetadata = null) {
+  constructor(
+    zarrStore: ZarrStore,
+    shape: number[],
+    consolidatedMetadata: ConsolidatedMetadata | null = null,
+  ) {
     this.#zarrStore = zarrStore;
     this.#attrs = zarrStore.attrs;
     this.#shape = shape;
     this.#consolidatedMetadata = consolidatedMetadata;
   }
 
-  #cached(key, fn) {
+  #cached<T>(key: string, fn: () => Promise<T>): Promise<T> {
     if (!this.#cache.has(key)) {
       this.#cache.set(key, fn());
     }
-    return this.#cache.get(key);
+    return this.#cache.get(key) as Promise<T>;
   }
 
-  clearCache() {
+  clearCache(): void {
     this.#cache.clear();
   }
 
-  static async open(url) {
+  static async open(url: string): Promise<AnnDataStore> {
     const zarrStore = await ZarrStore.open(url);
     const attrs = zarrStore.attrs;
 
@@ -52,7 +77,7 @@ export class AnnDataStore {
     return new AnnDataStore(zarrStore, shape, consolidatedMetadata);
   }
 
-  static async fromZarrStore(zarrStore) {
+  static async fromZarrStore(zarrStore: ZarrStore): Promise<AnnDataStore> {
     const attrs = zarrStore.attrs;
 
     if (attrs["encoding-type"] !== "anndata") {
@@ -68,76 +93,78 @@ export class AnnDataStore {
     return new AnnDataStore(zarrStore, shape, consolidatedMetadata);
   }
 
-  static async #loadConsolidatedMetadata(zarrStore) {
+  static async #loadConsolidatedMetadata(
+    zarrStore: ZarrStore,
+  ): Promise<ConsolidatedMetadata | null> {
     try {
       const response = await fetch(
-        zarrStore.store.url.replace(/\/$/, "") + "/.zmetadata",
+        String(zarrStore.store.url).replace(/\/$/, "") + "/.zmetadata",
       );
       if (!response.ok) return null;
-      const data = await response.json();
+      const data = (await response.json()) as { metadata?: ConsolidatedMetadata };
       return data.metadata || null;
     } catch {
       return null;
     }
   }
 
-  static async #resolveShape(zarrStore) {
+  static async #resolveShape(zarrStore: ZarrStore): Promise<number[]> {
     // Try opening X as an array first (dense), fall back to group (sparse)
     try {
       const xArr = await zarrStore.openArray("X");
       return xArr.shape;
     } catch {
       const xGroup = await zarrStore.openGroup("X");
-      return xGroup.attrs.shape;
+      return xGroup.attrs.shape as number[];
     }
   }
 
   // --- Metadata (synchronous) ---
 
-  get shape() {
+  get shape(): number[] {
     return this.#shape;
   }
 
-  get nObs() {
+  get nObs(): number {
     return this.#shape[0];
   }
 
-  get nVar() {
+  get nVar(): number {
     return this.#shape[1];
   }
 
-  get attrs() {
+  get attrs(): Record<string, unknown> {
     return this.#attrs;
   }
 
-  get zarrStore() {
+  get zarrStore(): ZarrStore {
     return this.#zarrStore;
   }
 
   // --- X matrix ---
 
-  async X(sliceRange) {
-    let node;
+  async X(sliceRange?: [number, number]): Promise<ArrayResult | SparseMatrix> {
+    let node: ZarrArray | ZarrGroup;
     try {
       node = await this.#zarrStore.openArray("X");
     } catch {
       node = await this.#zarrStore.openGroup("X");
     }
 
-    if (node.attrs?.["encoding-type"]?.endsWith("_matrix")) {
-      return decodeSparseMatrix(node);
+    if ((node.attrs?.["encoding-type"] as string)?.endsWith("_matrix")) {
+      return decodeSparseMatrix(node as ZarrGroup);
     }
 
     // Dense array
     if (sliceRange) {
       const [start, end] = sliceRange;
-      const chunk = await zarr.get(node, [zarr.slice(start, end), null]);
+      const chunk = await zarr.get(node as ZarrArray, [zarr.slice(start, end), null]);
       return { data: chunk.data, shape: chunk.shape };
     }
-    return readArray(node);
+    return readArray(node as ZarrArray);
   }
 
-  async geneExpression(geneName) {
+  async geneExpression(geneName: string): Promise<zarr.TypedArray<zarr.DataType>> {
     // Get gene index from var names
     const varNames = await this.varNames();
     const geneIndex = varNames.indexOf(geneName);
@@ -146,20 +173,22 @@ export class AnnDataStore {
     }
 
     // Try to open X as dense array
-    let node;
+    let node: ZarrArray | ZarrGroup;
     try {
       node = await this.#zarrStore.openArray("X");
     } catch {
       node = await this.#zarrStore.openGroup("X");
     }
 
-    if (node.attrs?.["encoding-type"]?.endsWith("_matrix")) {
+    if ((node.attrs?.["encoding-type"] as string)?.endsWith("_matrix")) {
       // Sparse matrix - need to decode and extract column
-      const sparse = await decodeSparseMatrix(node);
+      const sparse = await decodeSparseMatrix(node as ZarrGroup);
       // For CSR matrix, we need to iterate through all rows
       // This is less efficient but works for any sparse format
       const result = new Float32Array(this.#shape[0]);
-      const { data, indices, indptr } = sparse;
+      const data = sparse.data as ArrayLike<number>;
+      const indices = sparse.indices as ArrayLike<number>;
+      const indptr = sparse.indptr as ArrayLike<number>;
       for (let row = 0; row < this.#shape[0]; row++) {
         const rowStart = indptr[row];
         const rowEnd = indptr[row + 1];
@@ -174,37 +203,37 @@ export class AnnDataStore {
     }
 
     // Dense array - slice the column
-    const chunk = await zarr.get(node, [null, geneIndex]);
+    const chunk = await zarr.get(node as ZarrArray, [null, geneIndex]);
     return chunk.data;
   }
 
   // --- obs / var dataframes ---
 
-  obs() {
+  obs(): Promise<Dataframe> {
     return this.#cached("obs", async () => {
       const group = await this.#zarrStore.openGroup("obs");
       return decodeDataframe(group);
     });
   }
 
-  obsColumn(name) {
+  obsColumn(name: string): Promise<zarr.TypedArray<zarr.DataType> | (string | number | null)[]> {
     return this.#cached(`obs:${name}`, async () => {
       const group = await this.#zarrStore.openGroup("obs");
       return decodeColumn(group, name);
     });
   }
 
-  obsColumns() {
+  obsColumns(): Promise<string[]> {
     return this.#cached("obsColumns", async () => {
       const group = await this.#zarrStore.openGroup("obs");
-      return Array.from(group.attrs["column-order"]);
+      return Array.from(group.attrs["column-order"] as string[]);
     });
   }
 
-  obsNames() {
+  obsNames(): Promise<(string | number | null)[]> {
     return this.#cached("obsNames", async () => {
       const group = await this.#zarrStore.openGroup("obs");
-      const indexKey = group.attrs["_index"];
+      const indexKey = group.attrs["_index"] as string;
       // Index can be an array or a categorical group
       try {
         const arr = await zarr.open(group.resolve(indexKey), { kind: "array" });
@@ -221,31 +250,31 @@ export class AnnDataStore {
     });
   }
 
-  var() {
+  var(): Promise<Dataframe> {
     return this.#cached("var", async () => {
       const group = await this.#zarrStore.openGroup("var");
       return decodeDataframe(group);
     });
   }
 
-  varColumn(name) {
+  varColumn(name: string): Promise<zarr.TypedArray<zarr.DataType> | (string | number | null)[]> {
     return this.#cached(`var:${name}`, async () => {
       const group = await this.#zarrStore.openGroup("var");
       return decodeColumn(group, name);
     });
   }
 
-  varColumns() {
+  varColumns(): Promise<string[]> {
     return this.#cached("varColumns", async () => {
       const group = await this.#zarrStore.openGroup("var");
-      return Array.from(group.attrs["column-order"]);
+      return Array.from(group.attrs["column-order"] as string[]);
     });
   }
 
-  varNames() {
+  varNames(): Promise<(string | number | null)[]> {
     return this.#cached("varNames", async () => {
       const group = await this.#zarrStore.openGroup("var");
-      const indexKey = group.attrs["_index"];
+      const indexKey = group.attrs["_index"] as string;
       // Index can be an array or a categorical group
       try {
         const arr = await zarr.open(group.resolve(indexKey), { kind: "array" });
@@ -264,12 +293,12 @@ export class AnnDataStore {
 
   // --- Dict-of-matrices slots ---
 
-  #slotKeys(path) {
+  #slotKeys(path: string): string[] {
     if (!this.#consolidatedMetadata) {
       return [];
     }
     const prefix = path + "/";
-    const keys = new Set();
+    const keys = new Set<string>();
     for (const key of Object.keys(this.#consolidatedMetadata)) {
       if (key.startsWith(prefix)) {
         const rest = key.slice(prefix.length);
@@ -282,14 +311,14 @@ export class AnnDataStore {
     return Array.from(keys);
   }
 
-  #slotNode(path, key) {
+  #slotNode(path: string, key: string): Promise<DecodeNodeResult> {
     return this.#cached(`${path}:${key}`, async () => {
       const node = await this.#zarrStore.openGroup(`${path}/${key}`);
       return decodeNode(node);
     });
   }
 
-  #slotArray(path, key) {
+  #slotArray(path: string, key: string): Promise<ArrayResult | DecodeNodeResult> {
     return this.#cached(`${path}:${key}`, async () => {
       try {
         const arr = await this.#zarrStore.openArray(`${path}/${key}`);
@@ -301,11 +330,11 @@ export class AnnDataStore {
     });
   }
 
-  obsm(key) {
+  obsm(key: string): Promise<ArrayResult | DecodeNodeResult> {
     return this.#slotArray("obsm", key);
   }
 
-  async *obsmStreaming(key, batchSize) {
+  async *obsmStreaming(key: string, batchSize?: number): AsyncGenerator<ObsmBatch> {
     const arr = await this.#zarrStore.openArray(`obsm/${key}`);
     const [nObs] = arr.shape;
     const step = batchSize ?? arr.chunks[0];
@@ -317,51 +346,51 @@ export class AnnDataStore {
     }
   }
 
-  obsmKeys() {
+  obsmKeys(): string[] {
     return this.#slotKeys("obsm");
   }
 
-  varm(key) {
+  varm(key: string): Promise<ArrayResult | DecodeNodeResult> {
     return this.#slotArray("varm", key);
   }
 
-  varmKeys() {
+  varmKeys(): string[] {
     return this.#slotKeys("varm");
   }
 
-  obsp(key) {
+  obsp(key: string): Promise<DecodeNodeResult> {
     return this.#slotNode("obsp", key);
   }
 
-  obspKeys() {
+  obspKeys(): string[] {
     return this.#slotKeys("obsp");
   }
 
-  varp(key) {
+  varp(key: string): Promise<DecodeNodeResult> {
     return this.#slotNode("varp", key);
   }
 
-  varpKeys() {
+  varpKeys(): string[] {
     return this.#slotKeys("varp");
   }
 
   // --- Layers ---
 
-  layer(key) {
+  layer(key: string): Promise<ArrayResult | DecodeNodeResult> {
     return this.#slotArray("layers", key);
   }
 
-  layerKeys() {
+  layerKeys(): string[] {
     return this.#slotKeys("layers");
   }
 
   // --- Unstructured (uns) ---
 
-  uns(key) {
+  uns(key: string): Promise<ArrayResult | DecodeNodeResult> {
     return this.#slotArray("uns", key);
   }
 
-  unsKeys() {
+  unsKeys(): string[] {
     return this.#slotKeys("uns");
   }
 }

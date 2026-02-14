@@ -1,14 +1,19 @@
 import { createServer } from "node:http";
+import type { AddressInfo } from "node:net";
 import { readFile } from "node:fs/promises";
 import { join, normalize } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterAll } from "vitest";
 
+declare global {
+  var __TEST_BASE_URL__: string;
+}
+
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
 const FIXTURES_DIR = join(__dirname, "..", "fixtures");
 
 const server = createServer(async (req, res) => {
-  const urlPath = decodeURIComponent(new URL(req.url, "http://localhost").pathname);
+  const urlPath = decodeURIComponent(new URL(req.url!, "http://localhost").pathname);
   const filePath = normalize(join(FIXTURES_DIR, urlPath));
 
   if (!filePath.startsWith(FIXTURES_DIR)) {
@@ -30,13 +35,13 @@ const server = createServer(async (req, res) => {
   }
 });
 
-await new Promise((resolve) => {
+await new Promise<void>((resolve) => {
   server.listen(0, "127.0.0.1", resolve);
 });
 
-const { port } = server.address();
+const { port } = server.address() as AddressInfo;
 globalThis.__TEST_BASE_URL__ = `http://127.0.0.1:${port}`;
 
 afterAll(async () => {
-  await new Promise((resolve) => server.close(resolve));
+  await new Promise<void>((resolve) => server.close(() => resolve()));
 });

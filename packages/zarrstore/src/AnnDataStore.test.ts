@@ -1,13 +1,14 @@
 import { describe, it, expect } from "vitest";
-import { AnnDataStore } from "./AnnDataStore.js";
-import { ZarrStore } from "./ZarrStore.js";
+import { AnnDataStore } from "./AnnDataStore";
+import { ZarrStore } from "./ZarrStore";
+import type { ArrayResult } from "./decoders";
 
-const URL = `${globalThis.__TEST_BASE_URL__}/pbmc3k.zarr`;
+const TEST_URL = `${globalThis.__TEST_BASE_URL__}/pbmc3k.zarr`;
 
 describe("AnnDataStore", () => {
   describe("open", () => {
     it("opens a store and exposes shape metadata", async () => {
-      const adata = await AnnDataStore.open(URL);
+      const adata = await AnnDataStore.open(TEST_URL);
 
       expect(adata.shape).toBeDefined();
       expect(adata.shape).toHaveLength(2);
@@ -16,13 +17,13 @@ describe("AnnDataStore", () => {
     });
 
     it("exposes root attrs with anndata encoding-type", async () => {
-      const adata = await AnnDataStore.open(URL);
+      const adata = await AnnDataStore.open(TEST_URL);
 
       expect(adata.attrs).toHaveProperty("encoding-type", "anndata");
     });
 
     it("exposes the underlying ZarrStore", async () => {
-      const adata = await AnnDataStore.open(URL);
+      const adata = await AnnDataStore.open(TEST_URL);
 
       expect(adata.zarrStore).toBeInstanceOf(ZarrStore);
     });
@@ -30,7 +31,7 @@ describe("AnnDataStore", () => {
 
   describe("fromZarrStore", () => {
     it("creates AnnDataStore from an existing ZarrStore", async () => {
-      const zs = await ZarrStore.open(URL);
+      const zs = await ZarrStore.open(TEST_URL);
       const adata = await AnnDataStore.fromZarrStore(zs);
 
       expect(adata.shape).toBeDefined();
@@ -40,7 +41,7 @@ describe("AnnDataStore", () => {
 
   describe("X matrix", () => {
     it("reads the full X matrix", async () => {
-      const adata = await AnnDataStore.open(URL);
+      const adata = await AnnDataStore.open(TEST_URL);
       const x = await adata.X();
 
       expect(x).toBeDefined();
@@ -53,7 +54,7 @@ describe("AnnDataStore", () => {
 
   describe("obs", () => {
     it("reads the full obs dataframe", async () => {
-      const adata = await AnnDataStore.open(URL);
+      const adata = await AnnDataStore.open(TEST_URL);
       const obs = await adata.obs();
 
       expect(obs.index).toBeDefined();
@@ -64,7 +65,7 @@ describe("AnnDataStore", () => {
     });
 
     it("reads obs column names", async () => {
-      const adata = await AnnDataStore.open(URL);
+      const adata = await AnnDataStore.open(TEST_URL);
       const cols = await adata.obsColumns();
 
       expect(Array.isArray(cols)).toBe(true);
@@ -72,7 +73,7 @@ describe("AnnDataStore", () => {
     });
 
     it("reads a single obs column", async () => {
-      const adata = await AnnDataStore.open(URL);
+      const adata = await AnnDataStore.open(TEST_URL);
       const cols = await adata.obsColumns();
       const col = await adata.obsColumn(cols[0]);
 
@@ -81,7 +82,7 @@ describe("AnnDataStore", () => {
     });
 
     it("reads obs names (index)", async () => {
-      const adata = await AnnDataStore.open(URL);
+      const adata = await AnnDataStore.open(TEST_URL);
       const names = await adata.obsNames();
 
       expect(Array.isArray(names)).toBe(true);
@@ -91,7 +92,7 @@ describe("AnnDataStore", () => {
 
   describe("var", () => {
     it("reads the full var dataframe", async () => {
-      const adata = await AnnDataStore.open(URL);
+      const adata = await AnnDataStore.open(TEST_URL);
       const v = await adata.var();
 
       expect(v.index).toBeDefined();
@@ -102,7 +103,7 @@ describe("AnnDataStore", () => {
     });
 
     it("reads var names (gene names)", async () => {
-      const adata = await AnnDataStore.open(URL);
+      const adata = await AnnDataStore.open(TEST_URL);
       const names = await adata.varNames();
 
       expect(Array.isArray(names)).toBe(true);
@@ -112,29 +113,29 @@ describe("AnnDataStore", () => {
 
   describe("obsm", () => {
     it("lists obsm keys", async () => {
-      const adata = await AnnDataStore.open(URL);
+      const adata = await AnnDataStore.open(TEST_URL);
       const keys = adata.obsmKeys();
 
       expect(Array.isArray(keys)).toBe(true);
     });
 
     it("reads an obsm entry if keys exist", async () => {
-      const adata = await AnnDataStore.open(URL);
+      const adata = await AnnDataStore.open(TEST_URL);
       const keys = adata.obsmKeys();
 
       if (keys.length > 0) {
-        const entry = await adata.obsm(keys[0]);
+        const entry = (await adata.obsm(keys[0])) as ArrayResult;
         expect(entry).toBeDefined();
         expect(entry.data).toBeDefined();
       }
     });
 
     it("streams obsm in batches with correct metadata", async () => {
-      const adata = await AnnDataStore.open(URL);
+      const adata = await AnnDataStore.open(TEST_URL);
       const keys = adata.obsmKeys();
       if (keys.length === 0) return;
 
-      const batches = [];
+      const batches: { data: unknown; shape: number[]; offset: number; total: number }[] = [];
       for await (const batch of adata.obsmStreaming(keys[0])) {
         expect(batch.data).toBeDefined();
         expect(batch.shape).toHaveLength(2);
@@ -147,16 +148,16 @@ describe("AnnDataStore", () => {
     });
 
     it("streaming batches concatenate to match non-streaming obsm", async () => {
-      const adata = await AnnDataStore.open(URL);
+      const adata = await AnnDataStore.open(TEST_URL);
       const keys = adata.obsmKeys();
       if (keys.length === 0) return;
 
       const key = keys[0];
-      const full = await adata.obsm(key);
+      const full = (await adata.obsm(key)) as ArrayResult;
 
-      const batches = [];
+      const batches: { data: ArrayLike<number>; shape: number[]; offset: number; total: number }[] = [];
       for await (const batch of adata.obsmStreaming(key)) {
-        batches.push(batch);
+        batches.push(batch as { data: ArrayLike<number>; shape: number[]; offset: number; total: number });
       }
 
       // Verify offsets increment correctly
@@ -169,10 +170,11 @@ describe("AnnDataStore", () => {
 
       // Concatenate batch data and compare to full result
       const totalElements = batches.reduce((sum, b) => sum + b.data.length, 0);
-      const concatenated = new full.data.constructor(totalElements);
+      const TypedArrayCtor = (full.data as unknown as Float64Array).constructor as Float64ArrayConstructor;
+      const concatenated = new TypedArrayCtor(totalElements);
       let writeOffset = 0;
       for (const batch of batches) {
-        concatenated.set(batch.data, writeOffset);
+        concatenated.set(batch.data as unknown as Float64Array, writeOffset);
         writeOffset += batch.data.length;
       }
 
@@ -181,12 +183,12 @@ describe("AnnDataStore", () => {
     });
 
     it("respects custom batchSize parameter", async () => {
-      const adata = await AnnDataStore.open(URL);
+      const adata = await AnnDataStore.open(TEST_URL);
       const keys = adata.obsmKeys();
       if (keys.length === 0) return;
 
       const batchSize = 100;
-      const batches = [];
+      const batches: { data: unknown; shape: number[]; offset: number; total: number }[] = [];
       for await (const batch of adata.obsmStreaming(keys[0], batchSize)) {
         batches.push(batch);
       }
@@ -204,7 +206,7 @@ describe("AnnDataStore", () => {
 
   describe("layers", () => {
     it("lists layer keys", async () => {
-      const adata = await AnnDataStore.open(URL);
+      const adata = await AnnDataStore.open(TEST_URL);
       const keys = adata.layerKeys();
 
       expect(Array.isArray(keys)).toBe(true);
@@ -213,7 +215,7 @@ describe("AnnDataStore", () => {
 
   describe("uns", () => {
     it("lists uns keys", async () => {
-      const adata = await AnnDataStore.open(URL);
+      const adata = await AnnDataStore.open(TEST_URL);
       const keys = adata.unsKeys();
 
       expect(Array.isArray(keys)).toBe(true);
