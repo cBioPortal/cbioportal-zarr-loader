@@ -230,7 +230,11 @@ export default function ObsmTab() {
                 <Button
                   size="small"
                   icon={<ReloadOutlined />}
-                  onClick={() => fetchObsm(selectedObsm)}
+                  onClick={() =>
+                    activeSelectionIndex != null
+                      ? applyView(appliedSelections[activeSelectionIndex])
+                      : fetchObsm(selectedObsm)
+                  }
                   loading={obsmLoading}
                 />
               </Space>
