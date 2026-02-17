@@ -1,4 +1,5 @@
 import { useEffect, useMemo } from "react";
+import { Routes, Route } from "react-router";
 import {
   Card,
   Typography,
@@ -144,9 +145,16 @@ export default function App() {
   ];
 
   return (
-    <div style={{ padding: 24 }}>
-      <Title level={3}>AnnData Zarr Loader</Title>
-      <Tabs items={tabItems} defaultActiveKey="explorer" />
-    </div>
+    <Routes>
+      <Route
+        path="/*"
+        element={
+          <div style={{ padding: 24 }}>
+            <Title level={3}>AnnData Zarr Loader</Title>
+            <Tabs items={tabItems} defaultActiveKey="explorer" />
+          </div>
+        }
+      />
+    </Routes>
   );
 }
