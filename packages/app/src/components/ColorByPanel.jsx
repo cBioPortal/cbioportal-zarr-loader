@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Card, Button, Segmented } from "antd";
+import { Card, Button } from "antd";
 import useAppStore from "../store/useAppStore";
 import SearchableList from "./SearchableList";
 
@@ -25,17 +25,14 @@ export default function ColorByPanel({ height = 300, width = 220, style = {} }) 
   return (
     <Card
       size="small"
-      title={
-        <Segmented
-          size="small"
-          value={activeTab}
-          onChange={setActiveTab}
-          options={[
-            { label: `Columns (${obsColumns?.length ?? 0})`, value: "columns" },
-            { label: `Genes (${geneNames?.length ?? 0})`, value: "genes" },
-          ]}
-        />
-      }
+      tabList={[
+        { key: "columns", tab: "Columns" },
+        { key: "genes", tab: "Genes" },
+      ]}
+      title="Color By"
+      activeTabKey={activeTab}
+      onTabChange={setActiveTab}
+      tabProps={{ size: "small" }}
       extra={onClear && selectedCount > 0 ? (
         <Button type="link" size="small" onClick={onClear} style={{ padding: 0 }}>
           Clear
@@ -45,7 +42,7 @@ export default function ColorByPanel({ height = 300, width = 220, style = {} }) 
       styles={{
         body: {
           padding: 0,
-          height: "calc(100% - 38px)",
+          height: "calc(100% - 46px)",
           display: "flex",
           flexDirection: "column",
           overflow: "hidden",
