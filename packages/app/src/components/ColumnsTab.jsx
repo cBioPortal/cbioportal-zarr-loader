@@ -1,25 +1,28 @@
 import { useState } from "react";
 import { Segmented } from "antd";
 import ColumnExplorer from "./ColumnExplorer";
+import useAppStore from "../store/useAppStore";
 
-export default function ColumnsTab({
-  obsColumns,
-  obsColumnsSelected,
-  obsColumnsData,
-  obsIndex,
-  obsColumnLoading,
-  obsColumnTime,
-  toggleObsColumn,
-  clearObsColumns,
-  varColumns,
-  varColumnsSelected,
-  varColumnsData,
-  varIndex,
-  varColumnLoading,
-  varColumnTime,
-  toggleVarColumn,
-  clearVarColumns,
-}) {
+export default function ColumnsTab() {
+  const {
+    metadata,
+    obsColumnsSelected,
+    obsColumnsData,
+    obsIndex,
+    obsColumnLoading,
+    obsColumnTime,
+    toggleObsColumn,
+    clearObsColumns,
+    varColumnsSelected,
+    varColumnsData,
+    varIndex,
+    varColumnLoading,
+    varColumnTime,
+    toggleVarColumn,
+    clearVarColumns,
+  } = useAppStore();
+
+  const { obsColumns, varColumns } = metadata;
   const [activeGroup, setActiveGroup] = useState("obs");
 
   return (

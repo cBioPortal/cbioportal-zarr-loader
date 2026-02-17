@@ -26,22 +26,6 @@ export default function App() {
     error,
     metadata,
     initialize,
-    // Obs column (multi-select)
-    obsColumnsSelected,
-    obsColumnsData,
-    obsColumnLoading,
-    obsColumnTime,
-    obsIndex,
-    toggleObsColumn,
-    clearObsColumns,
-    // Var column (multi-select)
-    varColumnsSelected,
-    varColumnsData,
-    varColumnLoading,
-    varColumnTime,
-    varIndex,
-    toggleVarColumn,
-    clearVarColumns,
   } = useAppStore();
 
   useEffect(() => {
@@ -94,26 +78,7 @@ export default function App() {
     {
       key: "columns",
       label: `Data (${obsColumns.length + varColumns.length})`,
-      children: (
-        <ColumnsTab
-          obsColumns={obsColumns}
-          obsColumnsSelected={obsColumnsSelected}
-          obsColumnsData={obsColumnsData}
-          obsIndex={obsIndex}
-          obsColumnLoading={obsColumnLoading}
-          obsColumnTime={obsColumnTime}
-          toggleObsColumn={toggleObsColumn}
-          clearObsColumns={clearObsColumns}
-          varColumns={varColumns}
-          varColumnsSelected={varColumnsSelected}
-          varColumnsData={varColumnsData}
-          varIndex={varIndex}
-          varColumnLoading={varColumnLoading}
-          varColumnTime={varColumnTime}
-          toggleVarColumn={toggleVarColumn}
-          clearVarColumns={clearVarColumns}
-        />
-      ),
+      children: <ColumnsTab />,
     },
     {
       key: "plots",
