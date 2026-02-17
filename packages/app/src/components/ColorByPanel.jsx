@@ -38,11 +38,12 @@ export default function ColorByPanel({ height = 300, width = 220, style = {} }) 
           Clear
         </Button>
       ) : null}
-      style={{ width, height, ...style }}
+      style={{ width, height, display: "flex", flexDirection: "column", ...style }}
       styles={{
         body: {
           padding: 0,
-          height: "calc(100% - 46px)",
+          flex: 1,
+          minHeight: 0,
           display: "flex",
           flexDirection: "column",
           overflow: "hidden",
