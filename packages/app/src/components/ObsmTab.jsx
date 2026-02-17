@@ -9,9 +9,10 @@ import {
   Button,
   Input,
   Select,
+  Popover,
   message,
 } from "antd";
-import { ReloadOutlined, EditOutlined, CopyOutlined } from "@ant-design/icons";
+import { ReloadOutlined, EditOutlined, CopyOutlined, InfoCircleOutlined } from "@ant-design/icons";
 import EmbeddingScatterplot from "./EmbeddingScatterplot";
 import SearchableList from "./SearchableList";
 import ColorColumnList from "./ColorColumnList";
@@ -221,6 +222,23 @@ export default function ObsmTab() {
                     label: `${i}: ${s.name || (s.selection.target ? `${s.selection.target}: ${s.selection.values.join(", ")}` : `${s.selection.type} selection`)}`,
                   }))}
                 />
+                <Popover
+                  title="Current View"
+                  trigger="click"
+                  content={
+                    <pre style={{ margin: 0, maxHeight: 300, overflow: "auto", fontSize: 12 }}>
+                      {activeSelectionIndex != null
+                        ? JSON.stringify(appliedSelections[activeSelectionIndex], null, 2)
+                        : "No view selected"}
+                    </pre>
+                  }
+                >
+                  <Button
+                    size="small"
+                    icon={<InfoCircleOutlined />}
+                    title="View current config"
+                  />
+                </Popover>
                 <Button
                   size="small"
                   icon={<EditOutlined />}
