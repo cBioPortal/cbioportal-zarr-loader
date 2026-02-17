@@ -1,27 +1,25 @@
 import { useEffect, useMemo } from "react";
 import { Routes, Route } from "react-router";
 import {
-  Card,
   Typography,
   Spin,
   Alert,
   Tabs,
-  Descriptions,
 } from "antd";
 import ColumnsTab from "./components/ColumnsTab";
+import InfoTab from "./components/InfoTab";
 import ObsmTab from "./components/ObsmTab";
 import PlotsTab from "./components/PlotsTab";
 
 import useAppStore from "./store/useAppStore";
 import usePostMessage from "./hooks/usePostMessage";
 
-const { Title, Text } = Typography;
+const { Title } = Typography;
 
 const URL = "https://cbioportal-public-imaging.assets.cbioportal.org/msk_spectrum_tme_2022/zarr/spectrum_all_cells.zarr";
 
 export default function App() {
   const {
-    adata,
     loading,
     error,
     metadata,
@@ -67,7 +65,7 @@ export default function App() {
     );
   }
 
-  const { obsColumns, varColumns, chunks } = metadata;
+  const { obsColumns, varColumns } = metadata;
 
   const tabItems = [
     {
@@ -88,24 +86,7 @@ export default function App() {
     {
       key: "info",
       label: "Info",
-      children: (
-        <Card title="Dataset" size="small">
-          <Descriptions column={1} size="small">
-            <Descriptions.Item label="Shape">
-              {adata.nObs.toLocaleString()} obs × {adata.nVar.toLocaleString()} var
-            </Descriptions.Item>
-            <Descriptions.Item label="Chunk size">
-              {chunks ? chunks.join(" × ") : "N/A"}
-            </Descriptions.Item>
-            <Descriptions.Item label="Encoding">
-              {adata.attrs["encoding-type"]} v{adata.attrs["encoding-version"]}
-            </Descriptions.Item>
-            <Descriptions.Item label="URL">
-              <Text copyable style={{ fontSize: 12 }}>{URL}</Text>
-            </Descriptions.Item>
-          </Descriptions>
-        </Card>
-      ),
+      children: <InfoTab url={URL} />,
     },
   ];
 
