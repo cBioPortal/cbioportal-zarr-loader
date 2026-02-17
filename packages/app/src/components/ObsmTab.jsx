@@ -9,9 +9,10 @@ import {
   Button,
   Input,
   Select,
+  Popover,
   message,
 } from "antd";
-import { ReloadOutlined, EditOutlined, CopyOutlined } from "@ant-design/icons";
+import { ReloadOutlined, EditOutlined, CopyOutlined, InfoCircleOutlined } from "@ant-design/icons";
 import EmbeddingScatterplot from "./EmbeddingScatterplot";
 import SearchableList from "./SearchableList";
 import ColorColumnList from "./ColorColumnList";
@@ -78,6 +79,8 @@ export default function ObsmTab() {
   } = useAppStore();
 
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [childDrawerOpen, setChildDrawerOpen] = useState(false);
+  const [viewJson, setViewJson] = useState("");
 
   const { obsmKeys } = metadata;
   const isEmbedding = selectedObsm && /umap|tsne|pca/i.test(selectedObsm) && obsmData?.shape?.[1] >= 2;
@@ -221,16 +224,45 @@ export default function ObsmTab() {
                     label: `${i}: ${s.name || (s.selection.target ? `${s.selection.target}: ${s.selection.values.join(", ")}` : `${s.selection.type} selection`)}`,
                   }))}
                 />
+                <Popover
+                  title="Current View"
+                  trigger="click"
+                  content={
+                    <pre style={{ margin: 0, maxHeight: 300, overflow: "auto", fontSize: 12 }}>
+                      {activeSelectionIndex != null
+                        ? JSON.stringify(appliedSelections[activeSelectionIndex], null, 2)
+                        : "No view selected"}
+                    </pre>
+                  }
+                >
+                  <Button
+                    size="small"
+                    icon={<InfoCircleOutlined />}
+                    title="View current config"
+                  />
+                </Popover>
                 <Button
                   size="small"
                   icon={<EditOutlined />}
-                  onClick={() => setDrawerOpen(true)}
+                  onClick={() => {
+                    if (activeSelectionIndex != null) {
+                      setViewJson(JSON.stringify(appliedSelections[activeSelectionIndex], null, 2));
+                    } else {
+                      setViewJson("");
+                    }
+                    setDrawerOpen(true);
+                  }}
                   title="Edit JSON config"
                 />
                 <Button
                   size="small"
                   icon={<ReloadOutlined />}
-                  onClick={() => fetchObsm(selectedObsm)}
+                  onClick={() =>
+                    activeSelectionIndex != null
+                      ? applyView(appliedSelections[activeSelectionIndex])
+                      : fetchObsm(selectedObsm)
+                  }
+                  title="Reload the current config"
                   loading={obsmLoading}
                 />
               </Space>
@@ -260,60 +292,152 @@ export default function ObsmTab() {
             )}
           </Card>
           <Drawer
-            title="Edit JSON Config"
+            title="Current View"
             placement="right"
-            size={480}
+            width={480}
             open={drawerOpen}
             onClose={() => setDrawerOpen(false)}
           >
-            <Input.TextArea
-              autoSize={{ minRows: 2 }}
-              value={filterJson}
-              onChange={e => setFilterJson(e.target.value)}
-              placeholder='{"initial_view": "my view", "saved_views": [{"name": "my view", ...}]}'
-            />
-            <div style={{ marginTop: 8, display: "flex", justifyContent: "space-between" }}>
-              <Space>
-                <Button
-                  size="small"
-                  onClick={() => {
-                    navigator.clipboard.writeText(filterJson);
-                    message.success("Copied to clipboard");
-                  }}
-                  disabled={!filterJson}
-                  icon={<CopyOutlined />}
-                >
-                  Copy
+            {activeSelectionIndex != null ? (
+              <>
+                <Input.TextArea
+                  autoSize={{ minRows: 2 }}
+                  value={viewJson}
+                  onChange={e => setViewJson(e.target.value)}
+                  placeholder='{"name": "my view", "selection": {...}, ...}'
+                />
+                <div style={{ marginTop: 8, display: "flex", justifyContent: "space-between" }}>
+                  <Space>
+                    <Button
+                      size="small"
+                      onClick={() => {
+                        navigator.clipboard.writeText(viewJson);
+                        message.success("Copied to clipboard");
+                      }}
+                      disabled={!viewJson}
+                      icon={<CopyOutlined />}
+                    >
+                      Copy
+                    </Button>
+                    <Button
+                      size="small"
+                      onClick={() => {
+                        try {
+                          setViewJson(JSON.stringify(JSON.parse(viewJson), null, 2));
+                        } catch {
+                          message.error("Invalid JSON — cannot format");
+                        }
+                      }}
+                    >
+                      Format
+                    </Button>
+                  </Space>
+                  <Space>
+                    <Button
+                      size="small"
+                      onClick={() => setChildDrawerOpen(true)}
+                    >
+                      Full Config
+                    </Button>
+                    <Button
+                      type="primary"
+                      size="small"
+                      onClick={() => {
+                        let parsed;
+                        try {
+                          parsed = JSON.parse(viewJson);
+                        } catch {
+                          message.error("Invalid JSON");
+                          return;
+                        }
+                        // Update the view in appliedSelections
+                        const updated = [...appliedSelections];
+                        updated[activeSelectionIndex] = parsed;
+                        setAppliedSelections(updated);
+                        // Sync back to filterJson
+                        try {
+                          const config = JSON.parse(filterJson);
+                          config.saved_views = updated;
+                          setFilterJson(JSON.stringify(config, null, 2));
+                        } catch {
+                          // filterJson wasn't valid — rebuild
+                          setFilterJson(JSON.stringify({ saved_views: updated }, null, 2));
+                        }
+                        setDrawerOpen(false);
+                        applyView(parsed);
+                        message.success("View updated");
+                      }}
+                    >
+                      Save View
+                    </Button>
+                  </Space>
+                </div>
+              </>
+            ) : (
+              <Space direction="vertical" style={{ width: "100%" }}>
+                <Text type="secondary">No view selected. Open the full config to edit.</Text>
+                <Button onClick={() => setChildDrawerOpen(true)}>
+                  Full Config
                 </Button>
-                <Button
-                  size="small"
-                  onClick={() => {
-                  try {
-                    setFilterJson(JSON.stringify(JSON.parse(filterJson), null, 2));
-                  } catch {
-                    message.error("Invalid JSON — cannot format");
-                  }
-                }}
-              >
-                Format
-              </Button>
               </Space>
-              <Space>
-                <Button
-                  size="small"
-                  onClick={() => setFilterJson(EXAMPLE_FILTER)}
-                >
-                  Example
-                </Button>
-                <Button
-                  type="primary"
-                  size="small"
-                  onClick={handleFilterApply}
-                >
-                  Load Config
-                </Button>
-              </Space>
-            </div>
+            )}
+
+            <Drawer
+              title="Full Config"
+              placement="right"
+              width={480}
+              open={childDrawerOpen}
+              onClose={() => setChildDrawerOpen(false)}
+            >
+              <Input.TextArea
+                autoSize={{ minRows: 2 }}
+                value={filterJson}
+                onChange={e => setFilterJson(e.target.value)}
+                placeholder='{"initial_view": "my view", "saved_views": [{"name": "my view", ...}]}'
+              />
+              <div style={{ marginTop: 8, display: "flex", justifyContent: "space-between" }}>
+                <Space>
+                  <Button
+                    size="small"
+                    onClick={() => {
+                      navigator.clipboard.writeText(filterJson);
+                      message.success("Copied to clipboard");
+                    }}
+                    disabled={!filterJson}
+                    icon={<CopyOutlined />}
+                  >
+                    Copy
+                  </Button>
+                  <Button
+                    size="small"
+                    onClick={() => {
+                      try {
+                        setFilterJson(JSON.stringify(JSON.parse(filterJson), null, 2));
+                      } catch {
+                        message.error("Invalid JSON — cannot format");
+                      }
+                    }}
+                  >
+                    Format
+                  </Button>
+                </Space>
+                <Space>
+                  <Button
+                    size="small"
+                    onClick={() => setFilterJson(EXAMPLE_FILTER)}
+                  >
+                    Example
+                  </Button>
+                  <Button
+                    type="primary"
+                    size="small"
+                    onClick={handleFilterApply}
+                  >
+                    Load Config
+                  </Button>
+                </Space>
+              </div>
+            </Drawer>
           </Drawer>
         </>
       ) : (
