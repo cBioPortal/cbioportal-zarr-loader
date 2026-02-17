@@ -1,6 +1,6 @@
 import { useState, useMemo, useRef, useCallback, useLayoutEffect } from "react";
-import { Typography, Space, Button, Select } from "antd";
-import { ExpandOutlined, CompressOutlined, SelectOutlined, EditOutlined, CloseCircleOutlined, SaveOutlined } from "@ant-design/icons";
+import { Typography, Button, Select, Popover } from "antd";
+import { ExpandOutlined, CompressOutlined, SelectOutlined, EditOutlined, CloseCircleOutlined, SaveOutlined, SettingOutlined } from "@ant-design/icons";
 import DeckGL from "@deck.gl/react";
 import { ScatterplotLayer } from "@deck.gl/layers";
 import { OrthographicView } from "@deck.gl/core";
@@ -299,25 +299,11 @@ export default function EmbeddingScatterplot({
 
   return (
     <>
-      <Space style={{ marginBottom: 16 }} wrap align="center">
-        {geneExpression && (
-          <>
-            <Text>Color scale:</Text>
-            <Select
-              size="small"
-              value={colorScaleName}
-              onChange={setColorScaleName}
-              style={{ width: 100 }}
-              options={Object.keys(COLOR_SCALES).map((name) => ({ label: name, value: name }))}
-            />
-          </>
-        )}
-        {points.length < shape?.[0] && (
-          <Text type="secondary">
-            Showing {points.length.toLocaleString()} of {shape[0].toLocaleString()} points
-          </Text>
-        )}
-      </Space>
+      {points.length < shape?.[0] && (
+        <Text type="secondary" style={{ marginBottom: 16, display: "block" }}>
+          Showing {points.length.toLocaleString()} of {shape[0].toLocaleString()} points
+        </Text>
+      )}
 
       <div ref={containerRef} style={{ display: "flex", gap: 16 }}>
         <div
@@ -409,19 +395,39 @@ export default function EmbeddingScatterplot({
               title="Lasso select"
             />
           </div>
-          <Button
-            size="small"
-            icon={expanded ? <CompressOutlined /> : <ExpandOutlined />}
-            onClick={() => setExpanded(!expanded)}
-            onMouseDown={(e) => e.stopPropagation()}
-            style={{
-              position: "absolute",
-              top: 8,
-              right: 8,
-              zIndex: 1,
-              opacity: 0.85,
-            }}
-          />
+          <div style={{ position: "absolute", top: 8, right: 8, zIndex: 1, display: "flex", gap: 4 }} onMouseDown={(e) => e.stopPropagation()}>
+            {geneExpression && (
+              <Popover
+                trigger="click"
+                placement="bottomRight"
+                content={
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <Text>Color scale:</Text>
+                    <Select
+                      size="small"
+                      value={colorScaleName}
+                      onChange={setColorScaleName}
+                      style={{ width: 100 }}
+                      options={Object.keys(COLOR_SCALES).map((name) => ({ label: name, value: name }))}
+                    />
+                  </div>
+                }
+              >
+                <Button
+                  size="small"
+                  icon={<SettingOutlined />}
+                  style={{ opacity: 0.85 }}
+                  title="Plot settings"
+                />
+              </Popover>
+            )}
+            <Button
+              size="small"
+              icon={expanded ? <CompressOutlined /> : <ExpandOutlined />}
+              onClick={() => setExpanded(!expanded)}
+              style={{ opacity: 0.85 }}
+            />
+          </div>
           {hoverInfo && (
             <HoverTooltip
               hoverInfo={hoverInfo}
