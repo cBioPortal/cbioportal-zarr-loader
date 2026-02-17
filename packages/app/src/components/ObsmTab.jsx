@@ -14,8 +14,7 @@ import {
 import { ReloadOutlined, EditOutlined, CopyOutlined, InfoCircleOutlined } from "@ant-design/icons";
 import EmbeddingScatterplot from "./EmbeddingScatterplot";
 import SearchableList from "./SearchableList";
-import ColorColumnList from "./ColorColumnList";
-import GeneList from "./GeneList";
+import ColorByPanel from "./ColorByPanel";
 
 import TabLayout from "./TabLayout";
 import useAppStore from "../store/useAppStore";
@@ -201,8 +200,7 @@ export default function ObsmTab() {
             placeholder="Search keys..."
             height={200}
           />
-          <ColorColumnList height={250} style={{ marginTop: 16 }} />
-          <GeneList height={300} style={{ marginTop: 16 }} />
+          <ColorByPanel height={300} style={{ marginTop: 16 }} />
         </>
       }
     >
