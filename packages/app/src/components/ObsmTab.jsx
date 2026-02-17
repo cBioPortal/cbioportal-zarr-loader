@@ -291,7 +291,7 @@ export default function ObsmTab() {
           <Drawer
             title="Current View"
             placement="right"
-            width={480}
+            size={480}
             open={drawerOpen}
             onClose={() => setDrawerOpen(false)}
           >
