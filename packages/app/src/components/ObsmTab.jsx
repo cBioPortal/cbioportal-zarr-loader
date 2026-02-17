@@ -272,8 +272,6 @@ export default function ObsmTab() {
               <>
                 <Space style={{ marginBottom: 16 }} wrap>
                   <Text>Fetched in {obsmTime?.toFixed(1)} ms</Text>
-                  <Text type="secondary">|</Text>
-                  <Text>Shape: {obsmData?.shape?.join(" × ")}</Text>
                 </Space>
 
                 {isEmbedding && (
