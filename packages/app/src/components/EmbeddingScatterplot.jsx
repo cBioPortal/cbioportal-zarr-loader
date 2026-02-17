@@ -40,6 +40,10 @@ export default function EmbeddingScatterplot({
     geneExpression,
     // Tooltip
     tooltipData,
+    tooltipColumns,
+    toggleTooltipColumn,
+    tooltipColumnLoading,
+    metadata,
     // Selection
     selectedPointIndices,
     setSelectedPoints,
@@ -269,6 +273,19 @@ export default function EmbeddingScatterplot({
     [categoryColorMap, colorData, points],
   );
 
+  const handleTooltipChange = useCallback((newValues) => {
+    const oldSet = new Set(tooltipColumns);
+    const newSet = new Set(newValues);
+    // Added columns
+    for (const col of newValues) {
+      if (!oldSet.has(col)) toggleTooltipColumn(col);
+    }
+    // Removed columns
+    for (const col of tooltipColumns) {
+      if (!newSet.has(col)) toggleTooltipColumn(col);
+    }
+  }, [tooltipColumns, toggleTooltipColumn]);
+
   const selectionSummary = useMemo(
     () => buildSelectionSummary({
       selectedSet,
@@ -495,13 +512,17 @@ export default function EmbeddingScatterplot({
         {selectionSummary && (
           <SelectionSummaryPanel
             selectionSummary={selectionSummary}
-            selectedCount={selectedPointIndices.length}
+            selectedCount={selectedPointIndices.length || points.length}
             categoryColorMap={categoryColorMap}
             colorColumn={colorColumn}
             selectedGene={selectedGene}
             maxHeight={containerSize.height}
             onHoverCategory={setHoveredCategory}
             onHoverTooltipValue={setHoveredTooltipFilter}
+            obsColumns={metadata?.obsColumns}
+            tooltipColumns={tooltipColumns}
+            onTooltipChange={handleTooltipChange}
+            tooltipColumnLoading={tooltipColumnLoading}
           />
         )}
 
