@@ -3,7 +3,6 @@ import {
   Card,
   Drawer,
   Typography,
-  Spin,
   Alert,
   Space,
   Button,
@@ -77,6 +76,24 @@ export default function ObsmTab() {
 
   const { obsmKeys } = metadata;
   const isEmbedding = selectedObsm && /umap|tsne|pca/i.test(selectedObsm) && obsmData?.shape?.[1] >= 2;
+
+  useEffect(() => {
+    if (obsmLoading) {
+      message.open({
+        key: "obsm-fetch",
+        type: "loading",
+        content: `Loading ${selectedObsm}...`,
+        duration: 0,
+      });
+    } else if (obsmTime != null) {
+      message.open({
+        key: "obsm-fetch",
+        type: "success",
+        content: `Fetched ${selectedObsm} in ${obsmTime.toFixed(1)} ms`,
+        duration: 5,
+      });
+    }
+  }, [obsmLoading, obsmTime, selectedObsm]);
 
   // Auto-fetch UMAP embedding on mount
   useEffect(() => {
@@ -260,26 +277,16 @@ export default function ObsmTab() {
               </Space>
             }
           >
-            {obsmLoading ? (
-              <Spin />
-            ) : obsmData?.error ? (
+            {obsmData?.error ? (
               <Alert type="error" message={obsmData.error} />
-            ) : (
-              <>
-                <Space style={{ marginBottom: 16 }} wrap>
-                  <Text>Fetched in {obsmTime?.toFixed(1)} ms</Text>
-                </Space>
-
-                {isEmbedding && (
-                  <EmbeddingScatterplot
-                    data={obsmData.data}
-                    shape={obsmData.shape}
-                    label={selectedObsm}
-                    onSaveSelection={handleSaveSelection}
-                  />
-                )}
-              </>
-            )}
+            ) : isEmbedding ? (
+              <EmbeddingScatterplot
+                data={obsmData.data}
+                shape={obsmData.shape}
+                label={selectedObsm}
+                onSaveSelection={handleSaveSelection}
+              />
+            ) : null}
           </Card>
           <Drawer
             title="Current View"
