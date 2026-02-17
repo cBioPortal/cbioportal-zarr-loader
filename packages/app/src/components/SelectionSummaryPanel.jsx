@@ -17,6 +17,7 @@ function CollapsibleBreakdown({ col, breakdown, total, onHoverValue }) {
           {visible.map(([val, count]) => (
             <tr
               key={val}
+              className="summary-row"
               style={{ cursor: "default" }}
               onMouseEnter={() => onHoverValue?.({ col, value: val })}
               onMouseLeave={() => onHoverValue?.(null)}
@@ -57,6 +58,7 @@ export default function SelectionSummaryPanel({
 }) {
   return (
     <div style={{ maxHeight, display: "flex", flexDirection: "column", fontSize: 12, minWidth: 280, borderLeft: "1px solid #d9d9d9", paddingLeft: 16 }}>
+      <style>{`.summary-row:hover { background-color: rgba(0, 0, 0, 0.04); }`}</style>
       {/* Sticky header: title + column picker */}
       <div style={{ position: "sticky", top: 0, background: "#fff", zIndex: 1, paddingBottom: 4 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -95,6 +97,7 @@ export default function SelectionSummaryPanel({
               {selectionSummary.categoryBreakdown.map(([cat, count]) => (
                 <tr
                   key={cat}
+                  className="summary-row"
                   style={{ cursor: "default" }}
                   onMouseEnter={() => onHoverCategory?.(cat)}
                   onMouseLeave={() => onHoverCategory?.(null)}
