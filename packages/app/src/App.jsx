@@ -7,7 +7,7 @@ import {
   Tabs,
   Descriptions,
 } from "antd";
-import ColumnExplorer from "./components/ColumnExplorer";
+import ColumnsTab from "./components/ColumnsTab";
 import ObsmTab from "./components/ObsmTab";
 import PlotsTab from "./components/PlotsTab";
 
@@ -82,61 +82,36 @@ export default function App() {
     );
   }
 
-  const { obsColumns, varColumns, obsmKeys, layerKeys, chunks } = metadata;
+  const { obsColumns, varColumns, chunks } = metadata;
 
   const tabItems = [
     {
-      key: "obs",
-      label: `obs (${obsColumns.length})`,
-      children: (
-        <ColumnExplorer
-          columns={obsColumns}
-          selectedColumns={obsColumnsSelected}
-          columnsData={obsColumnsData}
-          index={obsIndex}
-          loading={obsColumnLoading}
-          time={obsColumnTime}
-          onToggleColumn={toggleObsColumn}
-          onClearAll={clearObsColumns}
-        />
-      ),
-    },
-    {
-      key: "var",
-      label: `var (${varColumns.length})`,
-      children: (
-        <ColumnExplorer
-          columns={varColumns}
-          selectedColumns={varColumnsSelected}
-          columnsData={varColumnsData}
-          index={varIndex}
-          loading={varColumnLoading}
-          time={varColumnTime}
-          onToggleColumn={toggleVarColumn}
-          onClearAll={clearVarColumns}
-        />
-      ),
-    },
-    {
-      key: "obsm",
-      label: `obsm (${obsmKeys.length})`,
+      key: "explorer",
+      label: "Explore",
       children: <ObsmTab />,
     },
     {
-      key: "layers",
-      label: `layers (${layerKeys.length})`,
+      key: "columns",
+      label: `Data (${obsColumns.length + varColumns.length})`,
       children: (
-        <Card title="Layers" size="small">
-          {layerKeys.length ? (
-            <div>
-              {layerKeys.map((k) => (
-                <div key={k} style={{ padding: "4px 0" }}>{k}</div>
-              ))}
-            </div>
-          ) : (
-            <Text type="secondary">(none)</Text>
-          )}
-        </Card>
+        <ColumnsTab
+          obsColumns={obsColumns}
+          obsColumnsSelected={obsColumnsSelected}
+          obsColumnsData={obsColumnsData}
+          obsIndex={obsIndex}
+          obsColumnLoading={obsColumnLoading}
+          obsColumnTime={obsColumnTime}
+          toggleObsColumn={toggleObsColumn}
+          clearObsColumns={clearObsColumns}
+          varColumns={varColumns}
+          varColumnsSelected={varColumnsSelected}
+          varColumnsData={varColumnsData}
+          varIndex={varIndex}
+          varColumnLoading={varColumnLoading}
+          varColumnTime={varColumnTime}
+          toggleVarColumn={toggleVarColumn}
+          clearVarColumns={clearVarColumns}
+        />
       ),
     },
     {
@@ -171,7 +146,7 @@ export default function App() {
   return (
     <div style={{ padding: 24 }}>
       <Title level={3}>AnnData Zarr Loader</Title>
-      <Tabs items={tabItems} defaultActiveKey="obsm" />
+      <Tabs items={tabItems} defaultActiveKey="explorer" />
     </div>
   );
 }
