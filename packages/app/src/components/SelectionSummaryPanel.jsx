@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Typography } from "antd";
+import { Typography, Select, Spin } from "antd";
 
 const { Text } = Typography;
 const BREAKDOWN_LIMIT = 5;
@@ -50,13 +50,43 @@ export default function SelectionSummaryPanel({
   maxHeight,
   onHoverCategory,
   onHoverTooltipValue,
+  obsColumns,
+  tooltipColumns,
+  onTooltipChange,
+  tooltipColumnLoading,
 }) {
   return (
-    <div style={{ maxHeight, overflow: "auto", fontSize: 12, minWidth: 160, borderLeft: "1px solid #d9d9d9", paddingLeft: 16 }}>
-      <Text strong style={{ fontSize: 12 }}>
-        Selection ({selectedCount.toLocaleString()} points)
-      </Text>
+    <div style={{ maxHeight, display: "flex", flexDirection: "column", fontSize: 12, minWidth: 280, borderLeft: "1px solid #d9d9d9", paddingLeft: 16 }}>
+      {/* Sticky header: title + column picker */}
+      <div style={{ position: "sticky", top: 0, background: "#fff", zIndex: 1, paddingBottom: 4 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <Text strong style={{ fontSize: 12, whiteSpace: "nowrap" }}>
+            Selection ({selectedCount.toLocaleString()})
+          </Text>
+          {obsColumns && obsColumns.length > 0 && (
+            <Select
+              mode="multiple"
+              size="small"
+              showSearch
+              placeholder="Add columns..."
+              style={{ flex: 1, minWidth: 120 }}
+              value={tooltipColumns}
+              onChange={onTooltipChange}
+              filterOption={(input, option) =>
+                option.label.toLowerCase().includes(input.toLowerCase())
+              }
+              options={obsColumns.map((col) => ({ label: col, value: col }))}
+              loading={!!tooltipColumnLoading}
+              notFoundContent={tooltipColumnLoading ? <Spin size="small" /> : undefined}
+              maxTagCount="responsive"
+              allowClear
+            />
+          )}
+        </div>
+      </div>
 
+      {/* Scrollable content */}
+      <div style={{ overflow: "auto", flex: 1 }}>
       {selectionSummary.categoryBreakdown && (
         <div style={{ marginTop: 8 }}>
           <Text type="secondary" style={{ fontSize: 11 }}>{colorColumn}</Text>
@@ -108,6 +138,7 @@ export default function SelectionSummaryPanel({
       {Object.entries(selectionSummary.tooltipBreakdowns).map(([col, breakdown]) => (
         <CollapsibleBreakdown key={col} col={col} breakdown={breakdown} total={selectedCount} onHoverValue={onHoverTooltipValue} />
       ))}
+      </div>
     </div>
   );
 }

@@ -40,6 +40,10 @@ export default function EmbeddingScatterplot({
     geneExpression,
     // Tooltip
     tooltipData,
+    tooltipColumns,
+    toggleTooltipColumn,
+    tooltipColumnLoading,
+    metadata,
     // Selection
     selectedPointIndices,
     setSelectedPoints,
@@ -268,6 +272,19 @@ export default function EmbeddingScatterplot({
     () => colorData ? sortCategoriesByCount(categoryColorMap, points) : [],
     [categoryColorMap, colorData, points],
   );
+
+  const handleTooltipChange = useCallback((newValues) => {
+    const oldSet = new Set(tooltipColumns);
+    const newSet = new Set(newValues);
+    // Added columns
+    for (const col of newValues) {
+      if (!oldSet.has(col)) toggleTooltipColumn(col);
+    }
+    // Removed columns
+    for (const col of tooltipColumns) {
+      if (!newSet.has(col)) toggleTooltipColumn(col);
+    }
+  }, [tooltipColumns, toggleTooltipColumn]);
 
   const selectionSummary = useMemo(
     () => buildSelectionSummary({
@@ -502,6 +519,10 @@ export default function EmbeddingScatterplot({
             maxHeight={containerSize.height}
             onHoverCategory={setHoveredCategory}
             onHoverTooltipValue={setHoveredTooltipFilter}
+            obsColumns={metadata?.obsColumns}
+            tooltipColumns={tooltipColumns}
+            onTooltipChange={handleTooltipChange}
+            tooltipColumnLoading={tooltipColumnLoading}
           />
         )}
 

@@ -17,7 +17,7 @@ import EmbeddingScatterplot from "./EmbeddingScatterplot";
 import SearchableList from "./SearchableList";
 import ColorColumnList from "./ColorColumnList";
 import GeneList from "./GeneList";
-import TooltipColumnList from "./TooltipColumnList";
+
 import TabLayout from "./TabLayout";
 import useAppStore from "../store/useAppStore";
 
@@ -55,9 +55,6 @@ export default function ObsmTab() {
     obsmLoading,
     obsmTime,
     fetchObsm,
-    tooltipData,
-    tooltipColumns,
-    toggleTooltipColumn,
     clearTooltipColumns,
     setSelectedPoints,
     selectionGeometry,
@@ -193,7 +190,6 @@ export default function ObsmTab() {
           />
           <ColorColumnList height={250} style={{ marginTop: 16 }} />
           <GeneList height={300} style={{ marginTop: 16 }} />
-          <TooltipColumnList height={250} style={{ marginTop: 16 }} />
         </>
       }
     >

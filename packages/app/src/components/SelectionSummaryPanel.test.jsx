@@ -1,4 +1,4 @@
-import { describe, it, expect, afterEach } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import { render, screen, fireEvent, cleanup } from "@testing-library/react";
 import SelectionSummaryPanel from "./SelectionSummaryPanel";
 
@@ -23,7 +23,7 @@ afterEach(cleanup);
 describe("SelectionSummaryPanel", () => {
   it("renders selection count header", () => {
     render(<SelectionSummaryPanel {...baseProps} />);
-    expect(screen.getByText("Selection (150 points)")).toBeInTheDocument();
+    expect(screen.getByText("Selection (150)")).toBeInTheDocument();
   });
 
   it("renders category breakdown with color swatches and percentages", () => {
@@ -74,6 +74,34 @@ describe("SelectionSummaryPanel", () => {
   it("hides expression section when expressionStats is null", () => {
     render(<SelectionSummaryPanel {...baseProps} />);
     expect(screen.queryByText("TP53 expression")).not.toBeInTheDocument();
+  });
+
+  it("renders tooltip column multi-select with options and selected values", () => {
+    const onTooltipChange = vi.fn();
+    render(
+      <SelectionSummaryPanel
+        {...baseProps}
+        obsColumns={["cell_type", "donor_id", "Phase"]}
+        tooltipColumns={["cell_type"]}
+        onTooltipChange={onTooltipChange}
+        tooltipColumnLoading={null}
+      />
+    );
+    // The multi-select combobox should be rendered
+    expect(screen.getByRole("combobox")).toBeInTheDocument();
+  });
+
+  it("hides tooltip column select when obsColumns is empty", () => {
+    render(
+      <SelectionSummaryPanel
+        {...baseProps}
+        obsColumns={[]}
+        tooltipColumns={[]}
+        onTooltipChange={vi.fn()}
+        tooltipColumnLoading={null}
+      />
+    );
+    expect(screen.queryByText("Add tooltip columns...")).not.toBeInTheDocument();
   });
 
   it("renders tooltip breakdowns via CollapsibleBreakdown", () => {
