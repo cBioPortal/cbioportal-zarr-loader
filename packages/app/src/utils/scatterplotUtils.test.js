@@ -391,9 +391,17 @@ const defaults = {
 };
 
 describe("buildSelectionSummary", () => {
-  it("returns null when nothing is selected", () => {
+  it("returns summary of all points when nothing is selected", () => {
     const result = buildSelectionSummary({ ...defaults, selectedSet: new Set() });
-    expect(result).toBeNull();
+    expect(result).not.toBeNull();
+    expect(result.categoryBreakdown).toBeNull();
+    expect(result.expressionStats).toBeNull();
+    expect(result.tooltipBreakdowns).toEqual({});
+  });
+
+  it("includes category breakdown of all points when nothing is selected and hasColorData", () => {
+    const result = buildSelectionSummary({ ...defaults, selectedSet: new Set(), hasColorData: true });
+    expect(result.categoryBreakdown).toEqual([["A", 2], ["B", 2], ["C", 1]]);
   });
 
   describe("categoryBreakdown", () => {

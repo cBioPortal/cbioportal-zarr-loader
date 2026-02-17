@@ -216,14 +216,15 @@ export function buildSelectionSummary({
   hasGeneExpression,
   tooltipData,
 }) {
-  if (selectedSet.size === 0) return null;
+  const hasSelection = selectedSet.size > 0;
+  const matchPoint = (pt) => !hasSelection || selectedSet.has(pt.index);
 
   // Category breakdown
   let categoryBreakdown = null;
   if (hasColorData) {
     const counts = {};
     for (const pt of points) {
-      if (!selectedSet.has(pt.index)) continue;
+      if (!matchPoint(pt)) continue;
       counts[pt.category] = (counts[pt.category] || 0) + 1;
     }
     categoryBreakdown = Object.entries(counts).sort((a, b) => b[1] - a[1]);
@@ -234,7 +235,7 @@ export function buildSelectionSummary({
   if (hasGeneExpression) {
     let min = Infinity, max = -Infinity, sum = 0, count = 0;
     for (const pt of points) {
-      if (!selectedSet.has(pt.index) || pt.expression == null) continue;
+      if (!matchPoint(pt) || pt.expression == null) continue;
       const v = pt.expression;
       if (v < min) min = v;
       if (v > max) max = v;
@@ -251,7 +252,7 @@ export function buildSelectionSummary({
   for (const [col, values] of Object.entries(tooltipData)) {
     const counts = {};
     for (const pt of points) {
-      if (!selectedSet.has(pt.index)) continue;
+      if (!matchPoint(pt)) continue;
       const val = String(values[pt.index]);
       counts[val] = (counts[val] || 0) + 1;
     }

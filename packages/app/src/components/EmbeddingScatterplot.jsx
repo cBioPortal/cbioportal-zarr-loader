@@ -495,7 +495,7 @@ export default function EmbeddingScatterplot({
         {selectionSummary && (
           <SelectionSummaryPanel
             selectionSummary={selectionSummary}
-            selectedCount={selectedPointIndices.length}
+            selectedCount={selectedPointIndices.length || points.length}
             categoryColorMap={categoryColorMap}
             colorColumn={colorColumn}
             selectedGene={selectedGene}
