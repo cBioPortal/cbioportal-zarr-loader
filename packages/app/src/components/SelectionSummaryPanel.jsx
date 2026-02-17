@@ -4,7 +4,7 @@ import { Typography } from "antd";
 const { Text } = Typography;
 const BREAKDOWN_LIMIT = 5;
 
-function CollapsibleBreakdown({ col, breakdown, total }) {
+function CollapsibleBreakdown({ col, breakdown, total, onHoverValue }) {
   const [expanded, setExpanded] = useState(false);
   const hasMore = breakdown.length > BREAKDOWN_LIMIT;
   const visible = expanded ? breakdown : breakdown.slice(0, BREAKDOWN_LIMIT);
@@ -15,7 +15,12 @@ function CollapsibleBreakdown({ col, breakdown, total }) {
       <table style={{ width: "100%", marginTop: 4, borderCollapse: "collapse" }}>
         <tbody>
           {visible.map(([val, count]) => (
-            <tr key={val}>
+            <tr
+              key={val}
+              style={{ cursor: "default" }}
+              onMouseEnter={() => onHoverValue?.({ col, value: val })}
+              onMouseLeave={() => onHoverValue?.(null)}
+            >
               <td style={{ paddingRight: 8 }}>{val}</td>
               <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
                 {count.toLocaleString()} ({((count / total) * 100).toFixed(1)}%)
@@ -43,6 +48,8 @@ export default function SelectionSummaryPanel({
   colorColumn,
   selectedGene,
   maxHeight,
+  onHoverCategory,
+  onHoverTooltipValue,
 }) {
   return (
     <div style={{ maxHeight, overflow: "auto", fontSize: 12, minWidth: 160, borderLeft: "1px solid #d9d9d9", paddingLeft: 16 }}>
@@ -56,7 +63,12 @@ export default function SelectionSummaryPanel({
           <table style={{ width: "100%", marginTop: 4, borderCollapse: "collapse" }}>
             <tbody>
               {selectionSummary.categoryBreakdown.map(([cat, count]) => (
-                <tr key={cat}>
+                <tr
+                  key={cat}
+                  style={{ cursor: "default" }}
+                  onMouseEnter={() => onHoverCategory?.(cat)}
+                  onMouseLeave={() => onHoverCategory?.(null)}
+                >
                   <td style={{ paddingRight: 8, display: "flex", alignItems: "center", gap: 4 }}>
                     {categoryColorMap[cat] && (
                       <span style={{
@@ -94,7 +106,7 @@ export default function SelectionSummaryPanel({
       )}
 
       {Object.entries(selectionSummary.tooltipBreakdowns).map(([col, breakdown]) => (
-        <CollapsibleBreakdown key={col} col={col} breakdown={breakdown} total={selectedCount} />
+        <CollapsibleBreakdown key={col} col={col} breakdown={breakdown} total={selectedCount} onHoverValue={onHoverTooltipValue} />
       ))}
     </div>
   );

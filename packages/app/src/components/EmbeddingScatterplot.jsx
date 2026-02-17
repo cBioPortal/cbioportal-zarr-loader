@@ -54,6 +54,9 @@ export default function EmbeddingScatterplot({
   const [hoverInfo, setHoverInfo] = useState(null);
   const [expanded, setExpanded] = useState(false);
   const [selectMode, setSelectMode] = useState("pan");
+  const [hoveredCategory, setHoveredCategory] = useState(null);
+  const [hoveredExpression, setHoveredExpression] = useState(null);
+  const [hoveredTooltipFilter, setHoveredTooltipFilter] = useState(null);
   const dragStartRef = useRef(null);
   const dragEndRef = useRef(null);
   const selectionRectRef = useRef(null);
@@ -236,15 +239,27 @@ export default function EmbeddingScatterplot({
         hasColorData: !!colorData,
         colorScale: COLOR_SCALES[colorScaleName],
       }),
-      getRadius: 1,
+      getRadius: (d) => {
+        if (hoveredCategory != null && d.category === hoveredCategory) return 3;
+        if (hoveredExpression != null && d.expression != null && expressionRange) {
+          const tolerance = (expressionRange.max - expressionRange.min) * 0.05;
+          if (Math.abs(d.expression - hoveredExpression) <= tolerance) return 3;
+        }
+        if (hoveredTooltipFilter != null) {
+          const colValues = tooltipData[hoveredTooltipFilter.col];
+          if (colValues && String(colValues[d.index]) === hoveredTooltipFilter.value) return 3;
+        }
+        return 1;
+      },
       radiusUnits: "pixels",
       radiusMinPixels: 0.5,
-      radiusMaxPixels: 1,
+      radiusMaxPixels: (hoveredCategory != null || hoveredExpression != null || hoveredTooltipFilter != null) ? 3 : 1,
       opacity: 0.7,
       pickable: true,
       onHover: (info) => setHoverInfo(info.object ? info : null),
       updateTriggers: {
         getFillColor: [colorData, geneExpression, expressionRange, colorScaleName, selectedPointIndices],
+        getRadius: [hoveredCategory, hoveredExpression, hoveredTooltipFilter],
       },
     }),
   ];
@@ -463,7 +478,7 @@ export default function EmbeddingScatterplot({
 
         {/* Legend */}
         {colorColumn && sortedCategories.length > 1 && (
-          <CollapsibleLegend categories={sortedCategories} maxHeight={containerSize.height} />
+          <CollapsibleLegend categories={sortedCategories} maxHeight={containerSize.height} onHoverCategory={setHoveredCategory} />
         )}
 
         {/* Gene expression color scale */}
@@ -472,6 +487,7 @@ export default function EmbeddingScatterplot({
             selectedGene={selectedGene}
             expressionRange={expressionRange}
             colorScaleName={colorScaleName}
+            onHoverExpression={setHoveredExpression}
           />
         )}
 
@@ -484,6 +500,8 @@ export default function EmbeddingScatterplot({
             colorColumn={colorColumn}
             selectedGene={selectedGene}
             maxHeight={containerSize.height}
+            onHoverCategory={setHoveredCategory}
+            onHoverTooltipValue={setHoveredTooltipFilter}
           />
         )}
 

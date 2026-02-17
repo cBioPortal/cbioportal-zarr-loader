@@ -2,7 +2,7 @@ import { useState } from "react";
 
 const LEGEND_LIMIT = 20;
 
-export default function CollapsibleLegend({ categories, maxHeight }) {
+export default function CollapsibleLegend({ categories, maxHeight, onHoverCategory }) {
   const [expanded, setExpanded] = useState(false);
   const hasMore = categories.length > LEGEND_LIMIT;
   const visible = expanded ? categories : categories.slice(0, LEGEND_LIMIT);
@@ -10,7 +10,12 @@ export default function CollapsibleLegend({ categories, maxHeight }) {
   return (
     <div style={{ maxHeight, overflow: "auto", fontSize: 12 }}>
       {visible.map(([cat, color]) => (
-        <div key={cat} style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 2 }}>
+        <div
+          key={cat}
+          style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 2, cursor: "default" }}
+          onMouseEnter={() => onHoverCategory?.(cat)}
+          onMouseLeave={() => onHoverCategory?.(null)}
+        >
           <div
             style={{
               width: 12,
