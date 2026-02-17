@@ -86,7 +86,7 @@ export default function App() {
     {
       key: "info",
       label: "Info",
-      children: <InfoTab url={URL} />,
+      children: <InfoTab />,
     },
   ];
 

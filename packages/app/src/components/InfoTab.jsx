@@ -3,8 +3,8 @@ import useAppStore from "../store/useAppStore";
 
 const { Text } = Typography;
 
-export default function InfoTab({ url }) {
-  const { adata, metadata } = useAppStore();
+export default function InfoTab() {
+  const { url, adata, metadata } = useAppStore();
   const { chunks } = metadata;
 
   return (
