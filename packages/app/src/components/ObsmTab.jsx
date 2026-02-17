@@ -235,6 +235,7 @@ export default function ObsmTab() {
                       ? applyView(appliedSelections[activeSelectionIndex])
                       : fetchObsm(selectedObsm)
                   }
+                  title="Reload the current config"
                   loading={obsmLoading}
                 />
               </Space>
@@ -292,15 +293,15 @@ export default function ObsmTab() {
                 <Button
                   size="small"
                   onClick={() => {
-                  try {
-                    setFilterJson(JSON.stringify(JSON.parse(filterJson), null, 2));
-                  } catch {
-                    message.error("Invalid JSON — cannot format");
-                  }
-                }}
-              >
-                Format
-              </Button>
+                    try {
+                      setFilterJson(JSON.stringify(JSON.parse(filterJson), null, 2));
+                    } catch {
+                      message.error("Invalid JSON — cannot format");
+                    }
+                  }}
+                >
+                  Format
+                </Button>
               </Space>
               <Space>
                 <Button
