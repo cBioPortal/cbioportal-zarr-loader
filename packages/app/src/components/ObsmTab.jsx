@@ -3,7 +3,6 @@ import {
   Card,
   Drawer,
   Typography,
-  Spin,
   Alert,
   Space,
   Button,
@@ -15,8 +14,7 @@ import {
 import { ReloadOutlined, EditOutlined, CopyOutlined, InfoCircleOutlined } from "@ant-design/icons";
 import EmbeddingScatterplot from "./EmbeddingScatterplot";
 import SearchableList from "./SearchableList";
-import ColorColumnList from "./ColorColumnList";
-import GeneList from "./GeneList";
+import ColorByPanel from "./ColorByPanel";
 
 import TabLayout from "./TabLayout";
 import useAppStore from "../store/useAppStore";
@@ -57,14 +55,10 @@ export default function ObsmTab() {
     fetchObsm,
     clearTooltipColumns,
     setSelectedPoints,
-    selectionGeometry,
     setSelectionGeometry,
     setColorColumn,
     setSelectedGene,
     setColorScaleName,
-    colorColumn,
-    selectedGene,
-    colorScaleName,
     appliedSelections,
     activeSelectionIndex,
     applyView,
@@ -81,6 +75,24 @@ export default function ObsmTab() {
 
   const { obsmKeys } = metadata;
   const isEmbedding = selectedObsm && /umap|tsne|pca/i.test(selectedObsm) && obsmData?.shape?.[1] >= 2;
+
+  useEffect(() => {
+    if (obsmLoading) {
+      message.open({
+        key: "obsm-fetch",
+        type: "loading",
+        content: `Loading ${selectedObsm}...`,
+        duration: 0,
+      });
+    } else if (obsmTime != null) {
+      message.open({
+        key: "obsm-fetch",
+        type: "success",
+        content: `Fetched ${selectedObsm} in ${obsmTime.toFixed(1)} ms`,
+        duration: 5,
+      });
+    }
+  }, [obsmLoading, obsmTime, selectedObsm]);
 
   // Auto-fetch UMAP embedding on mount
   useEffect(() => {
@@ -188,8 +200,7 @@ export default function ObsmTab() {
             placeholder="Search keys..."
             height={200}
           />
-          <ColorColumnList height={250} style={{ marginTop: 16 }} />
-          <GeneList height={300} style={{ marginTop: 16 }} />
+          <ColorByPanel height={300} style={{ marginTop: 16 }} />
         </>
       }
     >
@@ -264,33 +275,21 @@ export default function ObsmTab() {
               </Space>
             }
           >
-            {obsmLoading ? (
-              <Spin />
-            ) : obsmData?.error ? (
+            {obsmData?.error ? (
               <Alert type="error" message={obsmData.error} />
-            ) : (
-              <>
-                <Space style={{ marginBottom: 16 }} wrap>
-                  <Text>Fetched in {obsmTime?.toFixed(1)} ms</Text>
-                  <Text type="secondary">|</Text>
-                  <Text>Shape: {obsmData?.shape?.join(" × ")}</Text>
-                </Space>
-
-                {isEmbedding && (
-                  <EmbeddingScatterplot
-                    data={obsmData.data}
-                    shape={obsmData.shape}
-                    label={selectedObsm}
-                    onSaveSelection={handleSaveSelection}
-                  />
-                )}
-              </>
-            )}
+            ) : isEmbedding ? (
+              <EmbeddingScatterplot
+                data={obsmData.data}
+                shape={obsmData.shape}
+                label={selectedObsm}
+                onSaveSelection={handleSaveSelection}
+              />
+            ) : null}
           </Card>
           <Drawer
             title="Current View"
             placement="right"
-            width={480}
+            size={480}
             open={drawerOpen}
             onClose={() => setDrawerOpen(false)}
           >

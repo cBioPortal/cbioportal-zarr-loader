@@ -13,6 +13,7 @@ import {
 
 const useAppStore = create((set, get) => ({
   // Core data
+  url: null,
   adata: null,
   metadata: null,
   loading: true,
@@ -140,6 +141,7 @@ const useAppStore = create((set, get) => ({
       }
 
       set({
+        url,
         adata: store,
         metadata: { obsColumns, varColumns, obsmKeys, layerKeys, varNames, geneNames, timings, chunks },
         obsIndex: obsNames,

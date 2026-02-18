@@ -3,6 +3,7 @@ import { Typography, Select, Spin } from "antd";
 
 const { Text } = Typography;
 const BREAKDOWN_LIMIT = 5;
+const CATEGORY_BREAKDOWN_LIMIT = 10;
 
 function CollapsibleBreakdown({ col, breakdown, total, onHoverValue }) {
   const [expanded, setExpanded] = useState(false);
@@ -56,6 +57,8 @@ export default function SelectionSummaryPanel({
   onTooltipChange,
   tooltipColumnLoading,
 }) {
+  const [categoryExpanded, setCategoryExpanded] = useState(false);
+
   return (
     <div style={{ maxHeight, display: "flex", flexDirection: "column", fontSize: 12, minWidth: 280, borderLeft: "1px solid #d9d9d9", paddingLeft: 16 }}>
       <style>{`.summary-row:hover { background-color: rgba(0, 0, 0, 0.04); }`}</style>
@@ -89,58 +92,70 @@ export default function SelectionSummaryPanel({
 
       {/* Scrollable content */}
       <div style={{ overflow: "auto", flex: 1 }}>
-      {selectionSummary.categoryBreakdown && (
-        <div style={{ marginTop: 8 }}>
-          <Text type="secondary" style={{ fontSize: 11 }}>{colorColumn}</Text>
-          <table style={{ width: "100%", marginTop: 4, borderCollapse: "collapse" }}>
-            <tbody>
-              {selectionSummary.categoryBreakdown.map(([cat, count]) => (
-                <tr
-                  key={cat}
-                  className="summary-row"
-                  style={{ cursor: "default" }}
-                  onMouseEnter={() => onHoverCategory?.(cat)}
-                  onMouseLeave={() => onHoverCategory?.(null)}
+        {selectionSummary.categoryBreakdown && (() => {
+          const hasMore = selectionSummary.categoryBreakdown.length > CATEGORY_BREAKDOWN_LIMIT;
+          const visible = categoryExpanded ? selectionSummary.categoryBreakdown : selectionSummary.categoryBreakdown.slice(0, CATEGORY_BREAKDOWN_LIMIT);
+          return (
+            <div style={{ marginTop: 8 }}>
+              <Text type="secondary" style={{ fontSize: 11 }}>{colorColumn}</Text>
+              <table style={{ width: "100%", marginTop: 4, borderCollapse: "collapse" }}>
+                <tbody>
+                  {visible.map(([cat, count]) => (
+                    <tr
+                      key={cat}
+                      className="summary-row"
+                      style={{ cursor: "default" }}
+                      onMouseEnter={() => onHoverCategory?.(cat)}
+                      onMouseLeave={() => onHoverCategory?.(null)}
+                    >
+                      <td style={{ paddingRight: 8, display: "flex", alignItems: "center", gap: 4 }}>
+                        {categoryColorMap[cat] && (
+                          <span style={{
+                            display: "inline-block",
+                            width: 8,
+                            height: 8,
+                            borderRadius: 2,
+                            backgroundColor: `rgb(${categoryColorMap[cat].join(",")})`,
+                            flexShrink: 0,
+                          }} />
+                        )}
+                        <span>{cat}</span>
+                      </td>
+                      <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
+                        {count.toLocaleString()} ({((count / selectedCount) * 100).toFixed(1)}%)
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {hasMore && (
+                <span
+                  onClick={() => setCategoryExpanded(!categoryExpanded)}
+                  style={{ color: "#1890ff", cursor: "pointer", fontSize: 11 }}
                 >
-                  <td style={{ paddingRight: 8, display: "flex", alignItems: "center", gap: 4 }}>
-                    {categoryColorMap[cat] && (
-                      <span style={{
-                        display: "inline-block",
-                        width: 8,
-                        height: 8,
-                        borderRadius: 2,
-                        backgroundColor: `rgb(${categoryColorMap[cat].join(",")})`,
-                        flexShrink: 0,
-                      }} />
-                    )}
-                    <span>{cat}</span>
-                  </td>
-                  <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
-                    {count.toLocaleString()} ({((count / selectedCount) * 100).toFixed(1)}%)
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+                  {categoryExpanded ? "Show less" : `Show all (${selectionSummary.categoryBreakdown.length})`}
+                </span>
+              )}
+            </div>
+          );
+        })()}
 
-      {selectionSummary.expressionStats && (
-        <div style={{ marginTop: 8 }}>
-          <Text type="secondary" style={{ fontSize: 11 }}>{selectedGene} expression</Text>
-          <table style={{ width: "100%", marginTop: 4, borderCollapse: "collapse" }}>
-            <tbody>
-              <tr><td>Mean</td><td style={{ textAlign: "right" }}>{selectionSummary.expressionStats.mean.toFixed(4)}</td></tr>
-              <tr><td>Min</td><td style={{ textAlign: "right" }}>{selectionSummary.expressionStats.min.toFixed(4)}</td></tr>
-              <tr><td>Max</td><td style={{ textAlign: "right" }}>{selectionSummary.expressionStats.max.toFixed(4)}</td></tr>
-            </tbody>
-          </table>
-        </div>
-      )}
+        {selectionSummary.expressionStats && (
+          <div style={{ marginTop: 8 }}>
+            <Text type="secondary" style={{ fontSize: 11 }}>{selectedGene} expression</Text>
+            <table style={{ width: "100%", marginTop: 4, borderCollapse: "collapse" }}>
+              <tbody>
+                <tr><td>Mean</td><td style={{ textAlign: "right" }}>{selectionSummary.expressionStats.mean.toFixed(4)}</td></tr>
+                <tr><td>Min</td><td style={{ textAlign: "right" }}>{selectionSummary.expressionStats.min.toFixed(4)}</td></tr>
+                <tr><td>Max</td><td style={{ textAlign: "right" }}>{selectionSummary.expressionStats.max.toFixed(4)}</td></tr>
+              </tbody>
+            </table>
+          </div>
+        )}
 
-      {Object.entries(selectionSummary.tooltipBreakdowns).map(([col, breakdown]) => (
-        <CollapsibleBreakdown key={col} col={col} breakdown={breakdown} total={selectedCount} onHoverValue={onHoverTooltipValue} />
-      ))}
+        {Object.entries(selectionSummary.tooltipBreakdowns).map(([col, breakdown]) => (
+          <CollapsibleBreakdown key={col} col={col} breakdown={breakdown} total={selectedCount} onHoverValue={onHoverTooltipValue} />
+        ))}
       </div>
     </div>
   );
