@@ -96,7 +96,7 @@ export default function App() {
         path="/*"
         element={
           <div style={{ padding: 24 }}>
-            <Title level={3}>AnnData Zarr Loader</Title>
+            <Title level={3}>cBioportal ZExplorer</Title>
             <Tabs items={tabItems} defaultActiveKey="explorer" />
           </div>
         }
