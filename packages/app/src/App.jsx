@@ -14,6 +14,9 @@ import PlotsTab from "./components/PlotsTab";
 
 import useAppStore from "./store/useAppStore";
 import usePostMessage from "./hooks/usePostMessage";
+import useIframeResize from "./hooks/useIframeResize";
+
+const isEmbedded = window.self !== window.top || new URLSearchParams(window.location.search).has("embedded");
 
 const { Header, Content } = Layout;
 
@@ -39,6 +42,7 @@ export default function App() {
   }), []);
 
   usePostMessage(postMessageHandlers, import.meta.env.VITE_POSTMESSAGE_ORIGIN || "*");
+  useIframeResize();
 
   if (loading) {
     return (
@@ -93,35 +97,37 @@ export default function App() {
 
   return (
     <Layout style={{ minHeight: "100vh" }}>
-      <Header
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          padding: "0 24px",
-          background: "#fff",
-          borderBottom: "1px solid #f0f0f0",
-        }}
-      >
-        <span style={{ fontSize: 18, fontWeight: 600 }}>
-          cBioportal ZExplorer
-        </span>
-        <nav style={{ display: "flex", gap: 16 }}>
-          <a
-            href="https://github.com/cbioportal/cbioportal-zarr-loader"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <GithubOutlined style={{ fontSize: 20 }} />
-          </a>
-        </nav>
-      </Header>
+      {!isEmbedded && (
+        <Header
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            padding: "0 24px",
+            background: "#fff",
+            borderBottom: "1px solid #f0f0f0",
+          }}
+        >
+          <span style={{ fontSize: 18, fontWeight: 600 }}>
+            cBioportal ZExplorer
+          </span>
+          <nav style={{ display: "flex", gap: 16 }}>
+            <a
+              href="https://github.com/cbioportal/cbioportal-zarr-loader"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <GithubOutlined style={{ fontSize: 20 }} />
+            </a>
+          </nav>
+        </Header>
+      )}
       <Content style={{ background: "#fff" }}>
         <Routes>
           <Route
             path="/*"
             element={
-              <div style={{ padding: 24 }}>
+              <div style={{ padding: isEmbedded ? "0 24px 24px" : 24 }}>
                 <Tabs items={tabItems} defaultActiveKey="explorer" />
               </div>
             }
