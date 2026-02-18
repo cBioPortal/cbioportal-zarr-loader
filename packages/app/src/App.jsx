@@ -1,11 +1,12 @@
 import { useEffect, useMemo } from "react";
 import { Routes, Route } from "react-router";
 import {
-  Typography,
+  Layout,
   Spin,
   Alert,
   Tabs,
 } from "antd";
+import { GithubOutlined } from "@ant-design/icons";
 import ColumnsTab from "./components/ColumnsTab";
 import InfoTab from "./components/InfoTab";
 import ObsmTab from "./components/ObsmTab";
@@ -14,7 +15,7 @@ import PlotsTab from "./components/PlotsTab";
 import useAppStore from "./store/useAppStore";
 import usePostMessage from "./hooks/usePostMessage";
 
-const { Title } = Typography;
+const { Header, Content } = Layout;
 
 const URL = "https://cbioportal-public-imaging.assets.cbioportal.org/msk_spectrum_tme_2022/zarr/spectrum_all_cells.zarr";
 
@@ -91,16 +92,42 @@ export default function App() {
   ];
 
   return (
-    <Routes>
-      <Route
-        path="/*"
-        element={
-          <div style={{ padding: 24 }}>
-            <Title level={3}>cBioportal ZExplorer</Title>
-            <Tabs items={tabItems} defaultActiveKey="explorer" />
-          </div>
-        }
-      />
-    </Routes>
+    <Layout style={{ minHeight: "100vh" }}>
+      <Header
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          padding: "0 24px",
+          background: "#fff",
+          borderBottom: "1px solid #f0f0f0",
+        }}
+      >
+        <span style={{ fontSize: 18, fontWeight: 600 }}>
+          cBioportal ZExplorer
+        </span>
+        <nav style={{ display: "flex", gap: 16 }}>
+          <a
+            href="https://github.com/cbioportal/cbioportal-zarr-loader"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <GithubOutlined style={{ fontSize: 20 }} />
+          </a>
+        </nav>
+      </Header>
+      <Content style={{ background: "#fff" }}>
+        <Routes>
+          <Route
+            path="/*"
+            element={
+              <div style={{ padding: 24 }}>
+                <Tabs items={tabItems} defaultActiveKey="explorer" />
+              </div>
+            }
+          />
+        </Routes>
+      </Content>
+    </Layout>
   );
 }

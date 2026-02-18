@@ -37,6 +37,9 @@ importers:
       '@ant-design/charts':
         specifier: ^2.6.7
         version: 2.6.7(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(workerize-loader@2.0.2(webpack@5.105.0))
+      '@ant-design/icons':
+        specifier: ^6.1.0
+        version: 6.1.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       '@cbioportal-zarr-loader/zarrstore':
         specifier: workspace:*
         version: link:../zarrstore
