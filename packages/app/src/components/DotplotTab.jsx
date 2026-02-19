@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Button, Card, Drawer, Input, Tag, Typography, Spin, message } from "antd";
+import { Button, Card, Checkbox, Drawer, Input, Tag, Typography, Spin, message } from "antd";
 import SearchableList from "./SearchableList";
 import TabLayout from "./TabLayout";
 import Dotplot from "./charts/Dotplot";
@@ -131,10 +131,11 @@ export default function DotplotTab() {
   }, [dotplotGenes, dotplotGeneExpressions, dotplotObsData, groups]);
 
   const isLoading = dotplotGeneLoading || dotplotObsLoading;
+  const [showLabels, setShowLabels] = useState(false);
 
-  // Size chart based on data dimensions (groups as integers on x, genes on y)
-  const chartWidth = groups.length * 20 + 220;
-  const chartHeight = dotplotGenes.length * 28 + 56;
+  // Size chart based on data dimensions (groups on x, genes on y)
+  const chartWidth = groups.length * (showLabels ? 60 : 20) + 220;
+  const chartHeight = dotplotGenes.length * 28 + (showLabels ? 100 : 56);
 
   return (
     <TabLayout
@@ -218,9 +219,17 @@ export default function DotplotTab() {
           </div>
         ) : dotplotData ? (
           <>
-            <div style={{ marginBottom: 8, fontSize: 12, color: "#595959" }}>
-              {dotplotObsData.length.toLocaleString()} cells across {groups.length} groups
-              {dotplotObsColumn && <> grouped by <strong>{dotplotObsColumn}</strong></>}
+            <div style={{ marginBottom: 8, fontSize: 12, color: "#595959", display: "flex", alignItems: "center", gap: 12 }}>
+              <span>
+                {dotplotObsData.length.toLocaleString()} cells across {groups.length} groups
+                {dotplotObsColumn && <> grouped by <strong>{dotplotObsColumn}</strong></>}
+              </span>
+              <Checkbox
+                checked={showLabels}
+                onChange={(e) => setShowLabels(e.target.checked)}
+              >
+                Show group labels
+              </Checkbox>
             </div>
             <div style={{ overflowX: "auto" }}>
               <Dotplot
@@ -229,6 +238,7 @@ export default function DotplotTab() {
                 data={dotplotData}
                 width={chartWidth}
                 height={chartHeight}
+                showLabels={showLabels}
               />
             </div>
             <div style={{ marginTop: 12, fontSize: 11, color: "#595959", lineHeight: 1.6 }}>

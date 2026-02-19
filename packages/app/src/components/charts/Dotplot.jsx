@@ -14,7 +14,7 @@ const tooltipStyles = {
   padding: "6px 10px",
 };
 
-export default function Dotplot({ genes, groups, data, width = 600, height = 400 }) {
+export default function Dotplot({ genes, groups, data, width = 600, height = 400, showLabels = false }) {
   const { showTooltip, hideTooltip, tooltipOpen, tooltipData, tooltipLeft, tooltipTop } =
     useTooltip();
 
@@ -26,7 +26,8 @@ export default function Dotplot({ genes, groups, data, width = 600, height = 400
   const groupToIndex = Object.fromEntries(groups.map((g, i) => [g, i + 1]));
   const indexToGroup = Object.fromEntries(groups.map((g, i) => [i + 1, g]));
 
-  const xScale = scaleBand({ domain: groupIndices, range: [0, xMax], padding: 0.05 });
+  const xDomain = showLabels ? groups : groupIndices;
+  const xScale = scaleBand({ domain: xDomain, range: [0, xMax], padding: 0.05 });
   const yScale = scaleBand({ domain: genes, range: [0, yMax], padding: 0.05 });
 
   const maxMean = Math.max(...data.map((d) => d.meanExpression), 0.01);
@@ -60,8 +61,33 @@ export default function Dotplot({ genes, groups, data, width = 600, height = 400
     <div style={{ position: "relative" }}>
       <svg width={width} height={height}>
         <Group left={MARGIN.left} top={MARGIN.top}>
+          {/* Horizontal gridlines */}
+          {genes.map((gene) => (
+            <line
+              key={`h-${gene}`}
+              x1={0}
+              x2={xMax}
+              y1={(yScale(gene) ?? 0) + yScale.bandwidth() / 2}
+              y2={(yScale(gene) ?? 0) + yScale.bandwidth() / 2}
+              stroke="#f0f0f0"
+              strokeWidth={1}
+            />
+          ))}
+          {/* Vertical gridlines */}
+          {xDomain.map((val) => (
+            <line
+              key={`v-${val}`}
+              x1={(xScale(val) ?? 0) + xScale.bandwidth() / 2}
+              x2={(xScale(val) ?? 0) + xScale.bandwidth() / 2}
+              y1={0}
+              y2={yMax}
+              stroke="#f0f0f0"
+              strokeWidth={1}
+            />
+          ))}
           {data.map((d) => {
-            const cx = (xScale(groupToIndex[d.group]) ?? 0) + xScale.bandwidth() / 2;
+            const xKey = showLabels ? d.group : groupToIndex[d.group];
+            const cx = (xScale(xKey) ?? 0) + xScale.bandwidth() / 2;
             const cy = (yScale(d.gene) ?? 0) + yScale.bandwidth() / 2;
             const isEmpty = d.fractionExpressing === 0;
             const r = isEmpty ? 3 : Math.max(radiusScale(d.fractionExpressing), 4);
@@ -83,31 +109,44 @@ export default function Dotplot({ genes, groups, data, width = 600, height = 400
           <AxisBottom
             scale={xScale}
             top={yMax}
-            tickComponent={({ x, y, formattedValue }) => (
-              <text
-                x={x}
-                y={y}
-                fontSize={11}
-                textAnchor="middle"
-                dy="0.25em"
-                style={{ cursor: "pointer" }}
-                onMouseEnter={(e) => {
-                  const svg = e.currentTarget.ownerSVGElement;
-                  const pt = svg.createSVGPoint();
-                  pt.x = e.clientX;
-                  pt.y = e.clientY;
-                  const svgPt = pt.matrixTransform(svg.getScreenCTM().inverse());
-                  showTooltip({
-                    tooltipData: { axisLabel: indexToGroup[formattedValue] },
-                    tooltipLeft: svgPt.x,
-                    tooltipTop: svgPt.y - 10,
-                  });
-                }}
-                onMouseLeave={hideTooltip}
-              >
-                {formattedValue}
-              </text>
-            )}
+            tickComponent={({ x, y, formattedValue }) =>
+              showLabels ? (
+                <text
+                  x={x}
+                  y={y}
+                  fontSize={11}
+                  textAnchor="end"
+                  dy={-4}
+                  transform={`rotate(-45, ${x}, ${y})`}
+                >
+                  {formattedValue}
+                </text>
+              ) : (
+                <text
+                  x={x}
+                  y={y}
+                  fontSize={11}
+                  textAnchor="middle"
+                  dy="0.25em"
+                  style={{ cursor: "pointer" }}
+                  onMouseEnter={(e) => {
+                    const svg = e.currentTarget.ownerSVGElement;
+                    const pt = svg.createSVGPoint();
+                    pt.x = e.clientX;
+                    pt.y = e.clientY;
+                    const svgPt = pt.matrixTransform(svg.getScreenCTM().inverse());
+                    showTooltip({
+                      tooltipData: { axisLabel: indexToGroup[formattedValue] },
+                      tooltipLeft: svgPt.x,
+                      tooltipTop: svgPt.y - 10,
+                    });
+                  }}
+                  onMouseLeave={hideTooltip}
+                >
+                  {formattedValue}
+                </text>
+              )
+            }
           />
           <AxisLeft
             scale={yScale}
