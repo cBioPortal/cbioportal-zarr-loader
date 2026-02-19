@@ -87,7 +87,7 @@ export default function Dotplot({ genes, groups, data, width = 600, height = 400
     });
   };
 
-  const gradientCSS = colorScaleGradient(palette, "to top");
+  const gradientCSS = colorScaleGradient(palette, "to bottom");
 
   return (
     <div style={{ position: "relative", display: "flex", gap: 12 }}>
