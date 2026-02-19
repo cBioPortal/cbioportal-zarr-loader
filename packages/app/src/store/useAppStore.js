@@ -10,8 +10,12 @@ import {
   pointInPolygon,
   buildScatterplotPoints,
 } from "../utils/scatterplotUtils";
+import { fetchFeatureFlags } from "../utils/featureFlags";
 
 const useAppStore = create((set, get) => ({
+  // Feature flags (fetched from GitHub, local fallback)
+  featureFlags: {},
+
   // Core data
   url: null,
   adata: null,
@@ -88,7 +92,10 @@ const useAppStore = create((set, get) => ({
 
     try {
       let start = performance.now();
-      const store = await AnnDataStore.open(url);
+      const [store, featureFlags] = await Promise.all([
+        AnnDataStore.open(url),
+        fetchFeatureFlags(),
+      ]);
       timings.open = performance.now() - start;
 
       start = performance.now();
@@ -146,6 +153,7 @@ const useAppStore = create((set, get) => ({
         metadata: { obsColumns, varColumns, obsmKeys, layerKeys, varNames, geneNames, timings, chunks },
         obsIndex: obsNames,
         varIndex: varNames,
+        featureFlags,
         loading: false,
         error: null,
       });
