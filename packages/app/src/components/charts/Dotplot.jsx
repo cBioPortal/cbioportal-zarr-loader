@@ -1,4 +1,3 @@
-import { useCallback } from "react";
 import { Group } from "@visx/group";
 import { scaleBand, scaleLinear, scaleSqrt } from "@visx/scale";
 import { AxisBottom, AxisLeft } from "@visx/axis";
@@ -75,21 +74,18 @@ export default function Dotplot({ genes, groups, data, width = 600, height = 400
     return d.gene;
   };
 
-  const handleMouseEnter = useCallback(
-    (event, d) => {
-      const svg = event.currentTarget.ownerSVGElement;
-      const point = svg.createSVGPoint();
-      point.x = event.clientX;
-      point.y = event.clientY;
-      const svgPoint = point.matrixTransform(svg.getScreenCTM().inverse());
-      showTooltip({
-        tooltipData: d,
-        tooltipLeft: svgPoint.x,
-        tooltipTop: svgPoint.y - 10,
-      });
-    },
-    [showTooltip],
-  );
+  const handleMouseEnter = (event, d) => {
+    const svg = event.currentTarget.ownerSVGElement;
+    const point = svg.createSVGPoint();
+    point.x = event.clientX;
+    point.y = event.clientY;
+    const svgPoint = point.matrixTransform(svg.getScreenCTM().inverse());
+    showTooltip({
+      tooltipData: d,
+      tooltipLeft: svgPoint.x,
+      tooltipTop: svgPoint.y - 10,
+    });
+  };
 
   const gradientCSS = colorScaleGradient(palette, "to top");
 
