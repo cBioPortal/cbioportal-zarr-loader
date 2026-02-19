@@ -131,7 +131,7 @@ export default function App() {
             path="/*"
             element={
               <div style={{ padding: isEmbedded ? "0 24px 24px" : 24 }}>
-                <Tabs items={tabItems} defaultActiveKey="explorer" />
+                <Tabs items={tabItems} defaultActiveKey={import.meta.env.VITE_DEFAULT_TAB || "explorer"} />
               </div>
             }
           />
