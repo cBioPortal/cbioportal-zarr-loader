@@ -72,6 +72,11 @@ const useAppStore = create((set, get) => ({
   plotObsData: null,
   plotObsLoading: false,
 
+  // Dotplot tab state
+  dotplotGenes: [],
+  dotplotGeneExpressions: {},
+  dotplotGeneLoading: null,
+
   // Selection state
   selectedPointIndices: [],
   selectionGeometry: null, // { type: "rectangle", bounds: [x1,y1,x2,y2] } or { type: "lasso", polygon: [[x,y],...] }
@@ -476,6 +481,48 @@ const useAppStore = create((set, get) => ({
 
   clearPlotObsColumn: () => {
     set({ plotObsColumn: null, plotObsData: null });
+  },
+
+  // Dotplot tab actions
+  toggleDotplotGene: async (geneName) => {
+    const { adata, metadata, dotplotGenes, dotplotGeneExpressions } = get();
+    if (!adata || !geneName) return;
+
+    // Toggle off — remove gene
+    if (dotplotGenes.includes(geneName)) {
+      const { [geneName]: _, ...rest } = dotplotGeneExpressions;
+      set({
+        dotplotGenes: dotplotGenes.filter((g) => g !== geneName),
+        dotplotGeneExpressions: rest,
+      });
+      return;
+    }
+
+    // Toggle on — fetch and add gene
+    set({ dotplotGeneLoading: geneName });
+
+    try {
+      const { varNames, geneNames } = metadata;
+      let queryName = geneName;
+      if (geneNames !== varNames) {
+        const idx = geneNames.indexOf(geneName);
+        if (idx !== -1) queryName = varNames[idx];
+      }
+      const values = await adata.geneExpression(queryName);
+      const { dotplotGenes: current, dotplotGeneExpressions: currentData } = get();
+      set({
+        dotplotGenes: [...current, geneName],
+        dotplotGeneExpressions: { ...currentData, [geneName]: values },
+        dotplotGeneLoading: null,
+      });
+    } catch (err) {
+      console.error("[DotplotTab] Gene expression fetch error:", err);
+      set({ dotplotGeneLoading: null });
+    }
+  },
+
+  clearDotplotGenes: () => {
+    set({ dotplotGenes: [], dotplotGeneExpressions: {} });
   },
 
   setSelectedPoints: (indices) => {
