@@ -1,12 +1,11 @@
 import { useCallback } from "react";
 import { Group } from "@visx/group";
-import { scaleBand, scaleLinear } from "@visx/scale";
+import { scaleBand, scaleLinear, scaleSqrt } from "@visx/scale";
 import { AxisBottom, AxisLeft } from "@visx/axis";
 import { useTooltip, TooltipWithBounds, defaultStyles } from "@visx/tooltip";
-import { scaleSequential } from "d3-scale";
-import { interpolateViridis } from "d3-scale-chromatic";
+import { COLOR_SCALES, colorScaleGradient, interpolateColorScale, rgbToString } from "../../utils/colors";
 
-const MARGIN = { top: 16, right: 16, bottom: 40, left: 120 };
+const MARGIN = { top: 16, right: 100, bottom: 40, left: 120 };
 const MAX_RADIUS = 14;
 
 const tooltipStyles = {
@@ -32,12 +31,14 @@ export default function Dotplot({ genes, groups, data, width = 600, height = 400
 
   const maxMean = Math.max(...data.map((d) => d.meanExpression), 0.01);
 
-  const radiusScale = scaleLinear({
+  const maxR = Math.min(MAX_RADIUS, xScale.bandwidth() / 2, yScale.bandwidth() / 2);
+  const radiusScale = scaleSqrt({
     domain: [0, 1],
-    range: [0, Math.min(MAX_RADIUS, xScale.bandwidth() / 2, yScale.bandwidth() / 2)],
+    range: [0, maxR],
   });
 
-  const colorScale = scaleSequential(interpolateViridis).domain([0, maxMean]);
+  const viridis = COLOR_SCALES.viridis;
+  const colorScale = (val) => rgbToString(interpolateColorScale(val / maxMean, viridis));
 
   const handleMouseEnter = useCallback(
     (event, d) => {
@@ -62,17 +63,17 @@ export default function Dotplot({ genes, groups, data, width = 600, height = 400
           {data.map((d) => {
             const cx = (xScale(groupToIndex[d.group]) ?? 0) + xScale.bandwidth() / 2;
             const cy = (yScale(d.gene) ?? 0) + yScale.bandwidth() / 2;
-            const r = radiusScale(d.fractionExpressing);
-            if (r === 0) return null;
+            const isEmpty = d.fractionExpressing === 0;
+            const r = isEmpty ? 3 : Math.max(radiusScale(d.fractionExpressing), 4);
             return (
               <circle
                 key={`${d.gene}-${d.group}`}
                 cx={cx}
                 cy={cy}
                 r={r}
-                fill={colorScale(d.meanExpression)}
-                stroke="#ccc"
-                strokeWidth={0.5}
+                fill={isEmpty ? "#f0f0f0" : colorScale(d.meanExpression)}
+                stroke={isEmpty ? "#ccc" : colorScale(d.meanExpression)}
+                strokeWidth={isEmpty ? 1 : 0.5}
                 style={{ cursor: "pointer" }}
                 onMouseEnter={(e) => handleMouseEnter(e, d)}
                 onMouseLeave={hideTooltip}
@@ -110,6 +111,7 @@ export default function Dotplot({ genes, groups, data, width = 600, height = 400
           />
           <AxisLeft
             scale={yScale}
+            numTicks={genes.length}
             tickLabelProps={() => ({
               fontSize: 11,
               textAnchor: "end",
@@ -117,6 +119,41 @@ export default function Dotplot({ genes, groups, data, width = 600, height = 400
               dy: 4,
             })}
           />
+          {/* Expression color legend */}
+          <Group left={xMax + 16} top={0}>
+            <text fontSize={10} fontWeight="bold" dy={-4}>Mean expr</text>
+            <defs>
+              <linearGradient id="dotplot-color-gradient" x1="0" y1="1" x2="0" y2="0">
+                {viridis.map((c, i) => (
+                  <stop
+                    key={i}
+                    offset={`${(i / (viridis.length - 1)) * 100}%`}
+                    stopColor={rgbToString(c)}
+                  />
+                ))}
+              </linearGradient>
+            </defs>
+            <rect
+              width={14}
+              height={Math.min(yMax, 100)}
+              fill="url(#dotplot-color-gradient)"
+              rx={2}
+            />
+            <text x={18} y={10} fontSize={9}>{maxMean.toFixed(2)}</text>
+            <text x={18} y={Math.min(yMax, 100)} fontSize={9}>0</text>
+            {/* Size legend */}
+            <text fontSize={10} fontWeight="bold" y={Math.min(yMax, 100) + 24}>Fraction</text>
+            {[0.25, 0.5, 0.75, 1.0].map((frac, i) => {
+              const r = radiusScale(frac);
+              const cy = Math.min(yMax, 100) + 46 + i * (maxR * 2 + 4);
+              return (
+                <g key={frac}>
+                  <circle cx={maxR} cy={cy} r={r} fill="#888" />
+                  <text x={maxR * 2 + 6} y={cy + 3} fontSize={9}>{(frac * 100)}%</text>
+                </g>
+              );
+            })}
+          </Group>
         </Group>
       </svg>
       {tooltipOpen && tooltipData && (
@@ -131,6 +168,7 @@ export default function Dotplot({ genes, groups, data, width = 600, height = 400
             <>
               <div><strong>{tooltipData.group}</strong></div>
               <div>{tooltipData.gene}</div>
+              <div>Cells: {tooltipData.expressingCount.toLocaleString()} / {tooltipData.cellCount.toLocaleString()}</div>
               <div>Fraction: {(tooltipData.fractionExpressing * 100).toFixed(1)}%</div>
               <div>Mean expr: {tooltipData.meanExpression.toFixed(3)}</div>
             </>
