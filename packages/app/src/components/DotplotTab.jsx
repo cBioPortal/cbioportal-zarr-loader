@@ -132,10 +132,17 @@ export default function DotplotTab() {
 
   const isLoading = dotplotGeneLoading || dotplotObsLoading;
   const [showLabels, setShowLabels] = useState(false);
+  const [swapAxes, setSwapAxes] = useState(false);
 
-  // Size chart based on data dimensions (groups on x, genes on y)
-  const chartWidth = groups.length * (showLabels ? 60 : 20) + 220;
-  const chartHeight = dotplotGenes.length * 28 + (showLabels ? 100 : 56);
+  // Size chart based on data dimensions, accounting for axis swap
+  const xCount = swapAxes ? dotplotGenes.length : groups.length;
+  const yCount = swapAxes ? groups.length : dotplotGenes.length;
+  const xLabelsShown = showLabels && !swapAxes;
+  const maxLabelLen = xLabelsShown && groups.length > 0 ? Math.max(...groups.map((g) => g.length)) : 0;
+  const bottomMargin = xLabelsShown ? Math.max(40, maxLabelLen * 6 + 20) : 40;
+  const leftMargin = swapAxes ? Math.max(120, (groups.length > 0 ? Math.max(...groups.map((g) => g.length)) * 6 + 20 : 120)) : 120;
+  const chartWidth = xCount * (xLabelsShown ? 60 : 20) + leftMargin + 100;
+  const chartHeight = yCount * 28 + 16 + bottomMargin;
 
   return (
     <TabLayout
@@ -230,6 +237,12 @@ export default function DotplotTab() {
               >
                 Show group labels
               </Checkbox>
+              <Checkbox
+                checked={swapAxes}
+                onChange={(e) => setSwapAxes(e.target.checked)}
+              >
+                Swap axes
+              </Checkbox>
             </div>
             <div style={{ overflowX: "auto" }}>
               <Dotplot
@@ -239,6 +252,7 @@ export default function DotplotTab() {
                 width={chartWidth}
                 height={chartHeight}
                 showLabels={showLabels}
+                swapAxes={swapAxes}
               />
             </div>
             <div style={{ marginTop: 12, fontSize: 11, color: "#595959", lineHeight: 1.6 }}>

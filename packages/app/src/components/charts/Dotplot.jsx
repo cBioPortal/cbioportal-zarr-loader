@@ -5,7 +5,6 @@ import { AxisBottom, AxisLeft } from "@visx/axis";
 import { useTooltip, TooltipWithBounds, defaultStyles } from "@visx/tooltip";
 import { COLOR_SCALES, colorScaleGradient, interpolateColorScale, rgbToString } from "../../utils/colors";
 
-const MARGIN = { top: 16, right: 100, bottom: 40, left: 120 };
 const MAX_RADIUS = 14;
 
 const tooltipStyles = {
@@ -14,21 +13,43 @@ const tooltipStyles = {
   padding: "6px 10px",
 };
 
-export default function Dotplot({ genes, groups, data, width = 600, height = 400, showLabels = false }) {
+export default function Dotplot({ genes, groups, data, width = 600, height = 400, showLabels = false, swapAxes = false }) {
   const { showTooltip, hideTooltip, tooltipOpen, tooltipData, tooltipLeft, tooltipTop } =
     useTooltip();
 
-  const xMax = width - MARGIN.left - MARGIN.right;
-  const yMax = height - MARGIN.top - MARGIN.bottom;
+  // When swapped: genes on x, groups on y. Default: groups on x, genes on y.
+  const xItems = swapAxes ? genes : groups;
+  const yItems = swapAxes ? groups : genes;
 
-  // Map groups to integer labels for compact x-axis
+  // Map groups to integer labels for compact axis
   const groupIndices = groups.map((_, i) => i + 1);
   const groupToIndex = Object.fromEntries(groups.map((g, i) => [g, i + 1]));
   const indexToGroup = Object.fromEntries(groups.map((g, i) => [i + 1, g]));
 
-  const xDomain = showLabels ? groups : groupIndices;
+  // Determine whether integer labels are used on each axis
+  const useIntX = !swapAxes && !showLabels;
+  const useIntY = swapAxes && !showLabels;
+
+  const xDomain = swapAxes ? genes : (showLabels ? groups : groupIndices);
+  const yDomain = swapAxes ? (showLabels ? groups : groupIndices) : genes;
+
+  // Estimate bottom margin from longest x label when showing rotated labels
+  const xLabelItems = showLabels ? xItems : [];
+  const maxXLabelLen = xLabelItems.length > 0 ? Math.max(...xLabelItems.map((s) => s.length)) : 0;
+  const bottomMargin = maxXLabelLen > 0 ? Math.max(40, maxXLabelLen * 6 + 20) : 40;
+
+  // Estimate left margin from longest y label
+  const yLabelItems = swapAxes ? (showLabels ? groups : groupIndices.map(String)) : genes;
+  const maxYLabelLen = yLabelItems.length > 0 ? Math.max(...yLabelItems.map((s) => String(s).length)) : 0;
+  const leftMargin = Math.max(40, maxYLabelLen * 7 + 16);
+
+  const MARGIN = { top: 16, right: 100, bottom: bottomMargin, left: leftMargin };
+
+  const xMax = width - MARGIN.left - MARGIN.right;
+  const yMax = height - MARGIN.top - MARGIN.bottom;
+
   const xScale = scaleBand({ domain: xDomain, range: [0, xMax], padding: 0.05 });
-  const yScale = scaleBand({ domain: genes, range: [0, yMax], padding: 0.05 });
+  const yScale = scaleBand({ domain: yDomain, range: [0, yMax], padding: 0.05 });
 
   const maxMean = Math.max(...data.map((d) => d.meanExpression), 0.01);
 
@@ -40,6 +61,16 @@ export default function Dotplot({ genes, groups, data, width = 600, height = 400
 
   const viridis = COLOR_SCALES.viridis;
   const colorScale = (val) => rgbToString(interpolateColorScale(val / maxMean, viridis));
+
+  // Helpers to map data point to x/y keys
+  const getXKey = (d) => {
+    if (swapAxes) return d.gene;
+    return showLabels ? d.group : groupToIndex[d.group];
+  };
+  const getYKey = (d) => {
+    if (swapAxes) return showLabels ? d.group : groupToIndex[d.group];
+    return d.gene;
+  };
 
   const handleMouseEnter = useCallback(
     (event, d) => {
@@ -62,13 +93,13 @@ export default function Dotplot({ genes, groups, data, width = 600, height = 400
       <svg width={width} height={height}>
         <Group left={MARGIN.left} top={MARGIN.top}>
           {/* Horizontal gridlines */}
-          {genes.map((gene) => (
+          {yDomain.map((val) => (
             <line
-              key={`h-${gene}`}
+              key={`h-${val}`}
               x1={0}
               x2={xMax}
-              y1={(yScale(gene) ?? 0) + yScale.bandwidth() / 2}
-              y2={(yScale(gene) ?? 0) + yScale.bandwidth() / 2}
+              y1={(yScale(val) ?? 0) + yScale.bandwidth() / 2}
+              y2={(yScale(val) ?? 0) + yScale.bandwidth() / 2}
               stroke="#f0f0f0"
               strokeWidth={1}
             />
@@ -86,9 +117,8 @@ export default function Dotplot({ genes, groups, data, width = 600, height = 400
             />
           ))}
           {data.map((d) => {
-            const xKey = showLabels ? d.group : groupToIndex[d.group];
-            const cx = (xScale(xKey) ?? 0) + xScale.bandwidth() / 2;
-            const cy = (yScale(d.gene) ?? 0) + yScale.bandwidth() / 2;
+            const cx = (xScale(getXKey(d)) ?? 0) + xScale.bandwidth() / 2;
+            const cy = (yScale(getYKey(d)) ?? 0) + yScale.bandwidth() / 2;
             const isEmpty = d.fractionExpressing === 0;
             const r = isEmpty ? 3 : Math.max(radiusScale(d.fractionExpressing), 4);
             return (
@@ -109,19 +139,9 @@ export default function Dotplot({ genes, groups, data, width = 600, height = 400
           <AxisBottom
             scale={xScale}
             top={yMax}
+            numTicks={xDomain.length}
             tickComponent={({ x, y, formattedValue }) =>
-              showLabels ? (
-                <text
-                  x={x}
-                  y={y}
-                  fontSize={11}
-                  textAnchor="end"
-                  dy={-4}
-                  transform={`rotate(-45, ${x}, ${y})`}
-                >
-                  {formattedValue}
-                </text>
-              ) : (
+              useIntX ? (
                 <text
                   x={x}
                   y={y}
@@ -145,18 +165,62 @@ export default function Dotplot({ genes, groups, data, width = 600, height = 400
                 >
                   {formattedValue}
                 </text>
+              ) : (
+                <text
+                  x={x}
+                  y={y}
+                  fontSize={11}
+                  textAnchor="end"
+                  dy={-4}
+                  transform={`rotate(-45, ${x}, ${y})`}
+                >
+                  {formattedValue}
+                </text>
               )
             }
           />
           <AxisLeft
             scale={yScale}
-            numTicks={genes.length}
-            tickLabelProps={() => ({
-              fontSize: 11,
-              textAnchor: "end",
-              dx: -4,
-              dy: 4,
-            })}
+            numTicks={yDomain.length}
+            tickComponent={({ x, y, formattedValue }) =>
+              useIntY ? (
+                <text
+                  x={x}
+                  y={y}
+                  fontSize={11}
+                  textAnchor="end"
+                  dx={-4}
+                  dy={4}
+                  style={{ cursor: "pointer" }}
+                  onMouseEnter={(e) => {
+                    const svg = e.currentTarget.ownerSVGElement;
+                    const pt = svg.createSVGPoint();
+                    pt.x = e.clientX;
+                    pt.y = e.clientY;
+                    const svgPt = pt.matrixTransform(svg.getScreenCTM().inverse());
+                    showTooltip({
+                      tooltipData: { axisLabel: indexToGroup[formattedValue] },
+                      tooltipLeft: svgPt.x,
+                      tooltipTop: svgPt.y - 10,
+                    });
+                  }}
+                  onMouseLeave={hideTooltip}
+                >
+                  {formattedValue}
+                </text>
+              ) : (
+                <text
+                  x={x}
+                  y={y}
+                  fontSize={11}
+                  textAnchor="end"
+                  dx={-4}
+                  dy={4}
+                >
+                  {formattedValue}
+                </text>
+              )
+            }
           />
           {/* Expression color legend */}
           <Group left={xMax + 16} top={0}>
