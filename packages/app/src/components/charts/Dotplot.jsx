@@ -15,7 +15,7 @@ const tooltipStyles = {
   padding: "6px 10px",
 };
 
-export default function Dotplot({ genes, groups, data, width = 600, height = 400, showLabels = false, swapAxes = false }) {
+export default function Dotplot({ genes, groups, data, width = 600, height = 400, showLabels = false, swapAxes = false, colorScaleName = "viridis" }) {
   const { showTooltip, hideTooltip, tooltipOpen, tooltipData, tooltipLeft, tooltipTop } =
     useTooltip();
 
@@ -62,8 +62,8 @@ export default function Dotplot({ genes, groups, data, width = 600, height = 400
     range: [0, maxR],
   });
 
-  const viridis = COLOR_SCALES.viridis;
-  const colorScale = (val) => rgbToString(interpolateColorScale(val / maxMean, viridis));
+  const palette = COLOR_SCALES[colorScaleName] || COLOR_SCALES.viridis;
+  const colorScale = (val) => rgbToString(interpolateColorScale(val / maxMean, palette));
 
   // Helpers to map data point to x/y keys
   const getXKey = (d) => {
@@ -91,7 +91,7 @@ export default function Dotplot({ genes, groups, data, width = 600, height = 400
     [showTooltip],
   );
 
-  const gradientCSS = colorScaleGradient(viridis, "to top");
+  const gradientCSS = colorScaleGradient(palette, "to top");
 
   return (
     <div style={{ position: "relative", display: "flex", gap: 12 }}>

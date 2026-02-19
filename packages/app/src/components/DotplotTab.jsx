@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Button, Card, Checkbox, Drawer, Input, Modal, Tag, Typography, Spin, message } from "antd";
+import { Button, Card, Checkbox, Drawer, Input, Modal, Select, Tag, Typography, Spin, message } from "antd";
 import { ExpandOutlined } from "@ant-design/icons";
 import { ParentSize } from "@visx/responsive";
 import SearchableList from "./SearchableList";
@@ -136,6 +136,7 @@ export default function DotplotTab() {
   const [showLabels, setShowLabels] = useState(false);
   const [swapAxes, setSwapAxes] = useState(false);
   const [expanded, setExpanded] = useState(false);
+  const [colorScaleName, setColorScaleName] = useState("viridis");
 
   // Size chart based on data dimensions, accounting for axis swap
   const xCount = swapAxes ? dotplotGenes.length : groups.length;
@@ -246,6 +247,16 @@ export default function DotplotTab() {
               >
                 Swap axes
               </Checkbox>
+              <Select
+                size="small"
+                value={colorScaleName}
+                onChange={setColorScaleName}
+                options={[
+                  { value: "viridis", label: "Viridis" },
+                  { value: "magma", label: "Magma" },
+                ]}
+                style={{ width: 90 }}
+              />
               <Button
                 size="small"
                 icon={<ExpandOutlined />}
@@ -263,6 +274,7 @@ export default function DotplotTab() {
                 height={chartHeight}
                 showLabels={showLabels}
                 swapAxes={swapAxes}
+                colorScaleName={colorScaleName}
               />
             </div>
             <Modal
@@ -287,6 +299,16 @@ export default function DotplotTab() {
                 >
                   Swap axes
                 </Checkbox>
+                <Select
+                  size="small"
+                  value={colorScaleName}
+                  onChange={setColorScaleName}
+                  options={[
+                    { value: "viridis", label: "Viridis" },
+                    { value: "magma", label: "Magma" },
+                  ]}
+                  style={{ width: 90 }}
+                />
               </div>
               <div style={{ width: "100%", height: "calc(100% - 32px)" }}>
                 <ParentSize>
@@ -299,6 +321,7 @@ export default function DotplotTab() {
                       height={height}
                       showLabels={showLabels}
                       swapAxes={swapAxes}
+                      colorScaleName={colorScaleName}
                     />
                   )}
                 </ParentSize>
