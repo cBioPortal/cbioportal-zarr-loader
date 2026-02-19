@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { Card, Tag, Typography, Spin, message } from "antd";
 import SearchableList from "./SearchableList";
 import TabLayout from "./TabLayout";
@@ -23,6 +23,22 @@ export default function DotplotTab() {
   } = useAppStore();
 
   const { geneNames, obsColumns } = metadata;
+
+  // Auto-select defaults on first mount
+  const initialized = useRef(false);
+  useEffect(() => {
+    if (initialized.current) return;
+    initialized.current = true;
+
+    const defaultGenes = ["EGFR", "DAPL1"];
+    for (const name of defaultGenes) {
+      const match = geneNames.find((g) => g.toLowerCase() === name.toLowerCase());
+      if (match && !dotplotGenes.includes(match)) toggleDotplotGene(match);
+    }
+
+    const obsMatch = obsColumns.find((c) => c.toLowerCase() === "cell_type");
+    if (obsMatch && !dotplotObsColumn) setDotplotObsColumn(obsMatch);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleGeneSelect = async (geneName) => {
     const result = await toggleDotplotGene(geneName);
@@ -78,9 +94,9 @@ export default function DotplotTab() {
 
   const isLoading = dotplotGeneLoading || dotplotObsLoading;
 
-  // Size chart based on data dimensions
-  const chartWidth = Math.max(400, dotplotGenes.length * 60 + 200);
-  const chartHeight = Math.max(300, groups.length * 30 + 120);
+  // Size chart based on data dimensions (groups as integers on x, genes on y)
+  const chartWidth = groups.length * 20 + 136;
+  const chartHeight = dotplotGenes.length * 28 + 56;
 
   return (
     <TabLayout
@@ -129,15 +145,26 @@ export default function DotplotTab() {
             <Spin size="large" />
           </div>
         ) : dotplotData ? (
-          <div style={{ overflowX: "auto" }}>
-            <Dotplot
-              genes={dotplotGenes}
-              groups={groups}
-              data={dotplotData}
-              width={chartWidth}
-              height={chartHeight}
-            />
-          </div>
+          <>
+            <div style={{ marginBottom: 8, fontSize: 12, color: "#595959" }}>
+              {dotplotObsData.length.toLocaleString()} cells across {groups.length} groups
+              {dotplotObsColumn && <> grouped by <strong>{dotplotObsColumn}</strong></>}
+            </div>
+            <div style={{ overflowX: "auto" }}>
+              <Dotplot
+                genes={dotplotGenes}
+                groups={groups}
+                data={dotplotData}
+                width={chartWidth}
+                height={chartHeight}
+              />
+            </div>
+            <div style={{ marginTop: 8, fontSize: 11, color: "#8c8c8c", lineHeight: 1.6 }}>
+              <strong>Size</strong> = fraction of cells expressing (value &gt; 0).{" "}
+              <strong>Color</strong> = mean expression (viridis scale, darker = higher).{" "}
+              Hover a dot for exact values. Hover an x-axis number for the group name.
+            </div>
+          </>
         ) : (
           <Text type="secondary">
             Select one or more genes and an obs column to view the dotplot.
