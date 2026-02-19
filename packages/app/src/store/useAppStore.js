@@ -76,6 +76,9 @@ const useAppStore = create((set, get) => ({
   dotplotGenes: [],
   dotplotGeneExpressions: {},
   dotplotGeneLoading: null,
+  dotplotObsColumn: null,
+  dotplotObsData: null,
+  dotplotObsLoading: false,
 
   // Selection state
   selectedPointIndices: [],
@@ -532,6 +535,25 @@ const useAppStore = create((set, get) => ({
 
   clearDotplotGenes: () => {
     set({ dotplotGenes: [], dotplotGeneExpressions: {} });
+  },
+
+  setDotplotObsColumn: async (colName) => {
+    const { adata } = get();
+    if (!adata || !colName) return;
+
+    set({ dotplotObsColumn: colName, dotplotObsLoading: true, dotplotObsData: null });
+
+    try {
+      const values = await adata.obsColumn(colName);
+      set({ dotplotObsData: values, dotplotObsLoading: false });
+    } catch (err) {
+      console.error("[DotplotTab] Obs column fetch error:", err);
+      set({ dotplotObsData: null, dotplotObsLoading: false });
+    }
+  },
+
+  clearDotplotObsColumn: () => {
+    set({ dotplotObsColumn: null, dotplotObsData: null });
   },
 
   setSelectedPoints: (indices) => {
