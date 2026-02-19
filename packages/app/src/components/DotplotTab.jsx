@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Button, Card, Checkbox, Drawer, Input, Tag, Typography, Spin, message } from "antd";
+import { Button, Card, Checkbox, Drawer, Input, Modal, Tag, Typography, Spin, message } from "antd";
+import { ExpandOutlined } from "@ant-design/icons";
+import { ParentSize } from "@visx/responsive";
 import SearchableList from "./SearchableList";
 import TabLayout from "./TabLayout";
 import Dotplot from "./charts/Dotplot";
@@ -133,6 +135,7 @@ export default function DotplotTab() {
   const isLoading = dotplotGeneLoading || dotplotObsLoading;
   const [showLabels, setShowLabels] = useState(false);
   const [swapAxes, setSwapAxes] = useState(false);
+  const [expanded, setExpanded] = useState(false);
 
   // Size chart based on data dimensions, accounting for axis swap
   const xCount = swapAxes ? dotplotGenes.length : groups.length;
@@ -243,6 +246,13 @@ export default function DotplotTab() {
               >
                 Swap axes
               </Checkbox>
+              <Button
+                size="small"
+                icon={<ExpandOutlined />}
+                onClick={() => setExpanded(true)}
+              >
+                Expand
+              </Button>
             </div>
             <div style={{ overflowX: "auto" }}>
               <Dotplot
@@ -255,6 +265,45 @@ export default function DotplotTab() {
                 swapAxes={swapAxes}
               />
             </div>
+            <Modal
+              open={expanded}
+              onCancel={() => setExpanded(false)}
+              footer={null}
+              width="90vw"
+              style={{ top: 20 }}
+              styles={{ body: { height: "80vh", padding: 12 } }}
+              destroyOnClose
+            >
+              <div style={{ marginBottom: 8, fontSize: 12, color: "#595959", display: "flex", alignItems: "center", gap: 12 }}>
+                <Checkbox
+                  checked={showLabels}
+                  onChange={(e) => setShowLabels(e.target.checked)}
+                >
+                  Show group labels
+                </Checkbox>
+                <Checkbox
+                  checked={swapAxes}
+                  onChange={(e) => setSwapAxes(e.target.checked)}
+                >
+                  Swap axes
+                </Checkbox>
+              </div>
+              <div style={{ width: "100%", height: "calc(100% - 32px)" }}>
+                <ParentSize>
+                  {({ width, height }) => (
+                    <Dotplot
+                      genes={dotplotGenes}
+                      groups={groups}
+                      data={dotplotData}
+                      width={width}
+                      height={height}
+                      showLabels={showLabels}
+                      swapAxes={swapAxes}
+                    />
+                  )}
+                </ParentSize>
+              </div>
+            </Modal>
             <div style={{ marginTop: 12, fontSize: 11, color: "#595959", lineHeight: 1.6 }}>
               <div style={{ marginBottom: 8 }}>
                 <strong>X-axis legend</strong>
