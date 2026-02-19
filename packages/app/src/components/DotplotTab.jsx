@@ -1,4 +1,4 @@
-import { Card, Typography } from "antd";
+import { Card, Tag, Typography, message } from "antd";
 import SearchableList from "./SearchableList";
 import TabLayout from "./TabLayout";
 import useAppStore from "../store/useAppStore";
@@ -16,6 +16,15 @@ export default function DotplotTab() {
 
   const { geneNames } = metadata;
 
+  const handleGeneSelect = async (geneName) => {
+    const result = await toggleDotplotGene(geneName);
+    if (result?.noExpression) {
+      message.warning(`No expression data found for ${geneName}`);
+    } else if (result?.error) {
+      message.error(`Failed to fetch expression for ${geneName}`);
+    }
+  };
+
   return (
     <TabLayout
       sidebar={
@@ -23,7 +32,7 @@ export default function DotplotTab() {
           title="Genes"
           items={geneNames}
           selected={dotplotGenes}
-          onSelect={toggleDotplotGene}
+          onSelect={handleGeneSelect}
           onClear={clearDotplotGenes}
           loading={dotplotGeneLoading}
           multiSelect
@@ -32,7 +41,19 @@ export default function DotplotTab() {
         />
       }
     >
-      <Card title="Dotplot" size="small">
+      <Card
+        title={
+          <span style={{ display: "flex", alignItems: "center", gap: 4, flexWrap: "wrap" }}>
+            Dotplot
+            {dotplotGenes.map((gene) => (
+              <Tag key={gene} closable onClose={() => toggleDotplotGene(gene)} style={{ marginInlineEnd: 0 }}>
+                {gene}
+              </Tag>
+            ))}
+          </span>
+        }
+        size="small"
+      >
         <Text type="secondary">Coming soon</Text>
       </Card>
     </TabLayout>
