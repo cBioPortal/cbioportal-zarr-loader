@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useRef } from "react";
-import { Card, Tag, Typography, Spin, message } from "antd";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Button, Card, Drawer, Input, Tag, Typography, Spin, message } from "antd";
 import SearchableList from "./SearchableList";
 import TabLayout from "./TabLayout";
 import Dotplot from "./charts/Dotplot";
@@ -40,6 +40,14 @@ export default function DotplotTab() {
     if (obsMatch && !dotplotObsColumn) setDotplotObsColumn(obsMatch);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [geneListText, setGeneListText] = useState(dotplotGenes.join("\n"));
+
+  // Keep text area in sync with store gene list
+  useEffect(() => {
+    setGeneListText(dotplotGenes.join("\n"));
+  }, [dotplotGenes]);
+
   const handleGeneSelect = async (geneName) => {
     const result = await toggleDotplotGene(geneName);
     if (result?.noExpression) {
@@ -47,6 +55,34 @@ export default function DotplotTab() {
     } else if (result?.error) {
       message.error(`Failed to fetch expression for ${geneName}`);
     }
+  };
+
+  const handleGeneListSubmit = () => {
+    const names = geneListText
+      .split(/[\n,]+/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+    if (names.length === 0) return;
+
+    setDrawerOpen(false);
+
+    const notFound = [];
+    const toAdd = [];
+    for (const name of names) {
+      const match = geneNames.find((g) => g.toLowerCase() === name.toLowerCase());
+      if (!match) {
+        notFound.push(name);
+      } else if (!dotplotGenes.includes(match)) {
+        toAdd.push(match);
+      }
+    }
+    if (notFound.length > 0) message.warning(`Not found: ${notFound.join(", ")}`);
+
+    // Fire off fetches in the background
+    Promise.all(toAdd.map((g) => toggleDotplotGene(g))).then((results) => {
+      const added = results.filter((r) => r?.added).length;
+      if (added > 0) message.success(`Added ${added} gene${added > 1 ? "s" : ""}`);
+    });
   };
 
   // Compute unique groups from obs data
@@ -86,6 +122,8 @@ export default function DotplotTab() {
           group,
           meanExpression: sum / indices.length,
           fractionExpressing: expressing / indices.length,
+          cellCount: indices.length,
+          expressingCount: expressing,
         });
       }
     }
@@ -95,7 +133,7 @@ export default function DotplotTab() {
   const isLoading = dotplotGeneLoading || dotplotObsLoading;
 
   // Size chart based on data dimensions (groups as integers on x, genes on y)
-  const chartWidth = groups.length * 20 + 136;
+  const chartWidth = groups.length * 20 + 220;
   const chartHeight = dotplotGenes.length * 28 + 56;
 
   return (
@@ -138,8 +176,42 @@ export default function DotplotTab() {
             ))}
           </span>
         }
+        extra={
+          <Button size="small" onClick={() => setDrawerOpen(true)}>
+            Gene List
+          </Button>
+        }
         size="small"
       >
+        <Drawer
+          title="Paste Gene List"
+          placement="right"
+          open={drawerOpen}
+          onClose={() => setDrawerOpen(false)}
+          width={360}
+        >
+          <Button
+            size="small"
+            style={{ marginBottom: 8 }}
+            onClick={() => setGeneListText("DAPL1\nKRT17\nS100A9\nCXCL10\nISG15\nCOL1A1\nCOL3A1\nCASC1\nS100A4\nSST\nVEGFA\nCENPF\nPTTG1\nHIST1H4C\nTUBA1B\nC20orf85\nCAPS\nCETN2")}
+          >
+            Example
+          </Button>
+          <Input.TextArea
+            rows={12}
+            placeholder={"Paste gene names, one per line or comma-separated\ne.g.\nEGFR\nDAPL1\nTP53"}
+            value={geneListText}
+            onChange={(e) => setGeneListText(e.target.value)}
+          />
+          <Button
+            type="primary"
+            style={{ marginTop: 12, width: "100%" }}
+            onClick={handleGeneListSubmit}
+            disabled={!geneListText.trim()}
+          >
+            Add Genes
+          </Button>
+        </Drawer>
         {isLoading ? (
           <div style={{ textAlign: "center", padding: 48 }}>
             <Spin size="large" />
