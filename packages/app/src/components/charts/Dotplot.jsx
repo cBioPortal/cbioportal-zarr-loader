@@ -3,6 +3,8 @@ import { Group } from "@visx/group";
 import { scaleBand, scaleLinear, scaleSqrt } from "@visx/scale";
 import { AxisBottom, AxisLeft } from "@visx/axis";
 import { useTooltip, TooltipWithBounds, defaultStyles } from "@visx/tooltip";
+import { Tooltip } from "antd";
+import { InfoCircleOutlined } from "@ant-design/icons";
 import { COLOR_SCALES, colorScaleGradient, interpolateColorScale, rgbToString } from "../../utils/colors";
 
 const MAX_RADIUS = 14;
@@ -43,9 +45,10 @@ export default function Dotplot({ genes, groups, data, width = 600, height = 400
   const maxYLabelLen = yLabelItems.length > 0 ? Math.max(...yLabelItems.map((s) => String(s).length)) : 0;
   const leftMargin = Math.max(40, maxYLabelLen * 7 + 16);
 
-  const MARGIN = { top: 16, right: 100, bottom: bottomMargin, left: leftMargin };
+  const MARGIN = { top: 16, right: 8, bottom: bottomMargin, left: leftMargin };
 
-  const xMax = width - MARGIN.left - MARGIN.right;
+  const svgWidth = width - 90;
+  const xMax = svgWidth - MARGIN.left - MARGIN.right;
   const yMax = height - MARGIN.top - MARGIN.bottom;
 
   const xScale = scaleBand({ domain: xDomain, range: [0, xMax], padding: 0.05 });
@@ -88,9 +91,11 @@ export default function Dotplot({ genes, groups, data, width = 600, height = 400
     [showTooltip],
   );
 
+  const gradientCSS = colorScaleGradient(viridis, "to top");
+
   return (
-    <div style={{ position: "relative" }}>
-      <svg width={width} height={height}>
+    <div style={{ position: "relative", display: "flex", gap: 12 }}>
+      <svg width={svgWidth} height={height}>
         <Group left={MARGIN.left} top={MARGIN.top}>
           {/* Horizontal gridlines */}
           {yDomain.map((val) => (
@@ -222,43 +227,58 @@ export default function Dotplot({ genes, groups, data, width = 600, height = 400
               )
             }
           />
-          {/* Expression color legend */}
-          <Group left={xMax + 16} top={0}>
-            <text fontSize={10} fontWeight="bold" dy={-4}>Mean expr</text>
-            <defs>
-              <linearGradient id="dotplot-color-gradient" x1="0" y1="1" x2="0" y2="0">
-                {viridis.map((c, i) => (
-                  <stop
-                    key={i}
-                    offset={`${(i / (viridis.length - 1)) * 100}%`}
-                    stopColor={rgbToString(c)}
-                  />
-                ))}
-              </linearGradient>
-            </defs>
-            <rect
-              width={14}
-              height={Math.min(yMax, 100)}
-              fill="url(#dotplot-color-gradient)"
-              rx={2}
-            />
-            <text x={18} y={10} fontSize={9}>{maxMean.toFixed(2)}</text>
-            <text x={18} y={Math.min(yMax, 100)} fontSize={9}>0</text>
-            {/* Size legend */}
-            <text fontSize={10} fontWeight="bold" y={Math.min(yMax, 100) + 24}>Fraction</text>
-            {[0.2, 0.4, 0.6, 0.8, 1.0].map((frac, i) => {
-              const r = radiusScale(frac);
-              const cy = Math.min(yMax, 100) + 46 + i * (maxR * 2 + 4);
-              return (
-                <g key={frac}>
-                  <circle cx={maxR} cy={cy} r={r} fill="#888" />
-                  <text x={maxR * 2 + 6} y={cy + 3} fontSize={9}>{(frac * 100)}%</text>
-                </g>
-              );
-            })}
-          </Group>
         </Group>
       </svg>
+
+      {/* HTML legends */}
+      <div style={{ fontSize: 10, color: "#595959", paddingTop: MARGIN.top, flexShrink: 0, width: 74 }}>
+        {/* Color legend */}
+        <div style={{ marginBottom: 12 }}>
+          <div style={{ fontWeight: "bold", marginBottom: 4 }}>
+            Mean expr{" "}
+            <Tooltip title="The average expression level across all cells in the group, including non-expressing cells. Mapped to a viridis color scale (dark = low, bright = high).">
+              <InfoCircleOutlined style={{ fontSize: 11, color: "#8c8c8c", cursor: "pointer" }} />
+            </Tooltip>
+          </div>
+          <div style={{ display: "flex", gap: 4 }}>
+            <div
+              style={{
+                width: 14,
+                height: Math.min(yMax, 100),
+                background: gradientCSS,
+                borderRadius: 2,
+              }}
+            />
+            <div style={{ display: "flex", flexDirection: "column", justifyContent: "space-between", fontSize: 9 }}>
+              <span>{maxMean.toFixed(2)}</span>
+              <span>0</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Size legend */}
+        <div>
+          <div style={{ fontWeight: "bold", marginBottom: 4 }}>
+            Fraction{" "}
+            <Tooltip title="The percentage of cells in the group where the gene is detected (expression > 0). A larger dot means the gene is active in more cells.">
+              <InfoCircleOutlined style={{ fontSize: 11, color: "#8c8c8c", cursor: "pointer" }} />
+            </Tooltip>
+          </div>
+          {[0.2, 0.4, 0.6, 0.8, 1.0].map((frac) => {
+            const r = radiusScale(frac);
+            const d = maxR * 2 + 2;
+            return (
+              <div key={frac} style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 2 }}>
+                <svg width={d} height={d}>
+                  <circle cx={d / 2} cy={d / 2} r={r} fill="#888" />
+                </svg>
+                <span style={{ fontSize: 9 }}>{frac * 100}%</span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
       {tooltipOpen && tooltipData && (
         <TooltipWithBounds
           left={tooltipLeft}
