@@ -495,7 +495,7 @@ const useAppStore = create((set, get) => ({
         dotplotGenes: dotplotGenes.filter((g) => g !== geneName),
         dotplotGeneExpressions: rest,
       });
-      return;
+      return { removed: true };
     }
 
     // Toggle on — fetch and add gene
@@ -509,15 +509,24 @@ const useAppStore = create((set, get) => ({
         if (idx !== -1) queryName = varNames[idx];
       }
       const values = await adata.geneExpression(queryName);
+      console.debug("[DotplotTab] Gene expression for", geneName, ":", values?.length, "values, sample:", values?.slice(0, 10));
+
+      if (!values || values.length === 0) {
+        set({ dotplotGeneLoading: null });
+        return { added: false, noExpression: true };
+      }
+
       const { dotplotGenes: current, dotplotGeneExpressions: currentData } = get();
       set({
         dotplotGenes: [...current, geneName],
         dotplotGeneExpressions: { ...currentData, [geneName]: values },
         dotplotGeneLoading: null,
       });
+      return { added: true };
     } catch (err) {
       console.error("[DotplotTab] Gene expression fetch error:", err);
       set({ dotplotGeneLoading: null });
+      return { added: false, error: err.message };
     }
   },
 
