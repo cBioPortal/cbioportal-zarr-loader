@@ -329,7 +329,7 @@ export default function DotplotTab() {
             </Modal>
             <div style={{ marginTop: 12, fontSize: 11, color: "#595959", lineHeight: 1.6 }}>
               <div style={{ marginBottom: 8 }}>
-                <strong>X-axis legend</strong>
+                <strong>Group legend</strong>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: "2px 12px", marginTop: 2 }}>
                   {groups.map((group, i) => (
                     <span key={group}><strong>{i + 1}</strong> = {group}</span>
@@ -338,10 +338,8 @@ export default function DotplotTab() {
               </div>
               <div style={{ color: "#8c8c8c" }}>
                 <p style={{ margin: "0 0 6px" }}>
-                  A dotplot summarizes gene expression across cell groups from single-cell RNA-seq data.
+                  Dotplot summarizes gene expression across cell groups from single-cell RNA-seq data.
                   Each dot represents one gene in one cell group.
-                  Hover a dot for exact values. Hover an x-axis number for the group name.
-                  Hover the info icons in the legend for details on dot size and color.
                 </p>
               </div>
             </div>
