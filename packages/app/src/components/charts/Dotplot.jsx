@@ -246,7 +246,7 @@ export default function Dotplot({ genes, groups, data, width = 600, height = 400
             <text x={18} y={Math.min(yMax, 100)} fontSize={9}>0</text>
             {/* Size legend */}
             <text fontSize={10} fontWeight="bold" y={Math.min(yMax, 100) + 24}>Fraction</text>
-            {[0.25, 0.5, 0.75, 1.0].map((frac, i) => {
+            {[0.2, 0.4, 0.6, 0.8, 1.0].map((frac, i) => {
               const r = radiusScale(frac);
               const cy = Math.min(yMax, 100) + 46 + i * (maxR * 2 + 4);
               return (
