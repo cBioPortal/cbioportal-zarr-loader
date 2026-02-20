@@ -19,7 +19,7 @@ export default function ViolinPlot({ groups, violins, width = 800, height = 500,
 
   // Dynamic margins
   const maxXLabelLen = groups.length > 0 ? Math.max(...groups.map((s) => s.length)) : 0;
-  const tickLabelHeight = Math.max(20, maxXLabelLen * 4);
+  const tickLabelHeight = Math.max(30, maxXLabelLen * 4);
   const bottomMargin = tickLabelHeight + 12 + (xLabel ? 20 : 0);
 
   const allX = violins.flatMap((v) => v.kde.x);

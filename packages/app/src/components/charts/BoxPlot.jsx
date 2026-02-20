@@ -21,7 +21,7 @@ export default function BoxPlot({ groups, stats, width = 800, height = 500, xLab
 
   // Dynamic margins based on label lengths
   const maxXLabelLen = groups.length > 0 ? Math.max(...groups.map((s) => s.length)) : 0;
-  const tickLabelHeight = Math.max(20, maxXLabelLen * 4);
+  const tickLabelHeight = Math.max(30, maxXLabelLen * 4);
   const bottomMargin = tickLabelHeight + 12 + (xLabel ? 20 : 0);
 
   // Estimate y-axis label width from values
