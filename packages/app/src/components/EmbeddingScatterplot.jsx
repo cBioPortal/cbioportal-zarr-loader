@@ -7,7 +7,7 @@ import { HexagonLayer } from "@deck.gl/aggregation-layers";
 import { OrthographicView } from "@deck.gl/core";
 import useAppStore from "../store/useAppStore";
 import { calculatePlotDimensions } from "../utils/calculatePlotDimensions";
-import { COLOR_SCALES } from "../utils/colors";
+import { COLOR_SCALES, CATEGORICAL_COLORS } from "../utils/colors";
 import {
   pointInPolygon,
   simplifyPolygon,
@@ -234,30 +234,102 @@ export default function EmbeddingScatterplot({
     [selectedPointIndices],
   );
 
+  // Determine hexbin coloring mode and config
+  const hexColorMode = geneExpression ? "expression" : colorData ? "category" : "density";
+
+  const hexColorConfig = useMemo(() => {
+    if (hexColorMode === "expression") {
+      return {
+        getColorWeight: (d) => d.expression ?? 0,
+        colorAggregation: "MEAN",
+        colorRange: COLOR_SCALES[colorScaleName],
+        colorDomain: expressionRange ? [expressionRange.min, expressionRange.max] : undefined,
+        colorScaleType: "linear",
+      };
+    }
+    if (hexColorMode === "category") {
+      // Build list of unique categories in order
+      const uniqueCats = [...new Set(points.map((p) => p.category))].sort();
+      const catToIndex = Object.fromEntries(uniqueCats.map((c, i) => [c, i]));
+      const catColors = uniqueCats.map((_, i) => CATEGORICAL_COLORS[i % CATEGORICAL_COLORS.length]);
+      return {
+        getColorValue: (pts) => {
+          // Find dominant category in this bin
+          const counts = {};
+          for (const p of pts) {
+            counts[p.category] = (counts[p.category] || 0) + 1;
+          }
+          let maxCount = 0, dominant = pts[0].category;
+          for (const [cat, cnt] of Object.entries(counts)) {
+            if (cnt > maxCount) { maxCount = cnt; dominant = cat; }
+          }
+          return catToIndex[dominant] ?? 0;
+        },
+        colorRange: catColors,
+        colorDomain: [0, catColors.length - 1],
+        colorScaleType: "ordinal",
+        _uniqueCats: uniqueCats,
+      };
+    }
+    // Density fallback
+    return {
+      colorRange: [
+        [237, 248, 233],
+        [199, 233, 192],
+        [161, 217, 155],
+        [116, 196, 118],
+        [49, 163, 84],
+        [0, 109, 44],
+      ],
+    };
+  }, [hexColorMode, colorScaleName, expressionRange, points]);
+
+  const hexHover = useCallback((info) => {
+    if (!info.object) { setHoverInfo(null); return; }
+    const pts = info.object.points;
+    const count = info.object.count ?? pts?.length ?? info.object.colorValue;
+    const hex = { hexCount: count };
+
+    if (pts && pts.length > 0) {
+      // Each entry in pts may be the original point directly or wrapped in { source }
+      const unwrap = (p) => p.source ?? p;
+      if (hexColorMode === "expression") {
+        const sum = pts.reduce((s, p) => s + (unwrap(p).expression ?? 0), 0);
+        hex.meanExpression = sum / pts.length;
+      }
+      if (hexColorMode === "category") {
+        const counts = {};
+        for (const p of pts) {
+          const cat = unwrap(p).category;
+          counts[cat] = (counts[cat] || 0) + 1;
+        }
+        let maxCount = 0;
+        for (const [cat, cnt] of Object.entries(counts)) {
+          if (cnt > maxCount) { maxCount = cnt; hex.dominantCategory = cat; hex.dominantCount = cnt; }
+        }
+      }
+    }
+    setHoverInfo({ x: info.x, y: info.y, object: hex });
+  }, [hexColorMode]);
+
   const layers = layerMode === "hexbin"
     ? [
         new HexagonLayer({
           id: "hexbin",
           data: points,
           getPosition: (d) => d.position,
+          gpuAggregation: false,
           radius: 0.3,
           elevationScale: 0,
           extruded: false,
           coverage: 0.9,
-          colorRange: [
-            [237, 248, 233],
-            [199, 233, 192],
-            [161, 217, 155],
-            [116, 196, 118],
-            [49, 163, 84],
-            [0, 109, 44],
-          ],
           opacity: 0.8,
           pickable: true,
-          onHover: (info) => {
-            if (!info.object) { setHoverInfo(null); return; }
-            const count = info.object.count ?? info.object.points?.length ?? info.object.colorValue;
-            setHoverInfo({ x: info.x, y: info.y, object: { hexCount: count } });
+          onHover: hexHover,
+          ...hexColorConfig,
+          updateTriggers: {
+            getColorWeight: [geneExpression, expressionRange],
+            getColorValue: [colorData],
           },
         }),
       ]

@@ -31,7 +31,15 @@ export default function HoverTooltip({
           ))}
         </>
       ) : hoverInfo.object.hexCount != null ? (
-        <div>Count: {hoverInfo.object.hexCount.toLocaleString()}</div>
+        <>
+          <div>Count: {hoverInfo.object.hexCount.toLocaleString()}</div>
+          {hoverInfo.object.meanExpression != null && (
+            <div>Mean {selectedGene}: {hoverInfo.object.meanExpression.toFixed(4)}</div>
+          )}
+          {hoverInfo.object.dominantCategory != null && (
+            <div>{colorColumn}: {hoverInfo.object.dominantCategory} ({hoverInfo.object.dominantCount})</div>
+          )}
+        </>
       ) : (
         <div>Bin selected</div>
       )}
