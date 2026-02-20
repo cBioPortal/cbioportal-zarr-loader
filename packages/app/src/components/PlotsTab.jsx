@@ -186,6 +186,7 @@ export default function PlotsTab() {
                 <RaincloudPlot
                   groups={violinData.groups}
                   violins={violinData.violins}
+                  boxplotStats={boxplotData?.stats}
                   containerWidth={containerWidth}
                   height={500}
                   xLabel={plotObsColumn}

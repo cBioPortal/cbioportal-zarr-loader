@@ -22,6 +22,7 @@ const MIN_BAND_WIDTH = 50;
 export default function RaincloudPlot({
   groups,
   violins,
+  boxplotStats,
   containerWidth = 800,
   height = 500,
   xLabel,
@@ -64,6 +65,14 @@ export default function RaincloudPlot({
   for (const v of violins) {
     const m = maxOf(v.kde.density);
     if (m > maxDensity) maxDensity = m;
+  }
+
+  // Build boxplot lookup by group name
+  const boxplotByGroup = {};
+  if (boxplotStats) {
+    for (const s of boxplotStats) {
+      boxplotByGroup[s.group] = s;
+    }
   }
 
   const handleMouseEnter = (event, d) => {
@@ -109,6 +118,12 @@ export default function RaincloudPlot({
 
             const pathD = areaGen(points);
 
+            const bp = boxplotByGroup[v.group];
+            const tooltipPayload = bp ? { ...v, ...bp } : v;
+            // Boxplot sits on the right side of center
+            const boxWidth = bw * 0.15;
+            const boxLeft = cx + bw * 0.05;
+
             return (
               <g key={v.group}>
                 {/* Half-violin (left side) */}
@@ -119,9 +134,51 @@ export default function RaincloudPlot({
                   stroke={color}
                   strokeWidth={1}
                   style={{ cursor: "pointer" }}
-                  onMouseEnter={(e) => handleMouseEnter(e, v)}
+                  onMouseEnter={(e) => handleMouseEnter(e, tooltipPayload)}
                   onMouseLeave={hideTooltip}
                 />
+                {/* Boxplot (right side) */}
+                {bp && (
+                  <g>
+                    {/* Whisker line */}
+                    <line
+                      x1={boxLeft + boxWidth / 2} x2={boxLeft + boxWidth / 2}
+                      y1={yScale(bp.whiskerHigh)} y2={yScale(bp.whiskerLow)}
+                      stroke="#333" strokeWidth={1}
+                    />
+                    {/* Whisker caps */}
+                    <line
+                      x1={boxLeft} x2={boxLeft + boxWidth}
+                      y1={yScale(bp.whiskerHigh)} y2={yScale(bp.whiskerHigh)}
+                      stroke="#333" strokeWidth={1}
+                    />
+                    <line
+                      x1={boxLeft} x2={boxLeft + boxWidth}
+                      y1={yScale(bp.whiskerLow)} y2={yScale(bp.whiskerLow)}
+                      stroke="#333" strokeWidth={1}
+                    />
+                    {/* IQR box */}
+                    <rect
+                      x={boxLeft}
+                      y={yScale(bp.q3)}
+                      width={boxWidth}
+                      height={Math.max(yScale(bp.q1) - yScale(bp.q3), 1)}
+                      fill="#fff"
+                      fillOpacity={0.8}
+                      stroke="#333"
+                      strokeWidth={1}
+                      style={{ cursor: "pointer" }}
+                      onMouseEnter={(e) => handleMouseEnter(e, tooltipPayload)}
+                      onMouseLeave={hideTooltip}
+                    />
+                    {/* Median line */}
+                    <line
+                      x1={boxLeft} x2={boxLeft + boxWidth}
+                      y1={yScale(bp.median)} y2={yScale(bp.median)}
+                      stroke="#333" strokeWidth={2}
+                    />
+                  </g>
+                )}
               </g>
             );
           })}
@@ -181,6 +238,14 @@ export default function RaincloudPlot({
           <div><strong>{tooltipData.group}</strong></div>
           <div>Count: {tooltipData.count.toLocaleString()}</div>
           <div>Median: {tooltipData.median.toFixed(3)}</div>
+          {tooltipData.q1 != null && (
+            <>
+              <div>Q1: {tooltipData.q1.toFixed(3)}</div>
+              <div>Q3: {tooltipData.q3.toFixed(3)}</div>
+              <div>Min: {tooltipData.min.toFixed(3)}</div>
+              <div>Max: {tooltipData.max.toFixed(3)}</div>
+            </>
+          )}
         </TooltipWithBounds>
       )}
     </div>
