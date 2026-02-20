@@ -4,6 +4,7 @@ import { AxisBottom, AxisLeft } from "@visx/axis";
 import { useTooltip, TooltipWithBounds, defaultStyles } from "@visx/tooltip";
 import { area, curveBasis } from "d3-shape";
 import { CATEGORICAL_COLORS, rgbToString } from "../../utils/colors";
+import { maxOf, minOf } from "../../utils/mathUtils";
 
 const tooltipStyles = {
   ...defaultStyles,
@@ -20,14 +21,14 @@ export default function ViolinPlot({ groups, violins, boxplotStats, showBoxplot 
   if (!violins || violins.length === 0) return null;
 
   // Dynamic margins
-  const maxXLabelLen = groups.length > 0 ? Math.max(...groups.map((s) => s.length)) : 0;
+  const maxXLabelLen = groups.length > 0 ? maxOf(groups, (s) => s.length) : 0;
   const tickLabelHeight = Math.max(30, maxXLabelLen * 4);
   const bottomMargin = tickLabelHeight + 12 + (xLabel ? 20 : 0);
 
-  const allX = violins.flatMap((v) => v.kde.x);
-  const maxYLabelLen = allX.length > 0
-    ? Math.max(...[Math.min(...allX), Math.max(...allX)].map((v) => v.toFixed(2).length))
-    : 4;
+  // Estimate y-axis label width from KDE range extremes
+  const kdeMin = minOf(violins, (v) => v.kde.x[0]);
+  const kdeMax = maxOf(violins, (v) => v.kde.x[v.kde.x.length - 1]);
+  const maxYLabelLen = Math.max(kdeMin.toFixed(2).length, kdeMax.toFixed(2).length, 4);
   const leftMargin = Math.max(50, maxYLabelLen * 7 + 16) + (yLabel ? 20 : 0);
 
   const MARGIN = { top: 20, right: 20, bottom: bottomMargin, left: leftMargin };
@@ -41,18 +42,20 @@ export default function ViolinPlot({ groups, violins, boxplotStats, showBoxplot 
   const xScale = scaleBand({ domain: groups, range: [0, xMax], padding: 0.15 });
 
   // y-axis spans the full range of KDE x-values (which are the data values)
-  const yMin = Math.min(...violins.map((v) => v.kde.x[0]));
-  const yMaxVal = Math.max(...violins.map((v) => v.kde.x[v.kde.x.length - 1]));
-  const yPadding = (yMaxVal - yMin) * 0.05 || 1;
+  const yPadding = (kdeMax - kdeMin) * 0.05 || 1;
 
   const yScale = scaleLinear({
-    domain: [yMin - yPadding, yMaxVal + yPadding],
+    domain: [kdeMin - yPadding, kdeMax + yPadding],
     range: [yMax, 0],
     nice: true,
   });
 
   // Find max density across all groups for consistent width scaling
-  const maxDensity = Math.max(...violins.flatMap((v) => v.kde.density));
+  let maxDensity = 0;
+  for (const v of violins) {
+    const m = maxOf(v.kde.density);
+    if (m > maxDensity) maxDensity = m;
+  }
 
   // Build boxplot lookup by group name
   const boxplotByGroup = {};

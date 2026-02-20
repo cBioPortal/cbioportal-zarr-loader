@@ -3,6 +3,7 @@ import { scaleBand, scaleLinear } from "@visx/scale";
 import { AxisBottom, AxisLeft } from "@visx/axis";
 import { useTooltip, TooltipWithBounds, defaultStyles } from "@visx/tooltip";
 import { CATEGORICAL_COLORS, rgbToString } from "../../utils/colors";
+import { maxOf, minOf } from "../../utils/mathUtils";
 
 const tooltipStyles = {
   ...defaultStyles,
@@ -22,15 +23,18 @@ export default function BoxPlot({ groups, stats, containerWidth = 800, height = 
   if (!stats || stats.length === 0) return null;
 
   // Dynamic margins based on label lengths
-  const maxXLabelLen = groups.length > 0 ? Math.max(...groups.map((s) => s.length)) : 0;
+  const maxXLabelLen = groups.length > 0 ? maxOf(groups, (s) => s.length) : 0;
   const tickLabelHeight = Math.max(30, maxXLabelLen * 4);
   const bottomMargin = tickLabelHeight + 12 + (xLabel ? 20 : 0);
 
   // Estimate y-axis label width from values
-  const allValues = stats.flatMap((s) => [s.min, s.max, ...s.outliers]);
-  const maxYLabelLen = allValues.length > 0
-    ? Math.max(...allValues.map((v) => v.toFixed(2).length))
-    : 4;
+  let maxYLabelLen = 4;
+  for (const s of stats) {
+    for (const v of [s.min, s.max]) {
+      const len = v.toFixed(2).length;
+      if (len > maxYLabelLen) maxYLabelLen = len;
+    }
+  }
   const leftMargin = Math.max(50, maxYLabelLen * 7 + 16) + (yLabel ? 20 : 0);
 
   const MARGIN = { top: 20, right: 20, bottom: bottomMargin, left: leftMargin };
@@ -43,8 +47,8 @@ export default function BoxPlot({ groups, stats, containerWidth = 800, height = 
 
   const xScale = scaleBand({ domain: groups, range: [0, xMax], padding: 0.3 });
 
-  const yMin = Math.min(...stats.map((s) => Math.min(s.min, ...s.outliers)));
-  const yMaxVal = Math.max(...stats.map((s) => Math.max(s.max, ...s.outliers)));
+  const yMin = minOf(stats, (s) => Math.min(s.min, minOf(s.outliers)));
+  const yMaxVal = maxOf(stats, (s) => Math.max(s.max, maxOf(s.outliers)));
   const yPadding = (yMaxVal - yMin) * 0.05 || 1;
 
   const yScale = scaleLinear({
