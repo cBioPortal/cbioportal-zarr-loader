@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Card, Typography, Spin, Segmented, Select } from "antd";
 import SearchableList from "./SearchableList";
 import TabLayout from "./TabLayout";
@@ -28,6 +28,15 @@ export default function PlotsTab() {
   const { geneNames, obsColumns } = metadata;
   const [maxPoints, setMaxPoints] = useState(Infinity);
   const [filterExpression, setFilterExpression] = useState(null);
+  const [containerWidth, setContainerWidth] = useState(800);
+  const containerRef = useCallback((node) => {
+    if (!node) return;
+    const ro = new ResizeObserver(([entry]) => {
+      setContainerWidth(entry.contentRect.width);
+    });
+    ro.observe(node);
+    setContainerWidth(node.clientWidth);
+  }, []);
 
   // Dev defaults: auto-select gene and obs column on first mount
   useEffect(() => {
@@ -170,26 +179,28 @@ export default function PlotsTab() {
                 />
               </div>
             </div>
-            {boxplotData && (
-              <BoxPlot
-                groups={boxplotData.groups}
-                stats={boxplotData.stats}
-                width={800}
-                height={Math.max(500, boxplotData.groups.length * 30 + 120)}
-                xLabel={plotObsColumn}
-                yLabel={plotGene}
-              />
-            )}
-            {violinData && (
-              <ViolinPlot
-                groups={violinData.groups}
-                violins={violinData.violins}
-                width={800}
-                height={Math.max(500, violinData.groups.length * 30 + 120)}
-                xLabel={plotObsColumn}
-                yLabel={plotGene}
-              />
-            )}
+            <div ref={containerRef}>
+              {boxplotData && (
+                <BoxPlot
+                  groups={boxplotData.groups}
+                  stats={boxplotData.stats}
+                  containerWidth={containerWidth}
+                  height={500}
+                  xLabel={plotObsColumn}
+                  yLabel={plotGene}
+                />
+              )}
+              {violinData && (
+                <ViolinPlot
+                  groups={violinData.groups}
+                  violins={violinData.violins}
+                  containerWidth={containerWidth}
+                  height={500}
+                  xLabel={plotObsColumn}
+                  yLabel={plotGene}
+                />
+              )}
+            </div>
           </>
         ) : (
           <Text type="secondary">
