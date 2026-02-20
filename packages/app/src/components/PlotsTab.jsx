@@ -6,12 +6,14 @@ import useAppStore from "../store/useAppStore";
 import { computeBoxplotStats } from "../utils/boxplotUtils";
 import { computeViolinStats } from "../utils/violinUtils";
 import ViolinPlot from "./charts/ViolinPlot";
+import RaincloudPlot from "./charts/RaincloudPlot";
 
 const { Text } = Typography;
 
 export default function PlotsTab() {
   const {
     metadata,
+    featureFlags,
     plotGene,
     plotGeneExpression,
     plotGeneLoading,
@@ -174,6 +176,16 @@ export default function PlotsTab() {
                   violins={violinData.violins}
                   boxplotStats={boxplotData?.stats}
                   showBoxplot
+                  containerWidth={containerWidth}
+                  height={500}
+                  xLabel={plotObsColumn}
+                  yLabel={plotGene}
+                />
+              )}
+              {featureFlags.raincloud && violinData && (
+                <RaincloudPlot
+                  groups={violinData.groups}
+                  violins={violinData.violins}
                   containerWidth={containerWidth}
                   height={500}
                   xLabel={plotObsColumn}
