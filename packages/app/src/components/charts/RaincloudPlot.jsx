@@ -306,6 +306,7 @@ export default function RaincloudPlot({
               )}
               <AxisLeft
                 scale={bandScale}
+                numTicks={groups.length}
                 tickComponent={({ x, y, formattedValue }) => (
                   <text
                     x={x}
