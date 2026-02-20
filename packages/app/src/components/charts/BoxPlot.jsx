@@ -13,7 +13,9 @@ const tooltipStyles = {
 const OUTLIER_RADIUS = 2.5;
 const WHISKER_CAP_WIDTH = 0.4; // fraction of bandwidth
 
-export default function BoxPlot({ groups, stats, width = 800, height = 500, xLabel, yLabel }) {
+const MIN_BAND_WIDTH = 40;
+
+export default function BoxPlot({ groups, stats, containerWidth = 800, height = 500, xLabel, yLabel }) {
   const { showTooltip, hideTooltip, tooltipOpen, tooltipData, tooltipLeft, tooltipTop } =
     useTooltip();
 
@@ -32,6 +34,9 @@ export default function BoxPlot({ groups, stats, width = 800, height = 500, xLab
   const leftMargin = Math.max(50, maxYLabelLen * 7 + 16) + (yLabel ? 20 : 0);
 
   const MARGIN = { top: 20, right: 20, bottom: bottomMargin, left: leftMargin };
+
+  const minWidth = groups.length * MIN_BAND_WIDTH + MARGIN.left + MARGIN.right;
+  const width = Math.max(containerWidth, minWidth);
 
   const xMax = width - MARGIN.left - MARGIN.right;
   const yMax = height - MARGIN.top - MARGIN.bottom;
@@ -62,7 +67,7 @@ export default function BoxPlot({ groups, stats, width = 800, height = 500, xLab
   };
 
   return (
-    <div style={{ position: "relative" }}>
+    <div style={{ position: "relative", overflowX: width > containerWidth ? "auto" : "hidden", maxWidth: containerWidth }}>
       <svg width={width} height={height}>
         <Group left={MARGIN.left} top={MARGIN.top}>
           {stats.map((s, i) => {

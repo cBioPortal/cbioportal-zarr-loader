@@ -11,7 +11,9 @@ const tooltipStyles = {
   padding: "6px 10px",
 };
 
-export default function ViolinPlot({ groups, violins, width = 800, height = 500, xLabel, yLabel }) {
+const MIN_BAND_WIDTH = 50;
+
+export default function ViolinPlot({ groups, violins, containerWidth = 800, height = 500, xLabel, yLabel }) {
   const { showTooltip, hideTooltip, tooltipOpen, tooltipData, tooltipLeft, tooltipTop } =
     useTooltip();
 
@@ -29,6 +31,9 @@ export default function ViolinPlot({ groups, violins, width = 800, height = 500,
   const leftMargin = Math.max(50, maxYLabelLen * 7 + 16) + (yLabel ? 20 : 0);
 
   const MARGIN = { top: 20, right: 20, bottom: bottomMargin, left: leftMargin };
+
+  const minWidth = groups.length * MIN_BAND_WIDTH + MARGIN.left + MARGIN.right;
+  const width = Math.max(containerWidth, minWidth);
 
   const xMax = width - MARGIN.left - MARGIN.right;
   const yMax = height - MARGIN.top - MARGIN.bottom;
@@ -63,7 +68,7 @@ export default function ViolinPlot({ groups, violins, width = 800, height = 500,
   };
 
   return (
-    <div style={{ position: "relative" }}>
+    <div style={{ position: "relative", overflowX: width > containerWidth ? "auto" : "hidden", maxWidth: containerWidth }}>
       <svg width={width} height={height}>
         <Group left={MARGIN.left} top={MARGIN.top}>
           {violins.map((v, i) => {
