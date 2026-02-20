@@ -5,7 +5,6 @@ import TabLayout from "./TabLayout";
 import useAppStore from "../store/useAppStore";
 import { computeBoxplotStats } from "../utils/boxplotUtils";
 import { computeViolinStats } from "../utils/violinUtils";
-import BoxPlot from "./charts/BoxPlot";
 import ViolinPlot from "./charts/ViolinPlot";
 
 const { Text } = Typography;
@@ -157,20 +156,12 @@ export default function PlotsTab() {
               />
             </div>
             <div ref={containerRef}>
-              {boxplotData && (
-                <BoxPlot
-                  groups={boxplotData.groups}
-                  stats={boxplotData.stats}
-                  containerWidth={containerWidth}
-                  height={500}
-                  xLabel={plotObsColumn}
-                  yLabel={plotGene}
-                />
-              )}
               {violinData && (
                 <ViolinPlot
                   groups={violinData.groups}
                   violins={violinData.violins}
+                  boxplotStats={boxplotData?.stats}
+                  showBoxplot
                   containerWidth={containerWidth}
                   height={500}
                   xLabel={plotObsColumn}

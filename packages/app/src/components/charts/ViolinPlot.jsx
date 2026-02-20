@@ -13,7 +13,7 @@ const tooltipStyles = {
 
 const MIN_BAND_WIDTH = 50;
 
-export default function ViolinPlot({ groups, violins, containerWidth = 800, height = 500, xLabel, yLabel }) {
+export default function ViolinPlot({ groups, violins, boxplotStats, showBoxplot = false, containerWidth = 800, height = 500, xLabel, yLabel }) {
   const { showTooltip, hideTooltip, tooltipOpen, tooltipData, tooltipLeft, tooltipTop } =
     useTooltip();
 
@@ -53,6 +53,14 @@ export default function ViolinPlot({ groups, violins, containerWidth = 800, heig
 
   // Find max density across all groups for consistent width scaling
   const maxDensity = Math.max(...violins.flatMap((v) => v.kde.density));
+
+  // Build boxplot lookup by group name
+  const boxplotByGroup = {};
+  if (showBoxplot && boxplotStats) {
+    for (const s of boxplotStats) {
+      boxplotByGroup[s.group] = s;
+    }
+  }
 
   const handleMouseEnter = (event, d) => {
     const svg = event.currentTarget.ownerSVGElement;
@@ -98,6 +106,10 @@ export default function ViolinPlot({ groups, violins, containerWidth = 800, heig
 
             const pathD = areaGenerator(points);
 
+            const bp = boxplotByGroup[v.group];
+            const tooltipPayload = bp ? { ...v, ...bp } : v;
+            const boxWidth = bw * 0.25;
+
             return (
               <g key={v.group}>
                 <path
@@ -107,18 +119,54 @@ export default function ViolinPlot({ groups, violins, containerWidth = 800, heig
                   stroke={color}
                   strokeWidth={1}
                   style={{ cursor: "pointer" }}
-                  onMouseEnter={(e) => handleMouseEnter(e, v)}
+                  onMouseEnter={(e) => handleMouseEnter(e, tooltipPayload)}
                   onMouseLeave={hideTooltip}
                 />
-                {/* Median line */}
-                <line
-                  x1={cx - halfWidth * 0.4}
-                  x2={cx + halfWidth * 0.4}
-                  y1={yScale(v.median)}
-                  y2={yScale(v.median)}
-                  stroke="#fff"
-                  strokeWidth={2}
-                />
+                {bp ? (
+                  <g style={{ pointerEvents: "none" }}>
+                    {/* Whisker line */}
+                    <line
+                      x1={cx} x2={cx}
+                      y1={yScale(bp.whiskerHigh)} y2={yScale(bp.whiskerLow)}
+                      stroke="#333" strokeWidth={1}
+                    />
+                    {/* Whisker caps */}
+                    <line
+                      x1={cx - boxWidth / 2} x2={cx + boxWidth / 2}
+                      y1={yScale(bp.whiskerHigh)} y2={yScale(bp.whiskerHigh)}
+                      stroke="#333" strokeWidth={1}
+                    />
+                    <line
+                      x1={cx - boxWidth / 2} x2={cx + boxWidth / 2}
+                      y1={yScale(bp.whiskerLow)} y2={yScale(bp.whiskerLow)}
+                      stroke="#333" strokeWidth={1}
+                    />
+                    {/* IQR box */}
+                    <rect
+                      x={cx - boxWidth / 2}
+                      y={yScale(bp.q3)}
+                      width={boxWidth}
+                      height={Math.max(yScale(bp.q1) - yScale(bp.q3), 1)}
+                      fill="#fff"
+                      fillOpacity={0.8}
+                      stroke="#333"
+                      strokeWidth={1}
+                    />
+                    {/* Median line */}
+                    <line
+                      x1={cx - boxWidth / 2} x2={cx + boxWidth / 2}
+                      y1={yScale(bp.median)} y2={yScale(bp.median)}
+                      stroke="#333" strokeWidth={2}
+                    />
+                  </g>
+                ) : (
+                  /* Fallback: simple median line when no boxplot */
+                  <line
+                    x1={cx - halfWidth * 0.4} x2={cx + halfWidth * 0.4}
+                    y1={yScale(v.median)} y2={yScale(v.median)}
+                    stroke="#fff" strokeWidth={2}
+                  />
+                )}
               </g>
             );
           })}
@@ -178,6 +226,14 @@ export default function ViolinPlot({ groups, violins, containerWidth = 800, heig
           <div><strong>{tooltipData.group}</strong></div>
           <div>Count: {tooltipData.count.toLocaleString()}</div>
           <div>Median: {tooltipData.median.toFixed(3)}</div>
+          {tooltipData.q1 != null && (
+            <>
+              <div>Q1: {tooltipData.q1.toFixed(3)}</div>
+              <div>Q3: {tooltipData.q3.toFixed(3)}</div>
+              <div>Min: {tooltipData.min.toFixed(3)}</div>
+              <div>Max: {tooltipData.max.toFixed(3)}</div>
+            </>
+          )}
         </TooltipWithBounds>
       )}
     </div>
