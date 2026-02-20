@@ -6,6 +6,7 @@ import SearchableList from "./SearchableList";
 import TabLayout from "./TabLayout";
 import Dotplot from "./charts/Dotplot";
 import useAppStore from "../store/useAppStore";
+import { computeDotplotStats } from "../utils/dotplotUtils";
 
 const { Text } = Typography;
 
@@ -94,43 +95,10 @@ export default function DotplotTab() {
   }, [dotplotObsData]);
 
   // Compute dotplot stats: for each gene × group, calculate fraction expressing and mean expression
-  const dotplotData = useMemo(() => {
-    if (dotplotGenes.length === 0 || !dotplotObsData || groups.length === 0) return null;
-
-    // Build group → indices mapping once
-    const groupIndices = {};
-    for (const g of groups) groupIndices[g] = [];
-    for (let i = 0; i < dotplotObsData.length; i++) {
-      const g = dotplotObsData[i];
-      if (groupIndices[g]) groupIndices[g].push(i);
-    }
-
-    const stats = [];
-    for (const gene of dotplotGenes) {
-      const expr = dotplotGeneExpressions[gene];
-      if (!expr) continue;
-      for (const group of groups) {
-        const indices = groupIndices[group];
-        if (indices.length === 0) continue;
-        let sum = 0;
-        let expressing = 0;
-        for (const idx of indices) {
-          const val = expr[idx];
-          sum += val;
-          if (val > 0) expressing++;
-        }
-        stats.push({
-          gene,
-          group,
-          meanExpression: sum / indices.length,
-          fractionExpressing: expressing / indices.length,
-          cellCount: indices.length,
-          expressingCount: expressing,
-        });
-      }
-    }
-    return stats;
-  }, [dotplotGenes, dotplotGeneExpressions, dotplotObsData, groups]);
+  const dotplotData = useMemo(
+    () => computeDotplotStats(dotplotGenes, dotplotGeneExpressions, dotplotObsData, groups),
+    [dotplotGenes, dotplotGeneExpressions, dotplotObsData, groups],
+  );
 
   const isLoading = dotplotGeneLoading || dotplotObsLoading;
   const [showLabels, setShowLabels] = useState(false);
