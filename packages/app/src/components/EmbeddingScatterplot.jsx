@@ -1,8 +1,9 @@
 import { useState, useMemo, useRef, useCallback, useLayoutEffect } from "react";
 import { Typography, Button, Select, Popover } from "antd";
-import { ExpandOutlined, CompressOutlined, SelectOutlined, EditOutlined, CloseCircleOutlined, SaveOutlined, SettingOutlined } from "@ant-design/icons";
+import { ExpandOutlined, CompressOutlined, SelectOutlined, EditOutlined, CloseCircleOutlined, SaveOutlined, SettingOutlined, HeatMapOutlined, DotChartOutlined } from "@ant-design/icons";
 import DeckGL from "@deck.gl/react";
 import { ScatterplotLayer } from "@deck.gl/layers";
+import { HexagonLayer } from "@deck.gl/aggregation-layers";
 import { OrthographicView } from "@deck.gl/core";
 import useAppStore from "../store/useAppStore";
 import { calculatePlotDimensions } from "../utils/calculatePlotDimensions";
@@ -30,6 +31,7 @@ export default function EmbeddingScatterplot({
   label,
   maxPoints = Infinity,
   onSaveSelection,
+  showHexbinToggle = false,
 }) {
   const {
     // Color by obs column
@@ -57,6 +59,7 @@ export default function EmbeddingScatterplot({
 
   const [hoverInfo, setHoverInfo] = useState(null);
   const [expanded, setExpanded] = useState(false);
+  const [layerMode, setLayerMode] = useState(showHexbinToggle ? "hexbin" : "scatter");
   const [selectMode, setSelectMode] = useState("pan");
   const [hoveredCategory, setHoveredCategory] = useState(null);
   const [hoveredExpression, setHoveredExpression] = useState(null);
@@ -231,42 +234,65 @@ export default function EmbeddingScatterplot({
     [selectedPointIndices],
   );
 
-  const layers = [
-    new ScatterplotLayer({
-      id: "scatterplot",
-      data: points,
-      getPosition: (d) => d.position,
-      getFillColor: (d) => getPointFillColor(d, {
-        selectedSet,
-        geneExpression,
-        expressionRange,
-        hasColorData: !!colorData,
-        colorScale: COLOR_SCALES[colorScaleName],
-      }),
-      getRadius: (d) => {
-        if (hoveredCategory != null && d.category === hoveredCategory) return 3;
-        if (hoveredExpression != null && d.expression != null && expressionRange) {
-          const tolerance = (expressionRange.max - expressionRange.min) * 0.05;
-          if (Math.abs(d.expression - hoveredExpression) <= tolerance) return 3;
-        }
-        if (hoveredTooltipFilter != null) {
-          const colValues = tooltipData[hoveredTooltipFilter.col];
-          if (colValues && String(colValues[d.index]) === hoveredTooltipFilter.value) return 3;
-        }
-        return 1;
-      },
-      radiusUnits: "pixels",
-      radiusMinPixels: 0.5,
-      radiusMaxPixels: (hoveredCategory != null || hoveredExpression != null || hoveredTooltipFilter != null) ? 3 : 1,
-      opacity: 0.7,
-      pickable: true,
-      onHover: (info) => setHoverInfo(info.object ? info : null),
-      updateTriggers: {
-        getFillColor: [colorData, geneExpression, expressionRange, colorScaleName, selectedPointIndices],
-        getRadius: [hoveredCategory, hoveredExpression, hoveredTooltipFilter],
-      },
-    }),
-  ];
+  const layers = layerMode === "hexbin"
+    ? [
+        new HexagonLayer({
+          id: "hexbin",
+          data: points,
+          getPosition: (d) => d.position,
+          radius: 0.3,
+          elevationScale: 0,
+          extruded: false,
+          coverage: 0.9,
+          colorRange: [
+            [237, 248, 233],
+            [199, 233, 192],
+            [161, 217, 155],
+            [116, 196, 118],
+            [49, 163, 84],
+            [0, 109, 44],
+          ],
+          opacity: 0.8,
+          pickable: true,
+          onHover: (info) => setHoverInfo(info.object ? { ...info, object: { hexCount: info.object?.points?.length } } : null),
+        }),
+      ]
+    : [
+        new ScatterplotLayer({
+          id: "scatterplot",
+          data: points,
+          getPosition: (d) => d.position,
+          getFillColor: (d) => getPointFillColor(d, {
+            selectedSet,
+            geneExpression,
+            expressionRange,
+            hasColorData: !!colorData,
+            colorScale: COLOR_SCALES[colorScaleName],
+          }),
+          getRadius: (d) => {
+            if (hoveredCategory != null && d.category === hoveredCategory) return 3;
+            if (hoveredExpression != null && d.expression != null && expressionRange) {
+              const tolerance = (expressionRange.max - expressionRange.min) * 0.05;
+              if (Math.abs(d.expression - hoveredExpression) <= tolerance) return 3;
+            }
+            if (hoveredTooltipFilter != null) {
+              const colValues = tooltipData[hoveredTooltipFilter.col];
+              if (colValues && String(colValues[d.index]) === hoveredTooltipFilter.value) return 3;
+            }
+            return 1;
+          },
+          radiusUnits: "pixels",
+          radiusMinPixels: 0.5,
+          radiusMaxPixels: (hoveredCategory != null || hoveredExpression != null || hoveredTooltipFilter != null) ? 3 : 1,
+          opacity: 0.7,
+          pickable: true,
+          onHover: (info) => setHoverInfo(info.object ? info : null),
+          updateTriggers: {
+            getFillColor: [colorData, geneExpression, expressionRange, colorScaleName, selectedPointIndices],
+            getRadius: [hoveredCategory, hoveredExpression, hoveredTooltipFilter],
+          },
+        }),
+      ];
 
   const sortedCategories = useMemo(
     () => colorData ? sortCategoriesByCount(categoryColorMap, points) : [],
@@ -394,6 +420,16 @@ export default function EmbeddingScatterplot({
               style={{ opacity: 0.85 }}
               title="Lasso select"
             />
+            {showHexbinToggle && (
+              <Button
+                size="small"
+                type={layerMode === "hexbin" ? "primary" : "default"}
+                icon={layerMode === "hexbin" ? <HeatMapOutlined /> : <DotChartOutlined />}
+                onClick={() => setLayerMode(layerMode === "hexbin" ? "scatter" : "hexbin")}
+                style={{ opacity: 0.85 }}
+                title={layerMode === "hexbin" ? "Switch to scatter" : "Switch to hexbin"}
+              />
+            )}
           </div>
           <div style={{ position: "absolute", top: 8, right: 8, zIndex: 1, display: "flex", gap: 4 }} onMouseDown={(e) => e.stopPropagation()}>
             {geneExpression && (
