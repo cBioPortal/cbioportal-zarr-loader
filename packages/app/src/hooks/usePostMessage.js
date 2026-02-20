@@ -35,22 +35,19 @@ export default function usePostMessage(handlers, allowedOrigin = "*") {
     console.debug("[CZL:postMessage] Listener registered, allowedOrigins:", patterns ? allowedOrigin : "*");
 
     const listener = (event) => {
+      const { data } = event;
+      if (!data || typeof data !== "object" || typeof data.type !== "string") return;
+
+      const handler = handlers[data.type];
+      if (typeof handler !== "function") return;
+
       if (patterns && !isOriginAllowed(event.origin, patterns)) {
         console.warn("[CZL:postMessage] Rejected message from origin:", event.origin, "— allowed:", allowedOrigin);
         return;
       }
 
-      const { data } = event;
-      if (!data || typeof data !== "object" || typeof data.type !== "string") return;
-
       console.debug("[CZL:postMessage] Received message:", { type: data.type, origin: event.origin, payload: data.payload });
-
-      const handler = handlers[data.type];
-      if (typeof handler === "function") {
-        handler(data.payload);
-      } else {
-        console.warn("[CZL:postMessage] No handler for message type:", data.type);
-      }
+      handler(data.payload);
     };
 
     window.addEventListener("message", listener);
