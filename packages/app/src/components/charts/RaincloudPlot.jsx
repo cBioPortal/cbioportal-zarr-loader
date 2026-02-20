@@ -13,18 +13,36 @@ const tooltipStyles = {
 };
 
 const MIN_BAND_WIDTH = 50;
+const STRIP_RADIUS = 1.5;
+const MAX_STRIP_POINTS = 5000;
+
+/** Simple seeded PRNG (mulberry32) for deterministic jitter. */
+function mulberry32(seed) {
+  return () => {
+    seed |= 0; seed = (seed + 0x6d2b79f5) | 0;
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
 
 /**
  * RaincloudPlot — combines a half-violin, boxplot, and strip plot
- * for each category group. Currently renders the half-violin portion;
- * boxplot and strip plot will be added incrementally.
+ * for each category group.
+ *
+ * horizontal=true (default): categories on Y-axis, values on X-axis
+ * horizontal=false: categories on X-axis, values on Y-axis
  */
 export default function RaincloudPlot({
   groups,
   violins,
   boxplotStats,
+  data,
+  categoryField,
+  valueField,
+  horizontal = true,
   containerWidth = 800,
-  height = 500,
+  height: heightProp = 500,
   xLabel,
   yLabel,
 }) {
@@ -33,34 +51,56 @@ export default function RaincloudPlot({
 
   if (!violins || violins.length === 0) return null;
 
-  // Dynamic margins
-  const maxXLabelLen = groups.length > 0 ? maxOf(groups, (s) => s.length) : 0;
-  const tickLabelHeight = Math.max(30, maxXLabelLen * 4);
-  const bottomMargin = tickLabelHeight + 12 + (xLabel ? 20 : 0);
+  // Use actual data range from boxplot stats when available (tighter than KDE grid),
+  // fall back to KDE evaluation range otherwise.
+  const hasBoxplot = boxplotStats && boxplotStats.length > 0;
+  const dataMin = hasBoxplot ? minOf(boxplotStats, (s) => s.min) : minOf(violins, (v) => v.kde.x[0]);
+  const dataMax = hasBoxplot ? maxOf(boxplotStats, (s) => s.max) : maxOf(violins, (v) => v.kde.x[v.kde.x.length - 1]);
+  const valPadding = (dataMax - dataMin) * 0.05 || 1;
 
-  const kdeMin = minOf(violins, (v) => v.kde.x[0]);
-  const kdeMax = maxOf(violins, (v) => v.kde.x[v.kde.x.length - 1]);
-  const maxYLabelLen = Math.max(kdeMin.toFixed(2).length, kdeMax.toFixed(2).length, 4);
-  const leftMargin = Math.max(50, maxYLabelLen * 7 + 16) + (yLabel ? 20 : 0);
+  // Dynamic margins — which axis gets categories vs values depends on orientation
+  const maxCatLabelLen = groups.length > 0 ? maxOf(groups, (s) => s.length) : 0;
+  const maxValLabelLen = Math.max(dataMin.toFixed(2).length, dataMax.toFixed(2).length, 4);
 
-  const MARGIN = { top: 20, right: 20, bottom: bottomMargin, left: leftMargin };
+  let MARGIN, height;
+  if (horizontal) {
+    // Categories on left, values on bottom
+    const leftMargin = Math.max(50, maxCatLabelLen * 7 + 16) + (yLabel ? 20 : 0);
+    const bottomMargin = 30 + 12 + (xLabel ? 20 : 0);
+    MARGIN = { top: 20, right: 20, bottom: bottomMargin, left: leftMargin };
+    // Scale height to number of groups
+    height = Math.max(heightProp, groups.length * MIN_BAND_WIDTH + MARGIN.top + MARGIN.bottom);
+  } else {
+    // Categories on bottom, values on left
+    const tickLabelHeight = Math.max(30, maxCatLabelLen * 4);
+    const bottomMargin = tickLabelHeight + 12 + (xLabel ? 20 : 0);
+    const leftMargin = Math.max(50, maxValLabelLen * 7 + 16) + (yLabel ? 20 : 0);
+    MARGIN = { top: 20, right: 20, bottom: bottomMargin, left: leftMargin };
+    height = heightProp;
+  }
 
-  const minWidth = groups.length * MIN_BAND_WIDTH + MARGIN.left + MARGIN.right;
+  const minWidth = horizontal
+    ? containerWidth
+    : groups.length * MIN_BAND_WIDTH + MARGIN.left + MARGIN.right;
   const width = Math.max(containerWidth, minWidth);
 
   const xMax = width - MARGIN.left - MARGIN.right;
   const yMax = height - MARGIN.top - MARGIN.bottom;
 
-  const xScale = scaleBand({ domain: groups, range: [0, xMax], padding: 0.15 });
+  // Scales: bandScale for categories, valScale for continuous values
+  const bandScale = scaleBand({
+    domain: groups,
+    range: horizontal ? [0, yMax] : [0, xMax],
+    padding: 0.15,
+  });
 
-  const yPadding = (kdeMax - kdeMin) * 0.05 || 1;
-  const yScale = scaleLinear({
-    domain: [kdeMin - yPadding, kdeMax + yPadding],
-    range: [yMax, 0],
+  const valScale = scaleLinear({
+    domain: [dataMin - valPadding, dataMax + valPadding],
+    range: horizontal ? [0, xMax] : [yMax, 0],
     nice: true,
   });
 
-  // Find max density across all groups for consistent width scaling
+  // Find max density across all groups for consistent scaling
   let maxDensity = 0;
   for (const v of violins) {
     const m = maxOf(v.kde.density);
@@ -72,6 +112,29 @@ export default function RaincloudPlot({
   if (boxplotStats) {
     for (const s of boxplotStats) {
       boxplotByGroup[s.group] = s;
+    }
+  }
+
+  // Group raw data values by category for the strip plot
+  const stripByGroup = {};
+  if (data && categoryField && valueField) {
+    for (const d of data) {
+      const g = d[categoryField];
+      if (g == null) continue;
+      if (!stripByGroup[g]) stripByGroup[g] = [];
+      stripByGroup[g].push(d[valueField]);
+    }
+    // Downsample large groups to keep SVG manageable
+    const rand = mulberry32(42);
+    for (const g of Object.keys(stripByGroup)) {
+      const arr = stripByGroup[g];
+      if (arr.length > MAX_STRIP_POINTS) {
+        for (let i = arr.length - 1; i > arr.length - 1 - MAX_STRIP_POINTS; i--) {
+          const j = Math.floor(rand() * (i + 1));
+          [arr[i], arr[j]] = [arr[j], arr[i]];
+        }
+        stripByGroup[g] = arr.slice(arr.length - MAX_STRIP_POINTS);
+      }
     }
   }
 
@@ -89,44 +152,74 @@ export default function RaincloudPlot({
   };
 
   return (
-    <div style={{ position: "relative", overflowX: width > containerWidth ? "auto" : "hidden", maxWidth: containerWidth }}>
+    <div style={{ position: "relative", overflowX: width > containerWidth ? "auto" : "hidden", overflowY: height > heightProp ? "auto" : "hidden", maxWidth: containerWidth, maxHeight: horizontal ? height + 20 : undefined }}>
       <svg width={width} height={height}>
         <Group left={MARGIN.left} top={MARGIN.top}>
           {violins.map((v, i) => {
-            const bandX = xScale(v.group);
-            const bw = xScale.bandwidth();
-            const cx = bandX + bw / 2;
+            const bandPos = bandScale(v.group);
+            const bw = bandScale.bandwidth();
+            const cy = bandPos + bw / 2; // center of band (used as cy in horizontal, cx in vertical)
             const color = rgbToString(CATEGORICAL_COLORS[i % CATEGORICAL_COLORS.length]);
 
-            // Half-violin uses the left side of the band
             const densityScale = scaleLinear({
               domain: [0, maxDensity],
               range: [0, bw * 0.45],
             });
-
-            // Flat edge at center, density curve extends to the left
-            const areaGen = area()
-              .x0(() => cx)
-              .x1((d) => cx - densityScale(d.density))
-              .y((d) => yScale(d.value))
-              .curve(curveBasis);
 
             const points = v.kde.x.map((val, j) => ({
               value: val,
               density: v.kde.density[j],
             }));
 
-            const pathD = areaGen(points);
-
             const bp = boxplotByGroup[v.group];
             const tooltipPayload = bp ? { ...v, ...bp } : v;
-            // Boxplot sits on the right side of center
-            const boxWidth = bw * 0.15;
-            const boxLeft = cx + bw * 0.05;
+            const boxThickness = bw * 0.15;
+
+            let pathD, boxProps, whiskerLines, capLines, medianLine;
+
+            if (horizontal) {
+              // Half-violin: density extends upward (lower y) from center
+              const areaGen = area()
+                .y0(() => cy)
+                .y1((d) => cy - densityScale(d.density))
+                .x((d) => valScale(d.value))
+                .curve(curveBasis);
+              pathD = areaGen(points);
+
+              if (bp) {
+                const boxTop = cy + bw * 0.05;
+                whiskerLines = { x1: valScale(bp.whiskerLow), x2: valScale(bp.whiskerHigh), y1: boxTop + boxThickness / 2, y2: boxTop + boxThickness / 2 };
+                capLines = [
+                  { x1: valScale(bp.whiskerLow), x2: valScale(bp.whiskerLow), y1: boxTop, y2: boxTop + boxThickness },
+                  { x1: valScale(bp.whiskerHigh), x2: valScale(bp.whiskerHigh), y1: boxTop, y2: boxTop + boxThickness },
+                ];
+                boxProps = { x: valScale(bp.q1), y: boxTop, width: Math.max(valScale(bp.q3) - valScale(bp.q1), 1), height: boxThickness };
+                medianLine = { x1: valScale(bp.median), x2: valScale(bp.median), y1: boxTop, y2: boxTop + boxThickness };
+              }
+            } else {
+              // Vertical: density extends left from center
+              const areaGen = area()
+                .x0(() => cy)
+                .x1((d) => cy - densityScale(d.density))
+                .y((d) => valScale(d.value))
+                .curve(curveBasis);
+              pathD = areaGen(points);
+
+              if (bp) {
+                const boxLeft = cy + bw * 0.05;
+                whiskerLines = { x1: boxLeft + boxThickness / 2, x2: boxLeft + boxThickness / 2, y1: valScale(bp.whiskerHigh), y2: valScale(bp.whiskerLow) };
+                capLines = [
+                  { x1: boxLeft, x2: boxLeft + boxThickness, y1: valScale(bp.whiskerHigh), y2: valScale(bp.whiskerHigh) },
+                  { x1: boxLeft, x2: boxLeft + boxThickness, y1: valScale(bp.whiskerLow), y2: valScale(bp.whiskerLow) },
+                ];
+                boxProps = { x: boxLeft, y: valScale(bp.q3), width: boxThickness, height: Math.max(valScale(bp.q1) - valScale(bp.q3), 1) };
+                medianLine = { x1: boxLeft, x2: boxLeft + boxThickness, y1: valScale(bp.median), y2: valScale(bp.median) };
+              }
+            }
 
             return (
               <g key={v.group}>
-                {/* Half-violin (left side) */}
+                {/* Half-violin */}
                 <path
                   d={pathD}
                   fill={color}
@@ -137,32 +230,15 @@ export default function RaincloudPlot({
                   onMouseEnter={(e) => handleMouseEnter(e, tooltipPayload)}
                   onMouseLeave={hideTooltip}
                 />
-                {/* Boxplot (right side) */}
+                {/* Boxplot */}
                 {bp && (
                   <g>
-                    {/* Whisker line */}
-                    <line
-                      x1={boxLeft + boxWidth / 2} x2={boxLeft + boxWidth / 2}
-                      y1={yScale(bp.whiskerHigh)} y2={yScale(bp.whiskerLow)}
-                      stroke="#333" strokeWidth={1}
-                    />
-                    {/* Whisker caps */}
-                    <line
-                      x1={boxLeft} x2={boxLeft + boxWidth}
-                      y1={yScale(bp.whiskerHigh)} y2={yScale(bp.whiskerHigh)}
-                      stroke="#333" strokeWidth={1}
-                    />
-                    <line
-                      x1={boxLeft} x2={boxLeft + boxWidth}
-                      y1={yScale(bp.whiskerLow)} y2={yScale(bp.whiskerLow)}
-                      stroke="#333" strokeWidth={1}
-                    />
-                    {/* IQR box */}
+                    <line {...whiskerLines} stroke="#333" strokeWidth={1} />
+                    {capLines.map((cap, ci) => (
+                      <line key={ci} {...cap} stroke="#333" strokeWidth={1} />
+                    ))}
                     <rect
-                      x={boxLeft}
-                      y={yScale(bp.q3)}
-                      width={boxWidth}
-                      height={Math.max(yScale(bp.q1) - yScale(bp.q3), 1)}
+                      {...boxProps}
                       fill="#fff"
                       fillOpacity={0.8}
                       stroke="#333"
@@ -171,60 +247,136 @@ export default function RaincloudPlot({
                       onMouseEnter={(e) => handleMouseEnter(e, tooltipPayload)}
                       onMouseLeave={hideTooltip}
                     />
-                    {/* Median line */}
-                    <line
-                      x1={boxLeft} x2={boxLeft + boxWidth}
-                      y1={yScale(bp.median)} y2={yScale(bp.median)}
-                      stroke="#333" strokeWidth={2}
-                    />
+                    <line {...medianLine} stroke="#333" strokeWidth={2} />
                   </g>
                 )}
+                {/* Strip plot */}
+                {stripByGroup[v.group] && (() => {
+                  const jitter = mulberry32(i + 1);
+                  if (horizontal) {
+                    const stripTop = cy + bw * 0.25;
+                    const stripHeight = bw * 0.2;
+                    return stripByGroup[v.group].map((val, si) => (
+                      <circle
+                        key={si}
+                        cx={valScale(val)}
+                        cy={stripTop + jitter() * stripHeight}
+                        r={STRIP_RADIUS}
+                        fill={color}
+                        fillOpacity={0.3}
+                        stroke="none"
+                      />
+                    ));
+                  } else {
+                    const stripLeft = cy + bw * 0.25;
+                    const stripWidth = bw * 0.2;
+                    return stripByGroup[v.group].map((val, si) => (
+                      <circle
+                        key={si}
+                        cx={stripLeft + jitter() * stripWidth}
+                        cy={valScale(val)}
+                        r={STRIP_RADIUS}
+                        fill={color}
+                        fillOpacity={0.3}
+                        stroke="none"
+                      />
+                    ));
+                  }
+                })()}
               </g>
             );
           })}
 
-          <AxisBottom
-            scale={xScale}
-            top={yMax}
-            numTicks={groups.length}
-            tickComponent={({ x, y, formattedValue }) => (
-              <text
-                x={x}
-                y={y}
-                fontSize={11}
-                textAnchor="end"
-                dy={-4}
-                transform={`rotate(-45, ${x}, ${y})`}
-              >
-                {formattedValue}
-              </text>
-            )}
-          />
-          {xLabel && (
-            <text
-              x={xMax / 2}
-              y={yMax + tickLabelHeight + 16}
-              fontSize={13}
-              fontWeight="bold"
-              textAnchor="middle"
-              fill="#333"
-            >
-              {xLabel}
-            </text>
-          )}
-          <AxisLeft scale={yScale} />
-          {yLabel && (
-            <text
-              x={-yMax / 2}
-              y={-leftMargin + 14}
-              transform="rotate(-90)"
-              fontSize={13}
-              fontWeight="bold"
-              textAnchor="middle"
-              fill="#333"
-            >
-              {yLabel}
-            </text>
+          {horizontal ? (
+            <>
+              <AxisBottom scale={valScale} top={yMax} />
+              {xLabel && (
+                <text
+                  x={xMax / 2}
+                  y={yMax + 36}
+                  fontSize={13}
+                  fontWeight="bold"
+                  textAnchor="middle"
+                  fill="#333"
+                >
+                  {xLabel}
+                </text>
+              )}
+              <AxisLeft
+                scale={bandScale}
+                tickComponent={({ x, y, formattedValue }) => (
+                  <text
+                    x={x}
+                    y={y}
+                    fontSize={11}
+                    textAnchor="end"
+                    dy="0.32em"
+                    dx={-4}
+                  >
+                    {formattedValue}
+                  </text>
+                )}
+              />
+              {yLabel && (
+                <text
+                  x={-yMax / 2}
+                  y={-MARGIN.left + 14}
+                  transform="rotate(-90)"
+                  fontSize={13}
+                  fontWeight="bold"
+                  textAnchor="middle"
+                  fill="#333"
+                >
+                  {yLabel}
+                </text>
+              )}
+            </>
+          ) : (
+            <>
+              <AxisBottom
+                scale={bandScale}
+                top={yMax}
+                numTicks={groups.length}
+                tickComponent={({ x, y, formattedValue }) => (
+                  <text
+                    x={x}
+                    y={y}
+                    fontSize={11}
+                    textAnchor="end"
+                    dy={-4}
+                    transform={`rotate(-45, ${x}, ${y})`}
+                  >
+                    {formattedValue}
+                  </text>
+                )}
+              />
+              {xLabel && (
+                <text
+                  x={xMax / 2}
+                  y={yMax + MARGIN.bottom - 8}
+                  fontSize={13}
+                  fontWeight="bold"
+                  textAnchor="middle"
+                  fill="#333"
+                >
+                  {xLabel}
+                </text>
+              )}
+              <AxisLeft scale={valScale} />
+              {yLabel && (
+                <text
+                  x={-yMax / 2}
+                  y={-MARGIN.left + 14}
+                  transform="rotate(-90)"
+                  fontSize={13}
+                  fontWeight="bold"
+                  textAnchor="middle"
+                  fill="#333"
+                >
+                  {yLabel}
+                </text>
+              )}
+            </>
           )}
         </Group>
       </svg>

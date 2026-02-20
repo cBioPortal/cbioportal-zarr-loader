@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Alert, Card, Typography, Spin, Select } from "antd";
+import { Alert, Card, Checkbox, Typography, Spin, Select } from "antd";
 import SearchableList from "./SearchableList";
 import TabLayout from "./TabLayout";
 import useAppStore from "../store/useAppStore";
@@ -28,6 +28,7 @@ export default function PlotsTab() {
 
   const { geneNames, obsColumns } = metadata;
   const [filterExpression, setFilterExpression] = useState(null);
+  const [raincloudHorizontal, setRaincloudHorizontal] = useState(true);
   const [containerWidth, setContainerWidth] = useState(800);
   const containerRef = useCallback((node) => {
     if (!node) return;
@@ -183,15 +184,28 @@ export default function PlotsTab() {
                 />
               )}
               {featureFlags.raincloud && violinData && (
-                <RaincloudPlot
-                  groups={violinData.groups}
-                  violins={violinData.violins}
-                  boxplotStats={boxplotData?.stats}
-                  containerWidth={containerWidth}
-                  height={500}
-                  xLabel={plotObsColumn}
-                  yLabel={plotGene}
-                />
+                <>
+                  <Checkbox
+                    checked={raincloudHorizontal}
+                    onChange={(e) => setRaincloudHorizontal(e.target.checked)}
+                    style={{ marginTop: 12, marginBottom: 4 }}
+                  >
+                    Horizontal
+                  </Checkbox>
+                  <RaincloudPlot
+                    groups={violinData.groups}
+                    violins={violinData.violins}
+                    boxplotStats={boxplotData?.stats}
+                    data={data}
+                    categoryField={plotObsColumn}
+                    valueField={plotGene}
+                    horizontal={raincloudHorizontal}
+                    containerWidth={containerWidth}
+                    height={500}
+                    xLabel={raincloudHorizontal ? plotGene : plotObsColumn}
+                    yLabel={raincloudHorizontal ? plotObsColumn : plotGene}
+                  />
+                </>
               )}
             </div>
           </>
