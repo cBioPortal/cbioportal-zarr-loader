@@ -308,9 +308,25 @@ export default function EmbeddingScatterplot({
           if (cnt > maxCount) { maxCount = cnt; hex.dominantCategory = cat; hex.dominantCount = cnt; }
         }
       }
+      // Aggregate tooltip column breakdowns
+      if (tooltipData && Object.keys(tooltipData).length > 0) {
+        const breakdowns = {};
+        for (const [col, values] of Object.entries(tooltipData)) {
+          const counts = {};
+          for (const p of pts) {
+            const val = String(values[unwrap(p).index] ?? "");
+            counts[val] = (counts[val] || 0) + 1;
+          }
+          // Sort by count descending, take top 5
+          breakdowns[col] = Object.entries(counts)
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 5);
+        }
+        hex.tooltipBreakdowns = breakdowns;
+      }
     }
     setHoverInfo({ x: info.x, y: info.y, object: hex });
-  }, [hexColorMode]);
+  }, [hexColorMode, tooltipData]);
 
   const layers = layerMode === "hexbin"
     ? [

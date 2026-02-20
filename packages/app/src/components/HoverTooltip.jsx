@@ -39,6 +39,17 @@ export default function HoverTooltip({
           {hoverInfo.object.dominantCategory != null && (
             <div>{colorColumn}: {hoverInfo.object.dominantCategory} ({hoverInfo.object.dominantCount})</div>
           )}
+          {hoverInfo.object.tooltipBreakdowns && Object.entries(hoverInfo.object.tooltipBreakdowns).map(([col, breakdown]) => (
+            <div key={col} style={{ marginTop: 4 }}>
+              <div style={{ opacity: 0.7, fontSize: 11 }}>{col}</div>
+              {breakdown.map(([val, count]) => (
+                <div key={val} style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
+                  <span>{val}</span>
+                  <span>{count} ({((count / hoverInfo.object.hexCount) * 100).toFixed(1)}%)</span>
+                </div>
+              ))}
+            </div>
+          ))}
         </>
       ) : (
         <div>Bin selected</div>
