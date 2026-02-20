@@ -328,11 +328,17 @@ export default function EmbeddingScatterplot({
     setHoverInfo({ x: info.x, y: info.y, object: hex });
   }, [hexColorMode, tooltipData]);
 
+  // When a selection exists in hexbin mode, only aggregate selected points
+  const hexData = useMemo(
+    () => selectedSet.size > 0 ? points.filter((p) => selectedSet.has(p.index)) : points,
+    [points, selectedSet],
+  );
+
   const layers = layerMode === "hexbin"
     ? [
         new HexagonLayer({
           id: "hexbin",
-          data: points,
+          data: hexData,
           getPosition: (d) => d.position,
           gpuAggregation: false,
           radius: 0.3,
@@ -344,8 +350,8 @@ export default function EmbeddingScatterplot({
           onHover: hexHover,
           ...hexColorConfig,
           updateTriggers: {
-            getColorWeight: [geneExpression, expressionRange],
-            getColorValue: [colorData],
+            getColorWeight: [geneExpression, expressionRange, selectedPointIndices],
+            getColorValue: [colorData, selectedPointIndices],
           },
         }),
       ]
