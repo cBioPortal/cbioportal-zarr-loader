@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Card, Typography, Spin, Select } from "antd";
+import { Alert, Card, Typography, Spin, Select } from "antd";
 import SearchableList from "./SearchableList";
 import TabLayout from "./TabLayout";
 import useAppStore from "../store/useAppStore";
@@ -80,21 +80,24 @@ export default function PlotsTab() {
     return raw;
   }, [plotGeneExpression, plotObsData, plotObsColumn, plotGene, filterExpression]);
 
+  const MAX_CATEGORIES = 200;
+
+  const categoryCount = useMemo(() => {
+    if (!data) return 0;
+    return new Set(data.map((d) => d[plotObsColumn])).size;
+  }, [data, plotObsColumn]);
+
+  const tooManyCategories = categoryCount > MAX_CATEGORIES;
+
   const boxplotData = useMemo(() => {
-    if (!data) return null;
+    if (!data || tooManyCategories) return null;
     return computeBoxplotStats(data, plotObsColumn, plotGene);
-  }, [data, plotObsColumn, plotGene]);
+  }, [data, plotObsColumn, plotGene, tooManyCategories]);
 
   const violinData = useMemo(() => {
-    if (!data) return null;
+    if (!data || tooManyCategories) return null;
     return computeViolinStats(data, plotObsColumn, plotGene);
-  }, [data, plotObsColumn, plotGene]);
-
-  if (data) {
-    const categories = new Set(data.map((d) => d[plotObsColumn]));
-    console.debug("[PlotsTab] Data built:", data.length, "points,", categories.size, "categories:", [...categories].slice(0, 10));
-    console.debug("[PlotsTab] Sample data:", data.slice(0, 15));
-  }
+  }, [data, plotObsColumn, plotGene, tooManyCategories]);
 
   const isLoading = plotGeneLoading || plotObsLoading;
   const hasSelections = plotGene && plotObsColumn;
@@ -140,7 +143,7 @@ export default function PlotsTab() {
             <div style={{ marginBottom: 8 }}>
               <Text>
                 {data.length.toLocaleString()} points,{" "}
-                {new Set(data.map((d) => d[plotObsColumn])).size} categories
+                {categoryCount} categories
               </Text>
               <Text style={{ marginLeft: 16 }}>
                 Exclude expression:{" "}
@@ -155,6 +158,15 @@ export default function PlotsTab() {
                 style={{ width: 200 }}
               />
             </div>
+            {tooManyCategories && (
+              <Alert
+                type="warning"
+                showIcon
+                message={`Too many categories (${categoryCount})`}
+                description={`Violin and box plots are not rendered for obs columns with more than ${MAX_CATEGORIES} categories. Choose an obs column with fewer unique values.`}
+                style={{ marginBottom: 12 }}
+              />
+            )}
             <div ref={containerRef}>
               {violinData && (
                 <ViolinPlot
