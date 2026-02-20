@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Card, Typography, Spin, Segmented, Select } from "antd";
-import { Box, Violin } from "@ant-design/charts";
+import { Violin } from "@ant-design/charts";
 import SearchableList from "./SearchableList";
 import TabLayout from "./TabLayout";
 import useAppStore from "../store/useAppStore";
@@ -163,12 +163,6 @@ export default function PlotsTab() {
                 />
               </div>
             </div>
-            <Box
-              data={data.slice(0, maxPoints)}
-              xField={plotObsColumn}
-              yField={plotGene}
-              boxType="boxplot"
-            />
             {boxplotData && (
               <BoxPlot
                 groups={boxplotData.groups}
