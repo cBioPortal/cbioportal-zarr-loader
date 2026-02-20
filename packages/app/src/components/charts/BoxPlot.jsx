@@ -13,7 +13,7 @@ const tooltipStyles = {
 const OUTLIER_RADIUS = 2.5;
 const WHISKER_CAP_WIDTH = 0.4; // fraction of bandwidth
 
-export default function BoxPlot({ groups, stats, width = 800, height = 500, yLabel }) {
+export default function BoxPlot({ groups, stats, width = 800, height = 500, xLabel, yLabel }) {
   const { showTooltip, hideTooltip, tooltipOpen, tooltipData, tooltipLeft, tooltipTop } =
     useTooltip();
 
@@ -21,7 +21,8 @@ export default function BoxPlot({ groups, stats, width = 800, height = 500, yLab
 
   // Dynamic margins based on label lengths
   const maxXLabelLen = groups.length > 0 ? Math.max(...groups.map((s) => s.length)) : 0;
-  const bottomMargin = Math.max(40, maxXLabelLen * 6 + 20);
+  const tickLabelHeight = Math.max(20, maxXLabelLen * 6);
+  const bottomMargin = tickLabelHeight + 20 + (xLabel ? 24 : 0);
 
   // Estimate y-axis label width from values
   const allValues = stats.flatMap((s) => [s.min, s.max, ...s.outliers]);
@@ -166,6 +167,18 @@ export default function BoxPlot({ groups, stats, width = 800, height = 500, yLab
               </text>
             )}
           />
+          {xLabel && (
+            <text
+              x={xMax / 2}
+              y={yMax + tickLabelHeight + 30}
+              fontSize={13}
+              fontWeight="bold"
+              textAnchor="middle"
+              fill="#333"
+            >
+              {xLabel}
+            </text>
+          )}
           <AxisLeft scale={yScale} />
           {yLabel && (
             <text
