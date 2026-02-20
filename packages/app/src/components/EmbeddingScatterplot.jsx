@@ -293,6 +293,8 @@ export default function EmbeddingScatterplot({
     if (pts && pts.length > 0) {
       // Each entry in pts may be the original point directly or wrapped in { source }
       const unwrap = (p) => p.source ?? p;
+      // Store unwrapped point indices for live tooltip breakdown computation
+      hex.binIndices = pts.map((p) => unwrap(p).index);
       if (hexColorMode === "expression") {
         const sum = pts.reduce((s, p) => s + (unwrap(p).expression ?? 0), 0);
         hex.meanExpression = sum / pts.length;
@@ -308,25 +310,9 @@ export default function EmbeddingScatterplot({
           if (cnt > maxCount) { maxCount = cnt; hex.dominantCategory = cat; hex.dominantCount = cnt; }
         }
       }
-      // Aggregate tooltip column breakdowns
-      if (tooltipData && Object.keys(tooltipData).length > 0) {
-        const breakdowns = {};
-        for (const [col, values] of Object.entries(tooltipData)) {
-          const counts = {};
-          for (const p of pts) {
-            const val = String(values[unwrap(p).index] ?? "");
-            counts[val] = (counts[val] || 0) + 1;
-          }
-          // Sort by count descending, take top 5
-          breakdowns[col] = Object.entries(counts)
-            .sort((a, b) => b[1] - a[1])
-            .slice(0, 5);
-        }
-        hex.tooltipBreakdowns = breakdowns;
-      }
     }
     setHoverInfo({ x: info.x, y: info.y, object: hex });
-  }, [hexColorMode, tooltipData]);
+  }, [hexColorMode]);
 
   // When a selection exists in hexbin mode, only aggregate selected points
   const hexData = useMemo(
