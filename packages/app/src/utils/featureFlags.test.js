@@ -21,7 +21,7 @@ afterEach(() => {
 describe("fetchFeatureFlags", () => {
   it("returns local flags when no remote URL and no query params", async () => {
     const flags = await fetchFeatureFlags();
-    expect(flags).toEqual({ heatmap: false, dotplot: false });
+    expect(flags).toEqual({ heatmap: false, dotplot: false, raincloud: false, hexbin: false });
   });
 
   it("overrides a single flag via ?ff=dotplot", async () => {
@@ -56,7 +56,7 @@ describe("fetchFeatureFlags", () => {
   it("returns local flags unchanged when ?ff is absent", async () => {
     setQueryString("?other=value");
     const flags = await fetchFeatureFlags();
-    expect(flags).toEqual({ heatmap: false, dotplot: false });
+    expect(flags).toEqual({ heatmap: false, dotplot: false, raincloud: false, hexbin: false });
   });
 
   it("fetches remote flags when VITE_FEATURE_FLAGS_URL is set", async () => {
@@ -87,13 +87,13 @@ describe("fetchFeatureFlags", () => {
     vi.stubEnv("VITE_FEATURE_FLAGS_URL", "https://example.com/flags.json");
     vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("network"));
     const flags = await fetchFeatureFlags();
-    expect(flags).toEqual({ heatmap: false, dotplot: false });
+    expect(flags).toEqual({ heatmap: false, dotplot: false, raincloud: false, hexbin: false });
   });
 
   it("falls back to local flags when remote returns non-ok", async () => {
     vi.stubEnv("VITE_FEATURE_FLAGS_URL", "https://example.com/flags.json");
     vi.spyOn(globalThis, "fetch").mockResolvedValue({ ok: false, status: 500 });
     const flags = await fetchFeatureFlags();
-    expect(flags).toEqual({ heatmap: false, dotplot: false });
+    expect(flags).toEqual({ heatmap: false, dotplot: false, raincloud: false, hexbin: false });
   });
 });
