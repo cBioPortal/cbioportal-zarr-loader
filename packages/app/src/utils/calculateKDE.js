@@ -30,8 +30,12 @@ export default function calculateKDE(values, { nPoints = 512, bandwidth = null }
   const h = bandwidth ?? (std > 0 ? 1.06 * std * Math.pow(n, -0.2) : 1);
 
   // Build evaluation grid extending 3 bandwidths beyond data range
-  const min = Math.min(...data);
-  const max = Math.max(...data);
+  let min = data[0];
+  let max = data[0];
+  for (let i = 1; i < n; i++) {
+    if (data[i] < min) min = data[i];
+    if (data[i] > max) max = data[i];
+  }
   const pad = 3 * h;
   const lo = min - pad;
   const hi = max + pad;
