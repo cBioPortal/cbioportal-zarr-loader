@@ -56,6 +56,7 @@ jobs:
           VITE_BASE_URL: /cbioportal-zarr-loader/
           DOCS_BASE_URL: /cbioportal-zarr-loader/docs/
           VITE_POSTMESSAGE_ORIGIN: "https://www.cbioportal.org, https://deploy-preview-*--cbioportalfrontend.netlify.app"
+          VITE_FEATURE_FLAGS_URL: "https://raw.githubusercontent.com/cBioPortal/cbioportal-zarr-loader/feature/feature-flags/packages/app/feature-flags.json"
       - uses: actions/upload-pages-artifact@v3
         if: github.ref == 'refs/heads/main'
         with:
