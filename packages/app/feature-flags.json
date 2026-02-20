@@ -1,4 +1,4 @@
 {
-  "heatmap": true,
-  "dotplot": true
+  "heatmap": false,
+  "dotplot": false
 }
