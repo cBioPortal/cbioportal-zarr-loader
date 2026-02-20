@@ -4,6 +4,8 @@ import { Box, Violin } from "@ant-design/charts";
 import SearchableList from "./SearchableList";
 import TabLayout from "./TabLayout";
 import useAppStore from "../store/useAppStore";
+import { computeBoxplotStats } from "../utils/boxplotUtils";
+import BoxPlot from "./charts/BoxPlot";
 
 const { Text } = Typography;
 
@@ -25,6 +27,12 @@ export default function PlotsTab() {
   const { geneNames, obsColumns } = metadata;
   const [maxPoints, setMaxPoints] = useState(5000);
   const [filterExpression, setFilterExpression] = useState(null);
+
+  // Dev defaults: auto-select gene and obs column on first mount
+  useEffect(() => {
+    if (!plotGene && geneNames?.includes("CETN2")) setPlotGene("CETN2");
+    if (!plotObsColumn && obsColumns?.includes("cell_type")) setPlotObsColumn("cell_type");
+  }, []);
 
   // Compute top frequent rounded expression values for the exclude dropdown
   const frequentValues = useMemo(() => {
@@ -63,6 +71,12 @@ export default function PlotsTab() {
     }
     return raw;
   }, [plotGeneExpression, plotObsData, plotObsColumn, plotGene, filterExpression]);
+
+  const boxplotData = useMemo(() => {
+    if (!data) return null;
+    const sliced = data.slice(0, maxPoints);
+    return computeBoxplotStats(sliced, plotObsColumn, plotGene);
+  }, [data, maxPoints, plotObsColumn, plotGene]);
 
   if (data) {
     const categories = new Set(data.map((d) => d[plotObsColumn]));
@@ -160,6 +174,14 @@ export default function PlotsTab() {
               xField={plotObsColumn}
               yField={plotGene}
             />
+            {boxplotData && (
+              <BoxPlot
+                groups={boxplotData.groups}
+                stats={boxplotData.stats}
+                width={600}
+                height={Math.max(400, boxplotData.groups.length * 25 + 100)}
+              />
+            )}
           </>
         ) : (
           <Text type="secondary">

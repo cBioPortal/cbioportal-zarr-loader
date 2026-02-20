@@ -1,0 +1,193 @@
+import { Group } from "@visx/group";
+import { scaleBand, scaleLinear } from "@visx/scale";
+import { AxisBottom, AxisLeft } from "@visx/axis";
+import { useTooltip, TooltipWithBounds, defaultStyles } from "@visx/tooltip";
+import { CATEGORICAL_COLORS, rgbToString } from "../../utils/colors";
+
+const tooltipStyles = {
+  ...defaultStyles,
+  fontSize: 12,
+  padding: "6px 10px",
+};
+
+const OUTLIER_RADIUS = 2.5;
+const WHISKER_CAP_WIDTH = 0.4; // fraction of bandwidth
+
+export default function BoxPlot({ groups, stats, width = 600, height = 400 }) {
+  const { showTooltip, hideTooltip, tooltipOpen, tooltipData, tooltipLeft, tooltipTop } =
+    useTooltip();
+
+  if (!stats || stats.length === 0) return null;
+
+  // Dynamic margins based on label lengths
+  const maxXLabelLen = groups.length > 0 ? Math.max(...groups.map((s) => s.length)) : 0;
+  const bottomMargin = Math.max(40, maxXLabelLen * 6 + 20);
+
+  // Estimate y-axis label width from values
+  const allValues = stats.flatMap((s) => [s.min, s.max, ...s.outliers]);
+  const maxYLabelLen = allValues.length > 0
+    ? Math.max(...allValues.map((v) => v.toFixed(2).length))
+    : 4;
+  const leftMargin = Math.max(40, maxYLabelLen * 7 + 16);
+
+  const MARGIN = { top: 16, right: 16, bottom: bottomMargin, left: leftMargin };
+
+  const xMax = width - MARGIN.left - MARGIN.right;
+  const yMax = height - MARGIN.top - MARGIN.bottom;
+
+  const xScale = scaleBand({ domain: groups, range: [0, xMax], padding: 0.3 });
+
+  const yMin = Math.min(...stats.map((s) => Math.min(s.min, ...s.outliers)));
+  const yMaxVal = Math.max(...stats.map((s) => Math.max(s.max, ...s.outliers)));
+  const yPadding = (yMaxVal - yMin) * 0.05 || 1;
+
+  const yScale = scaleLinear({
+    domain: [yMin - yPadding, yMaxVal + yPadding],
+    range: [yMax, 0],
+    nice: true,
+  });
+
+  const handleMouseEnter = (event, d) => {
+    const svg = event.currentTarget.ownerSVGElement;
+    const point = svg.createSVGPoint();
+    point.x = event.clientX;
+    point.y = event.clientY;
+    const svgPoint = point.matrixTransform(svg.getScreenCTM().inverse());
+    showTooltip({
+      tooltipData: d,
+      tooltipLeft: svgPoint.x,
+      tooltipTop: svgPoint.y - 10,
+    });
+  };
+
+  return (
+    <div style={{ position: "relative" }}>
+      <svg width={width} height={height}>
+        <Group left={MARGIN.left} top={MARGIN.top}>
+          {stats.map((s, i) => {
+            const x = xScale(s.group);
+            const bw = xScale.bandwidth();
+            const cx = x + bw / 2;
+            const color = rgbToString(CATEGORICAL_COLORS[i % CATEGORICAL_COLORS.length]);
+            const capHalf = (bw * WHISKER_CAP_WIDTH) / 2;
+
+            const boxTop = yScale(s.q3);
+            const boxBottom = yScale(s.q1);
+            const boxHeight = boxBottom - boxTop;
+
+            return (
+              <g key={s.group}>
+                {/* Whisker line: whiskerLow → whiskerHigh */}
+                <line
+                  x1={cx}
+                  x2={cx}
+                  y1={yScale(s.whiskerHigh)}
+                  y2={yScale(s.whiskerLow)}
+                  stroke="#555"
+                  strokeWidth={1}
+                />
+
+                {/* Whisker cap: high */}
+                <line
+                  x1={cx - capHalf}
+                  x2={cx + capHalf}
+                  y1={yScale(s.whiskerHigh)}
+                  y2={yScale(s.whiskerHigh)}
+                  stroke="#555"
+                  strokeWidth={1}
+                />
+
+                {/* Whisker cap: low */}
+                <line
+                  x1={cx - capHalf}
+                  x2={cx + capHalf}
+                  y1={yScale(s.whiskerLow)}
+                  y2={yScale(s.whiskerLow)}
+                  stroke="#555"
+                  strokeWidth={1}
+                />
+
+                {/* Box: Q1 → Q3 */}
+                <rect
+                  x={x}
+                  y={boxTop}
+                  width={bw}
+                  height={Math.max(boxHeight, 1)}
+                  fill={color}
+                  fillOpacity={0.7}
+                  stroke={color}
+                  strokeWidth={1}
+                  style={{ cursor: "pointer" }}
+                  onMouseEnter={(e) => handleMouseEnter(e, s)}
+                  onMouseLeave={hideTooltip}
+                />
+
+                {/* Median line */}
+                <line
+                  x1={x}
+                  x2={x + bw}
+                  y1={yScale(s.median)}
+                  y2={yScale(s.median)}
+                  stroke="#fff"
+                  strokeWidth={2}
+                />
+
+                {/* Outliers */}
+                {s.outliers.map((v, oi) => (
+                  <circle
+                    key={oi}
+                    cx={cx}
+                    cy={yScale(v)}
+                    r={OUTLIER_RADIUS}
+                    fill={color}
+                    fillOpacity={0.5}
+                    stroke={color}
+                    strokeWidth={0.5}
+                  />
+                ))}
+              </g>
+            );
+          })}
+
+          <AxisBottom
+            scale={xScale}
+            top={yMax}
+            numTicks={groups.length}
+            tickComponent={({ x, y, formattedValue }) => (
+              <text
+                x={x}
+                y={y}
+                fontSize={11}
+                textAnchor="end"
+                dy={-4}
+                transform={`rotate(-45, ${x}, ${y})`}
+              >
+                {formattedValue}
+              </text>
+            )}
+          />
+          <AxisLeft scale={yScale} />
+        </Group>
+      </svg>
+
+      {tooltipOpen && tooltipData && (
+        <TooltipWithBounds
+          left={tooltipLeft}
+          top={tooltipTop}
+          style={tooltipStyles}
+        >
+          <div><strong>{tooltipData.group}</strong></div>
+          <div>Count: {tooltipData.count.toLocaleString()}</div>
+          <div>Median: {tooltipData.median.toFixed(3)}</div>
+          <div>Q1: {tooltipData.q1.toFixed(3)}</div>
+          <div>Q3: {tooltipData.q3.toFixed(3)}</div>
+          <div>Min: {tooltipData.min.toFixed(3)}</div>
+          <div>Max: {tooltipData.max.toFixed(3)}</div>
+          {tooltipData.outliers.length > 0 && (
+            <div>Outliers: {tooltipData.outliers.length}</div>
+          )}
+        </TooltipWithBounds>
+      )}
+    </div>
+  );
+}
