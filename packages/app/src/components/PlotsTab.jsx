@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { Card, Typography, Spin, Segmented, Select } from "antd";
-import { Violin } from "@ant-design/charts";
 import SearchableList from "./SearchableList";
 import TabLayout from "./TabLayout";
 import useAppStore from "../store/useAppStore";
 import { computeBoxplotStats } from "../utils/boxplotUtils";
+import { computeViolinStats } from "../utils/violinUtils";
 import BoxPlot from "./charts/BoxPlot";
+import ViolinPlot from "./charts/ViolinPlot";
 
 const { Text } = Typography;
 
@@ -76,6 +77,12 @@ export default function PlotsTab() {
     if (!data) return null;
     const sliced = data.slice(0, maxPoints);
     return computeBoxplotStats(sliced, plotObsColumn, plotGene);
+  }, [data, maxPoints, plotObsColumn, plotGene]);
+
+  const violinData = useMemo(() => {
+    if (!data) return null;
+    const sliced = data.slice(0, maxPoints);
+    return computeViolinStats(sliced, plotObsColumn, plotGene);
   }, [data, maxPoints, plotObsColumn, plotGene]);
 
   if (data) {
@@ -173,11 +180,16 @@ export default function PlotsTab() {
                 yLabel={plotGene}
               />
             )}
-            <Violin
-              data={data.slice(0, maxPoints)}
-              xField={plotObsColumn}
-              yField={plotGene}
-            />
+            {violinData && (
+              <ViolinPlot
+                groups={violinData.groups}
+                violins={violinData.violins}
+                width={800}
+                height={Math.max(500, violinData.groups.length * 30 + 120)}
+                xLabel={plotObsColumn}
+                yLabel={plotGene}
+              />
+            )}
           </>
         ) : (
           <Text type="secondary">
