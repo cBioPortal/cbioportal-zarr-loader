@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Card, Typography, Spin, Segmented, Select } from "antd";
+import { Card, Typography, Spin, Select } from "antd";
 import SearchableList from "./SearchableList";
 import TabLayout from "./TabLayout";
 import useAppStore from "../store/useAppStore";
@@ -26,7 +26,6 @@ export default function PlotsTab() {
   } = useAppStore();
 
   const { geneNames, obsColumns } = metadata;
-  const [maxPoints, setMaxPoints] = useState(Infinity);
   const [filterExpression, setFilterExpression] = useState(null);
   const [containerWidth, setContainerWidth] = useState(800);
   const containerRef = useCallback((node) => {
@@ -84,15 +83,13 @@ export default function PlotsTab() {
 
   const boxplotData = useMemo(() => {
     if (!data) return null;
-    const sliced = data.slice(0, maxPoints);
-    return computeBoxplotStats(sliced, plotObsColumn, plotGene);
-  }, [data, maxPoints, plotObsColumn, plotGene]);
+    return computeBoxplotStats(data, plotObsColumn, plotGene);
+  }, [data, plotObsColumn, plotGene]);
 
   const violinData = useMemo(() => {
     if (!data) return null;
-    const sliced = data.slice(0, maxPoints);
-    return computeViolinStats(sliced, plotObsColumn, plotGene);
-  }, [data, maxPoints, plotObsColumn, plotGene]);
+    return computeViolinStats(data, plotObsColumn, plotGene);
+  }, [data, plotObsColumn, plotGene]);
 
   if (data) {
     const categories = new Set(data.map((d) => d[plotObsColumn]));
@@ -143,9 +140,8 @@ export default function PlotsTab() {
           <>
             <div style={{ marginBottom: 8 }}>
               <Text>
-                Data ready: {data.length.toLocaleString()} points,{" "}
-                {new Set(data.map((d) => d[plotObsColumn])).size} categories.
-                {" "}Showing: {Math.min(maxPoints, data.length).toLocaleString()}
+                {data.length.toLocaleString()} points,{" "}
+                {new Set(data.map((d) => d[plotObsColumn])).size} categories
               </Text>
               <Text style={{ marginLeft: 16 }}>
                 Exclude expression:{" "}
@@ -159,25 +155,6 @@ export default function PlotsTab() {
                 options={frequentValues}
                 style={{ width: 200 }}
               />
-              <div style={{ marginTop: 8 }}>
-                <Text>Max points: </Text>
-                <Segmented
-                  size="small"
-                  value={maxPoints}
-                  onChange={setMaxPoints}
-                  options={(() => {
-                    const opts = [5000, 10000];
-                    for (let v = 50000; v < data.length; v += 50000) {
-                      opts.push(v);
-                    }
-                    opts.push(data.length);
-                    return opts.map((v) => ({
-                      value: v,
-                      label: v === data.length ? `All (${v.toLocaleString()})` : v.toLocaleString(),
-                    }));
-                  })()}
-                />
-              </div>
             </div>
             <div ref={containerRef}>
               {boxplotData && (
