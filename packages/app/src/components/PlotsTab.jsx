@@ -169,20 +169,21 @@ export default function PlotsTab() {
               yField={plotGene}
               boxType="boxplot"
             />
-            <Violin
-              data={data.slice(0, maxPoints)}
-              xField={plotObsColumn}
-              yField={plotGene}
-            />
             {boxplotData && (
               <BoxPlot
                 groups={boxplotData.groups}
                 stats={boxplotData.stats}
                 width={800}
                 height={Math.max(500, boxplotData.groups.length * 30 + 120)}
+                xLabel={plotObsColumn}
                 yLabel={plotGene}
               />
             )}
+            <Violin
+              data={data.slice(0, maxPoints)}
+              xField={plotObsColumn}
+              yField={plotGene}
+            />
           </>
         ) : (
           <Text type="secondary">
