@@ -13,7 +13,7 @@ const tooltipStyles = {
 const OUTLIER_RADIUS = 2.5;
 const WHISKER_CAP_WIDTH = 0.4; // fraction of bandwidth
 
-export default function BoxPlot({ groups, stats, width = 600, height = 400 }) {
+export default function BoxPlot({ groups, stats, width = 800, height = 500, yLabel }) {
   const { showTooltip, hideTooltip, tooltipOpen, tooltipData, tooltipLeft, tooltipTop } =
     useTooltip();
 
@@ -28,9 +28,9 @@ export default function BoxPlot({ groups, stats, width = 600, height = 400 }) {
   const maxYLabelLen = allValues.length > 0
     ? Math.max(...allValues.map((v) => v.toFixed(2).length))
     : 4;
-  const leftMargin = Math.max(40, maxYLabelLen * 7 + 16);
+  const leftMargin = Math.max(50, maxYLabelLen * 7 + 16) + (yLabel ? 20 : 0);
 
-  const MARGIN = { top: 16, right: 16, bottom: bottomMargin, left: leftMargin };
+  const MARGIN = { top: 20, right: 20, bottom: bottomMargin, left: leftMargin };
 
   const xMax = width - MARGIN.left - MARGIN.right;
   const yMax = height - MARGIN.top - MARGIN.bottom;
@@ -167,6 +167,19 @@ export default function BoxPlot({ groups, stats, width = 600, height = 400 }) {
             )}
           />
           <AxisLeft scale={yScale} />
+          {yLabel && (
+            <text
+              x={-yMax / 2}
+              y={-leftMargin + 14}
+              transform="rotate(-90)"
+              fontSize={13}
+              fontWeight="bold"
+              textAnchor="middle"
+              fill="#333"
+            >
+              {yLabel}
+            </text>
+          )}
         </Group>
       </svg>
 

@@ -178,8 +178,9 @@ export default function PlotsTab() {
               <BoxPlot
                 groups={boxplotData.groups}
                 stats={boxplotData.stats}
-                width={600}
-                height={Math.max(400, boxplotData.groups.length * 25 + 100)}
+                width={800}
+                height={Math.max(500, boxplotData.groups.length * 30 + 120)}
+                yLabel={plotGene}
               />
             )}
           </>
