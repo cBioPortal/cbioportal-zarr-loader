@@ -592,6 +592,32 @@ export default function EmbeddingScatterplot({
           >
             {label}_2
           </div>
+          {(() => {
+            let colorLabel;
+            if (layerMode === "hexbin") {
+              colorLabel = geneExpression ? `Mean ${selectedGene}` : colorData ? `Dominant ${colorColumn}` : "Point density";
+            } else {
+              colorLabel = geneExpression ? `${selectedGene} expression` : colorData ? colorColumn : null;
+            }
+            if (!colorLabel) return null;
+            return (
+              <div
+                style={{
+                  position: "absolute",
+                  bottom: 20,
+                  left: 8,
+                  background: "rgba(0,0,0,0.6)",
+                  color: "white",
+                  padding: "2px 8px",
+                  borderRadius: 4,
+                  fontSize: 11,
+                  pointerEvents: "none",
+                }}
+              >
+                {colorLabel}
+              </div>
+            );
+          })()}
           {selectedPointIndices.length > 0 && (
             <div
               style={{
