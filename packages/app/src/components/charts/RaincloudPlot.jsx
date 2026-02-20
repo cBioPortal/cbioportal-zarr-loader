@@ -13,6 +13,7 @@ const tooltipStyles = {
 };
 
 const MIN_BAND_WIDTH = 50;
+const MIN_BAND_HEIGHT = 80; // horizontal mode needs more room per group
 const STRIP_RADIUS = 1.5;
 const MAX_STRIP_POINTS = 5000;
 
@@ -68,8 +69,9 @@ export default function RaincloudPlot({
     const leftMargin = Math.max(50, maxCatLabelLen * 7 + 16) + (yLabel ? 20 : 0);
     const bottomMargin = 30 + 12 + (xLabel ? 20 : 0);
     MARGIN = { top: 20, right: 20, bottom: bottomMargin, left: leftMargin };
-    // Scale height to number of groups
-    height = Math.max(heightProp, groups.length * MIN_BAND_WIDTH + MARGIN.top + MARGIN.bottom);
+    // Scale height to number of groups — each band needs enough room for
+    // the half-violin, boxplot, and strip to not overlap
+    height = Math.max(heightProp, groups.length * MIN_BAND_HEIGHT + MARGIN.top + MARGIN.bottom);
   } else {
     // Categories on bottom, values on left
     const tickLabelHeight = Math.max(30, maxCatLabelLen * 4);
