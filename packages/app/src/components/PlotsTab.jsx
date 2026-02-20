@@ -1,9 +1,11 @@
-import { useEffect, useMemo, useState } from "react";
-import { Card, Typography, Spin, Segmented, Select } from "antd";
-import { Box, Violin } from "@ant-design/charts";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Alert, Card, Typography, Spin, Select } from "antd";
 import SearchableList from "./SearchableList";
 import TabLayout from "./TabLayout";
 import useAppStore from "../store/useAppStore";
+import { computeBoxplotStats } from "../utils/boxplotUtils";
+import { computeViolinStats } from "../utils/violinUtils";
+import ViolinPlot from "./charts/ViolinPlot";
 
 const { Text } = Typography;
 
@@ -23,8 +25,22 @@ export default function PlotsTab() {
   } = useAppStore();
 
   const { geneNames, obsColumns } = metadata;
-  const [maxPoints, setMaxPoints] = useState(5000);
   const [filterExpression, setFilterExpression] = useState(null);
+  const [containerWidth, setContainerWidth] = useState(800);
+  const containerRef = useCallback((node) => {
+    if (!node) return;
+    const ro = new ResizeObserver(([entry]) => {
+      setContainerWidth(entry.contentRect.width);
+    });
+    ro.observe(node);
+    setContainerWidth(node.clientWidth);
+  }, []);
+
+  // Dev defaults: auto-select gene and obs column on first mount
+  useEffect(() => {
+    if (!plotGene && geneNames?.includes("CETN2")) setPlotGene("CETN2");
+    if (!plotObsColumn && obsColumns?.includes("cell_type")) setPlotObsColumn("cell_type");
+  }, []);
 
   // Compute top frequent rounded expression values for the exclude dropdown
   const frequentValues = useMemo(() => {
@@ -64,11 +80,24 @@ export default function PlotsTab() {
     return raw;
   }, [plotGeneExpression, plotObsData, plotObsColumn, plotGene, filterExpression]);
 
-  if (data) {
-    const categories = new Set(data.map((d) => d[plotObsColumn]));
-    console.debug("[PlotsTab] Data built:", data.length, "points,", categories.size, "categories:", [...categories].slice(0, 10));
-    console.debug("[PlotsTab] Sample data:", data.slice(0, 15));
-  }
+  const MAX_CATEGORIES = 200;
+
+  const categoryCount = useMemo(() => {
+    if (!data) return 0;
+    return new Set(data.map((d) => d[plotObsColumn])).size;
+  }, [data, plotObsColumn]);
+
+  const tooManyCategories = categoryCount > MAX_CATEGORIES;
+
+  const boxplotData = useMemo(() => {
+    if (!data || tooManyCategories) return null;
+    return computeBoxplotStats(data, plotObsColumn, plotGene);
+  }, [data, plotObsColumn, plotGene, tooManyCategories]);
+
+  const violinData = useMemo(() => {
+    if (!data || tooManyCategories) return null;
+    return computeViolinStats(data, plotObsColumn, plotGene);
+  }, [data, plotObsColumn, plotGene, tooManyCategories]);
 
   const isLoading = plotGeneLoading || plotObsLoading;
   const hasSelections = plotGene && plotObsColumn;
@@ -113,9 +142,8 @@ export default function PlotsTab() {
           <>
             <div style={{ marginBottom: 8 }}>
               <Text>
-                Data ready: {data.length.toLocaleString()} points,{" "}
-                {new Set(data.map((d) => d[plotObsColumn])).size} categories.
-                {" "}Showing: {Math.min(maxPoints, data.length).toLocaleString()}
+                {data.length.toLocaleString()} points,{" "}
+                {categoryCount} categories
               </Text>
               <Text style={{ marginLeft: 16 }}>
                 Exclude expression:{" "}
@@ -129,37 +157,30 @@ export default function PlotsTab() {
                 options={frequentValues}
                 style={{ width: 200 }}
               />
-              <div style={{ marginTop: 8 }}>
-                <Text>Max points: </Text>
-                <Segmented
-                  size="small"
-                  value={maxPoints}
-                  onChange={setMaxPoints}
-                  options={(() => {
-                    const opts = [5000, 10000];
-                    for (let v = 50000; v < data.length; v += 50000) {
-                      opts.push(v);
-                    }
-                    opts.push(data.length);
-                    return opts.map((v) => ({
-                      value: v,
-                      label: v === data.length ? `All (${v.toLocaleString()})` : v.toLocaleString(),
-                    }));
-                  })()}
-                />
-              </div>
             </div>
-            <Box
-              data={data.slice(0, maxPoints)}
-              xField={plotObsColumn}
-              yField={plotGene}
-              boxType="boxplot"
-            />
-            <Violin
-              data={data.slice(0, maxPoints)}
-              xField={plotObsColumn}
-              yField={plotGene}
-            />
+            {tooManyCategories && (
+              <Alert
+                type="warning"
+                showIcon
+                message={`Too many categories (${categoryCount})`}
+                description={`Violin and box plots are not rendered for obs columns with more than ${MAX_CATEGORIES} categories. Choose an obs column with fewer unique values.`}
+                style={{ marginBottom: 12 }}
+              />
+            )}
+            <div ref={containerRef}>
+              {violinData && (
+                <ViolinPlot
+                  groups={violinData.groups}
+                  violins={violinData.violins}
+                  boxplotStats={boxplotData?.stats}
+                  showBoxplot
+                  containerWidth={containerWidth}
+                  height={500}
+                  xLabel={plotObsColumn}
+                  yLabel={plotGene}
+                />
+              )}
+            </div>
           </>
         ) : (
           <Text type="secondary">
