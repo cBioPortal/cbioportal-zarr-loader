@@ -271,15 +271,15 @@ export default function EmbeddingScatterplot({
         _uniqueCats: uniqueCats,
       };
     }
-    // Density fallback
+    // Density fallback — blue ramp matching the default scatterplot color
     return {
       colorRange: [
-        [237, 248, 233],
-        [199, 233, 192],
-        [161, 217, 155],
-        [116, 196, 118],
-        [49, 163, 84],
-        [0, 109, 44],
+        [224, 240, 255],
+        [174, 214, 255],
+        [124, 186, 255],
+        [74, 160, 255],
+        [24, 144, 255],
+        [8, 100, 200],
       ],
     };
   }, [hexColorMode, colorScaleName, expressionRange, points]);
