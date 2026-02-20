@@ -25,7 +25,7 @@ export default function PlotsTab() {
   } = useAppStore();
 
   const { geneNames, obsColumns } = metadata;
-  const [maxPoints, setMaxPoints] = useState(5000);
+  const [maxPoints, setMaxPoints] = useState(Infinity);
   const [filterExpression, setFilterExpression] = useState(null);
 
   // Dev defaults: auto-select gene and obs column on first mount
