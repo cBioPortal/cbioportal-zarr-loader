@@ -126,6 +126,27 @@ describe("computeBoxplotStats", () => {
     expect(groups).toEqual(["Apple", "Mango", "Zebra"]);
   });
 
+  it("snaps whiskers to actual data points, not fence values", () => {
+    // Values: [1, 2, 10, 11, 12, 13, 100]
+    // Q1=2, Q3=13 (approx via d3), IQR=11
+    // Upper fence = 13 + 16.5 = 29.5 — but no data point at 29.5
+    // whiskerHigh should be 13 (last data point within fence), not 29.5
+    const data = [
+      { cat: "A", val: 1 },
+      { cat: "A", val: 2 },
+      { cat: "A", val: 10 },
+      { cat: "A", val: 11 },
+      { cat: "A", val: 12 },
+      { cat: "A", val: 13 },
+      { cat: "A", val: 100 },
+    ];
+    const { stats } = computeBoxplotStats(data, "cat", "val");
+    // whiskerHigh should be an actual data value, not the fence
+    expect([1, 2, 10, 11, 12, 13, 100]).toContain(stats[0].whiskerHigh);
+    expect(stats[0].whiskerHigh).toBeLessThanOrEqual(13);
+    expect(stats[0].outliers).toContain(100);
+  });
+
   it("detects low outliers", () => {
     // Values: [-100, 10, 11, 12, 13, 14]
     // Q1≈10.25, Q3≈13.75, IQR=3.5, lower fence=10.25-5.25=5 => -100 is low outlier

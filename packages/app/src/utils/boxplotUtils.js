@@ -38,11 +38,16 @@ export function computeBoxplotStats(data, categoryField, valueField) {
     const median = quantileSorted(values, 0.5);
     const q3 = quantileSorted(values, 0.75);
     const iqr = q3 - q1;
-    const whiskerLow = Math.max(min, q1 - 1.5 * iqr);
-    const whiskerHigh = Math.min(max, q3 + 1.5 * iqr);
+    const fenceLow = q1 - 1.5 * iqr;
+    const fenceHigh = q3 + 1.5 * iqr;
 
-    // Outliers are values outside the whisker bounds
-    const outliers = values.filter((v) => v < whiskerLow || v > whiskerHigh);
+    // Outliers are values outside the fences
+    const outliers = values.filter((v) => v < fenceLow || v > fenceHigh);
+
+    // Whiskers extend to the most extreme data points within the fences
+    const nonOutliers = values.filter((v) => v >= fenceLow && v <= fenceHigh);
+    const whiskerLow = nonOutliers.length > 0 ? nonOutliers[0] : q1;
+    const whiskerHigh = nonOutliers.length > 0 ? nonOutliers[nonOutliers.length - 1] : q3;
 
     stats.push({
       group,
