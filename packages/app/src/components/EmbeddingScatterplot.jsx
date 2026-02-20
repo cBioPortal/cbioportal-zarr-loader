@@ -254,7 +254,11 @@ export default function EmbeddingScatterplot({
           ],
           opacity: 0.8,
           pickable: true,
-          onHover: (info) => setHoverInfo(info.object ? { ...info, object: { hexCount: info.object?.points?.length } } : null),
+          onHover: (info) => {
+            if (!info.object) { setHoverInfo(null); return; }
+            const count = info.object.count ?? info.object.points?.length ?? info.object.colorValue;
+            setHoverInfo({ x: info.x, y: info.y, object: { hexCount: count } });
+          },
         }),
       ]
     : [

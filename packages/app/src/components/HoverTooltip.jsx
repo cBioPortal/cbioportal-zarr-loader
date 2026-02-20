@@ -20,13 +20,21 @@ export default function HoverTooltip({
         pointerEvents: "none",
       }}
     >
-      <div>x: {hoverInfo.object.position[0].toFixed(4)}</div>
-      <div>y: {hoverInfo.object.position[1].toFixed(4)}</div>
-      {hasColorData && <div>{colorColumn}: {hoverInfo.object.category}</div>}
-      {hasGeneExpression && <div>{selectedGene}: {hoverInfo.object.expression?.toFixed(4)}</div>}
-      {Object.entries(tooltipData).map(([col, values]) => (
-        <div key={col}>{col}: {values[hoverInfo.object.index]}</div>
-      ))}
+      {hoverInfo.object.position ? (
+        <>
+          <div>x: {hoverInfo.object.position[0].toFixed(4)}</div>
+          <div>y: {hoverInfo.object.position[1].toFixed(4)}</div>
+          {hasColorData && <div>{colorColumn}: {hoverInfo.object.category}</div>}
+          {hasGeneExpression && <div>{selectedGene}: {hoverInfo.object.expression?.toFixed(4)}</div>}
+          {Object.entries(tooltipData).map(([col, values]) => (
+            <div key={col}>{col}: {values[hoverInfo.object.index]}</div>
+          ))}
+        </>
+      ) : hoverInfo.object.hexCount != null ? (
+        <div>Count: {hoverInfo.object.hexCount.toLocaleString()}</div>
+      ) : (
+        <div>Bin selected</div>
+      )}
     </div>
   );
 }
