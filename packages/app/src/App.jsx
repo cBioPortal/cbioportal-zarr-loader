@@ -11,6 +11,7 @@ import ColumnsTab from "./components/ColumnsTab";
 import InfoTab from "./components/InfoTab";
 import ObsmTab from "./components/ObsmTab";
 import PlotsTab from "./components/PlotsTab";
+import DotplotTab from "./components/DotplotTab";
 
 import useAppStore from "./store/useAppStore";
 import usePostMessage from "./hooks/usePostMessage";
@@ -27,6 +28,7 @@ export default function App() {
     loading,
     error,
     metadata,
+    featureFlags,
     initialize,
   } = useAppStore();
 
@@ -93,6 +95,7 @@ export default function App() {
       label: "Info",
       children: <InfoTab />,
     },
+    ...(featureFlags.dotplot ? [{ key: "dotplot", label: "Dotplot", children: <DotplotTab /> }] : []),
   ];
 
   return (
@@ -128,7 +131,7 @@ export default function App() {
             path="/*"
             element={
               <div style={{ padding: isEmbedded ? "0 24px 24px" : 24 }}>
-                <Tabs items={tabItems} defaultActiveKey="explorer" />
+                <Tabs items={tabItems} defaultActiveKey={import.meta.env.VITE_DEFAULT_TAB || "explorer"} />
               </div>
             }
           />
