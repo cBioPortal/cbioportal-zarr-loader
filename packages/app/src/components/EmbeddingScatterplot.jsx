@@ -1,12 +1,13 @@
 import { useState, useMemo, useRef, useCallback, useLayoutEffect } from "react";
 import { Typography, Button, Select, Popover } from "antd";
-import { ExpandOutlined, CompressOutlined, SelectOutlined, EditOutlined, CloseCircleOutlined, SaveOutlined, SettingOutlined } from "@ant-design/icons";
+import { ExpandOutlined, CompressOutlined, SelectOutlined, EditOutlined, CloseCircleOutlined, SaveOutlined, SettingOutlined, HeatMapOutlined, DotChartOutlined } from "@ant-design/icons";
 import DeckGL from "@deck.gl/react";
 import { ScatterplotLayer } from "@deck.gl/layers";
+import { HexagonLayer } from "@deck.gl/aggregation-layers";
 import { OrthographicView } from "@deck.gl/core";
 import useAppStore from "../store/useAppStore";
 import { calculatePlotDimensions } from "../utils/calculatePlotDimensions";
-import { COLOR_SCALES } from "../utils/colors";
+import { COLOR_SCALES, CATEGORICAL_COLORS } from "../utils/colors";
 import {
   pointInPolygon,
   simplifyPolygon,
@@ -30,6 +31,7 @@ export default function EmbeddingScatterplot({
   label,
   maxPoints = Infinity,
   onSaveSelection,
+  showHexbinToggle = false,
 }) {
   const {
     // Color by obs column
@@ -57,6 +59,7 @@ export default function EmbeddingScatterplot({
 
   const [hoverInfo, setHoverInfo] = useState(null);
   const [expanded, setExpanded] = useState(false);
+  const [layerMode, setLayerMode] = useState(showHexbinToggle ? "hexbin" : "scatter");
   const [selectMode, setSelectMode] = useState("pan");
   const [hoveredCategory, setHoveredCategory] = useState(null);
   const [hoveredExpression, setHoveredExpression] = useState(null);
@@ -231,42 +234,149 @@ export default function EmbeddingScatterplot({
     [selectedPointIndices],
   );
 
-  const layers = [
-    new ScatterplotLayer({
-      id: "scatterplot",
-      data: points,
-      getPosition: (d) => d.position,
-      getFillColor: (d) => getPointFillColor(d, {
-        selectedSet,
-        geneExpression,
-        expressionRange,
-        hasColorData: !!colorData,
-        colorScale: COLOR_SCALES[colorScaleName],
-      }),
-      getRadius: (d) => {
-        if (hoveredCategory != null && d.category === hoveredCategory) return 3;
-        if (hoveredExpression != null && d.expression != null && expressionRange) {
-          const tolerance = (expressionRange.max - expressionRange.min) * 0.05;
-          if (Math.abs(d.expression - hoveredExpression) <= tolerance) return 3;
+  // Determine hexbin coloring mode and config
+  const hexColorMode = geneExpression ? "expression" : colorData ? "category" : "density";
+
+  const hexColorConfig = useMemo(() => {
+    if (hexColorMode === "expression") {
+      return {
+        getColorWeight: (d) => d.expression ?? 0,
+        colorAggregation: "MEAN",
+        colorRange: COLOR_SCALES[colorScaleName],
+        colorDomain: expressionRange ? [expressionRange.min, expressionRange.max] : undefined,
+        colorScaleType: "linear",
+      };
+    }
+    if (hexColorMode === "category") {
+      // Build list of unique categories in order
+      const uniqueCats = [...new Set(points.map((p) => p.category))].sort();
+      const catToIndex = Object.fromEntries(uniqueCats.map((c, i) => [c, i]));
+      const catColors = uniqueCats.map((_, i) => CATEGORICAL_COLORS[i % CATEGORICAL_COLORS.length]);
+      return {
+        getColorValue: (pts) => {
+          // Find dominant category in this bin
+          const counts = {};
+          for (const p of pts) {
+            counts[p.category] = (counts[p.category] || 0) + 1;
+          }
+          let maxCount = 0, dominant = pts[0].category;
+          for (const [cat, cnt] of Object.entries(counts)) {
+            if (cnt > maxCount) { maxCount = cnt; dominant = cat; }
+          }
+          return catToIndex[dominant] ?? 0;
+        },
+        colorRange: catColors,
+        colorDomain: [0, catColors.length - 1],
+        colorScaleType: "ordinal",
+        _uniqueCats: uniqueCats,
+      };
+    }
+    // Density fallback — blue ramp matching the default scatterplot color
+    return {
+      colorRange: [
+        [224, 240, 255],
+        [174, 214, 255],
+        [124, 186, 255],
+        [74, 160, 255],
+        [24, 144, 255],
+        [8, 100, 200],
+      ],
+    };
+  }, [hexColorMode, colorScaleName, expressionRange, points]);
+
+  const hexHover = useCallback((info) => {
+    if (!info.object) { setHoverInfo(null); return; }
+    const pts = info.object.points;
+    const count = info.object.count ?? pts?.length ?? info.object.colorValue;
+    const hex = { hexCount: count };
+
+    if (pts && pts.length > 0) {
+      // Each entry in pts may be the original point directly or wrapped in { source }
+      const unwrap = (p) => p.source ?? p;
+      // Store unwrapped point indices for live tooltip breakdown computation
+      hex.binIndices = pts.map((p) => unwrap(p).index);
+      if (hexColorMode === "expression") {
+        const sum = pts.reduce((s, p) => s + (unwrap(p).expression ?? 0), 0);
+        hex.meanExpression = sum / pts.length;
+      }
+      if (hexColorMode === "category") {
+        const counts = {};
+        for (const p of pts) {
+          const cat = unwrap(p).category;
+          counts[cat] = (counts[cat] || 0) + 1;
         }
-        if (hoveredTooltipFilter != null) {
-          const colValues = tooltipData[hoveredTooltipFilter.col];
-          if (colValues && String(colValues[d.index]) === hoveredTooltipFilter.value) return 3;
+        let maxCount = 0;
+        for (const [cat, cnt] of Object.entries(counts)) {
+          if (cnt > maxCount) { maxCount = cnt; hex.dominantCategory = cat; hex.dominantCount = cnt; }
         }
-        return 1;
-      },
-      radiusUnits: "pixels",
-      radiusMinPixels: 0.5,
-      radiusMaxPixels: (hoveredCategory != null || hoveredExpression != null || hoveredTooltipFilter != null) ? 3 : 1,
-      opacity: 0.7,
-      pickable: true,
-      onHover: (info) => setHoverInfo(info.object ? info : null),
-      updateTriggers: {
-        getFillColor: [colorData, geneExpression, expressionRange, colorScaleName, selectedPointIndices],
-        getRadius: [hoveredCategory, hoveredExpression, hoveredTooltipFilter],
-      },
-    }),
-  ];
+      }
+    }
+    setHoverInfo({ x: info.x, y: info.y, object: hex });
+  }, [hexColorMode]);
+
+  // When a selection exists in hexbin mode, only aggregate selected points
+  const hexData = useMemo(
+    () => selectedSet.size > 0 ? points.filter((p) => selectedSet.has(p.index)) : points,
+    [points, selectedSet],
+  );
+
+  const layers = layerMode === "hexbin"
+    ? [
+        new HexagonLayer({
+          id: "hexbin",
+          data: hexData,
+          getPosition: (d) => d.position,
+          gpuAggregation: false,
+          radius: 0.3,
+          elevationScale: 0,
+          extruded: false,
+          coverage: 0.9,
+          opacity: 0.8,
+          pickable: true,
+          onHover: hexHover,
+          ...hexColorConfig,
+          updateTriggers: {
+            getColorWeight: [geneExpression, expressionRange, selectedPointIndices],
+            getColorValue: [colorData, selectedPointIndices],
+          },
+        }),
+      ]
+    : [
+        new ScatterplotLayer({
+          id: "scatterplot",
+          data: points,
+          getPosition: (d) => d.position,
+          getFillColor: (d) => getPointFillColor(d, {
+            selectedSet,
+            geneExpression,
+            expressionRange,
+            hasColorData: !!colorData,
+            colorScale: COLOR_SCALES[colorScaleName],
+          }),
+          getRadius: (d) => {
+            if (hoveredCategory != null && d.category === hoveredCategory) return 3;
+            if (hoveredExpression != null && d.expression != null && expressionRange) {
+              const tolerance = (expressionRange.max - expressionRange.min) * 0.05;
+              if (Math.abs(d.expression - hoveredExpression) <= tolerance) return 3;
+            }
+            if (hoveredTooltipFilter != null) {
+              const colValues = tooltipData[hoveredTooltipFilter.col];
+              if (colValues && String(colValues[d.index]) === hoveredTooltipFilter.value) return 3;
+            }
+            return 1;
+          },
+          radiusUnits: "pixels",
+          radiusMinPixels: 0.5,
+          radiusMaxPixels: (hoveredCategory != null || hoveredExpression != null || hoveredTooltipFilter != null) ? 3 : 1,
+          opacity: 0.7,
+          pickable: true,
+          onHover: (info) => setHoverInfo(info.object ? info : null),
+          updateTriggers: {
+            getFillColor: [colorData, geneExpression, expressionRange, colorScaleName, selectedPointIndices],
+            getRadius: [hoveredCategory, hoveredExpression, hoveredTooltipFilter],
+          },
+        }),
+      ];
 
   const sortedCategories = useMemo(
     () => colorData ? sortCategoriesByCount(categoryColorMap, points) : [],
@@ -394,6 +504,16 @@ export default function EmbeddingScatterplot({
               style={{ opacity: 0.85 }}
               title="Lasso select"
             />
+            {showHexbinToggle && (
+              <Button
+                size="small"
+                type={layerMode === "hexbin" ? "primary" : "default"}
+                icon={layerMode === "hexbin" ? <HeatMapOutlined /> : <DotChartOutlined />}
+                onClick={() => setLayerMode(layerMode === "hexbin" ? "scatter" : "hexbin")}
+                style={{ opacity: 0.85 }}
+                title={layerMode === "hexbin" ? "Switch to scatter" : "Switch to hexbin"}
+              />
+            )}
           </div>
           <div style={{ position: "absolute", top: 8, right: 8, zIndex: 1, display: "flex", gap: 4 }} onMouseDown={(e) => e.stopPropagation()}>
             {geneExpression && (
@@ -464,6 +584,32 @@ export default function EmbeddingScatterplot({
           >
             {label}_2
           </div>
+          {(() => {
+            let colorLabel;
+            if (layerMode === "hexbin") {
+              colorLabel = geneExpression ? `Mean ${selectedGene}` : colorData ? `Dominant ${colorColumn}` : "Point density";
+            } else {
+              colorLabel = geneExpression ? `${selectedGene} expression` : colorData ? colorColumn : null;
+            }
+            if (!colorLabel) return null;
+            return (
+              <div
+                style={{
+                  position: "absolute",
+                  bottom: 20,
+                  left: 8,
+                  background: "rgba(0,0,0,0.6)",
+                  color: "white",
+                  padding: "2px 8px",
+                  borderRadius: 4,
+                  fontSize: 11,
+                  pointerEvents: "none",
+                }}
+              >
+                {colorLabel}
+              </div>
+            );
+          })()}
           {selectedPointIndices.length > 0 && (
             <div
               style={{

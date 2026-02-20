@@ -48,6 +48,7 @@ const EXAMPLE_FILTER = JSON.stringify({
 export default function ObsmTab() {
   const {
     metadata,
+    featureFlags,
     selectedObsm,
     obsmData,
     obsmLoading,
@@ -283,6 +284,7 @@ export default function ObsmTab() {
                 shape={obsmData.shape}
                 label={selectedObsm}
                 onSaveSelection={handleSaveSelection}
+                showHexbinToggle={!!featureFlags.hexbin}
               />
             ) : null}
           </Card>
