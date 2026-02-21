@@ -165,46 +165,48 @@ export class AnnDataStore {
   }
 
   async geneExpression(geneName: string): Promise<zarr.TypedArray<zarr.DataType>> {
-    // Get gene index from var names
-    const varNames = await this.varNames();
-    const geneIndex = varNames.indexOf(geneName);
-    if (geneIndex === -1) {
-      throw new Error(`Gene "${geneName}" not found`);
-    }
+    return this.#cached(`geneExpression:${geneName}`, async () => {
+      // Get gene index from var names
+      const varNames = await this.varNames();
+      const geneIndex = varNames.indexOf(geneName);
+      if (geneIndex === -1) {
+        throw new Error(`Gene "${geneName}" not found`);
+      }
 
-    // Try to open X as dense array
-    let node: ZarrArray | ZarrGroup;
-    try {
-      node = await this.#zarrStore.openArray("X");
-    } catch {
-      node = await this.#zarrStore.openGroup("X");
-    }
+      // Try to open X as dense array
+      let node: ZarrArray | ZarrGroup;
+      try {
+        node = await this.#zarrStore.openArray("X");
+      } catch {
+        node = await this.#zarrStore.openGroup("X");
+      }
 
-    if ((node.attrs?.["encoding-type"] as string)?.endsWith("_matrix")) {
-      // Sparse matrix - need to decode and extract column
-      const sparse = await decodeSparseMatrix(node as ZarrGroup);
-      // For CSR matrix, we need to iterate through all rows
-      // This is less efficient but works for any sparse format
-      const result = new Float32Array(this.#shape[0]);
-      const data = sparse.data as ArrayLike<number>;
-      const indices = sparse.indices as ArrayLike<number>;
-      const indptr = sparse.indptr as ArrayLike<number>;
-      for (let row = 0; row < this.#shape[0]; row++) {
-        const rowStart = indptr[row];
-        const rowEnd = indptr[row + 1];
-        for (let j = rowStart; j < rowEnd; j++) {
-          if (indices[j] === geneIndex) {
-            result[row] = data[j];
-            break;
+      if ((node.attrs?.["encoding-type"] as string)?.endsWith("_matrix")) {
+        // Sparse matrix - need to decode and extract column
+        const sparse = await decodeSparseMatrix(node as ZarrGroup);
+        // For CSR matrix, we need to iterate through all rows
+        // This is less efficient but works for any sparse format
+        const result = new Float32Array(this.#shape[0]);
+        const data = sparse.data as ArrayLike<number>;
+        const indices = sparse.indices as ArrayLike<number>;
+        const indptr = sparse.indptr as ArrayLike<number>;
+        for (let row = 0; row < this.#shape[0]; row++) {
+          const rowStart = indptr[row];
+          const rowEnd = indptr[row + 1];
+          for (let j = rowStart; j < rowEnd; j++) {
+            if (indices[j] === geneIndex) {
+              result[row] = data[j];
+              break;
+            }
           }
         }
+        return result;
       }
-      return result;
-    }
 
-    // Dense array - slice the column
-    const chunk = await zarr.get(node as ZarrArray, [null, geneIndex]);
-    return chunk.data;
+      // Dense array - slice the column
+      const chunk = await zarr.get(node as ZarrArray, [null, geneIndex]);
+      return chunk.data;
+    });
   }
 
   // --- obs / var dataframes ---
