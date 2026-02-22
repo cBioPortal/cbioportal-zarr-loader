@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef, useCallback, useLayoutEffect } from "react";
-import { Typography, Button, Select, Popover } from "antd";
+import { Typography, Button, Select, Popover, Alert } from "antd";
 import { ExpandOutlined, CompressOutlined, SelectOutlined, EditOutlined, CloseCircleOutlined, SaveOutlined, SettingOutlined, HeatMapOutlined, DotChartOutlined } from "@ant-design/icons";
 import DeckGL from "@deck.gl/react";
 import { ScatterplotLayer } from "@deck.gl/layers";
@@ -18,6 +18,7 @@ import {
   getPointFillColor,
   sortCategoriesByCount,
   buildHexCategoryColorConfig,
+  MAX_CATEGORIES,
 } from "../utils/scatterplotUtils";
 import HoverTooltip from "./HoverTooltip";
 import ExpressionLegend from "./ExpressionLegend";
@@ -236,7 +237,8 @@ export default function EmbeddingScatterplot({
   );
 
   // Determine hexbin coloring mode and config
-  const hexColorMode = geneExpression ? "expression" : colorData ? "category" : "density";
+  const hasCategories = colorData && Object.keys(categoryColorMap).length > 0;
+  const hexColorMode = geneExpression ? "expression" : hasCategories ? "category" : "density";
 
   const hexColorConfig = useMemo(() => {
     if (hexColorMode === "expression") {
@@ -330,7 +332,7 @@ export default function EmbeddingScatterplot({
             selectedSet,
             geneExpression,
             expressionRange,
-            hasColorData: !!colorData,
+            hasColorData: hasCategories,
             colorScale: COLOR_SCALES[colorScaleName],
           }),
           getRadius: (d) => {
@@ -380,11 +382,11 @@ export default function EmbeddingScatterplot({
     () => buildSelectionSummary({
       selectedSet,
       points,
-      hasColorData: !!colorData,
+      hasColorData: hasCategories,
       hasGeneExpression: !!geneExpression,
       tooltipData,
     }),
-    [selectedSet, points, colorData, geneExpression, tooltipData],
+    [selectedSet, points, hasCategories, geneExpression, tooltipData],
   );
 
   return (
@@ -393,6 +395,16 @@ export default function EmbeddingScatterplot({
         <Text type="secondary" style={{ marginBottom: 16, display: "block" }}>
           Showing {points.length.toLocaleString()} of {shape[0].toLocaleString()} points
         </Text>
+      )}
+
+      {colorData && !hasCategories && (
+        <Alert
+          type="warning"
+          showIcon
+          closable
+          style={{ marginBottom: 12 }}
+          message={`"${colorColumn}" has more than ${MAX_CATEGORIES} unique values and cannot be used for categorical coloring.`}
+        />
       )}
 
       <div ref={containerRef} style={{ display: "flex", gap: 16 }}>
