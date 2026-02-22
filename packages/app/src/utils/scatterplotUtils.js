@@ -1,5 +1,9 @@
 import { CATEGORICAL_COLORS, interpolateColorScale } from "./colors";
 
+/** Maximum number of unique categories to support for color-by columns.
+ *  Columns with more unique values (e.g. continuous floats) are left uncolored. */
+export const MAX_CATEGORIES = 10000;
+
 /**
  * Ray-casting point-in-polygon test.
  * Returns true if the point (x, y) lies inside the polygon.
@@ -147,12 +151,20 @@ export function buildScatterplotPoints({
   const cols = shape[1];
   const step = Math.max(1, Math.floor(shape[0] / maxPoints));
 
-  // Build category color map (for obs columns)
-  const categories = new Map();
+  // Build category color map (for obs columns).
+  // If the column has more unique values than MAX_CATEGORIES (e.g. a continuous
+  // float column like "percent.rb"), skip categorical coloring to avoid
+  // freezing the UI / blowing the call stack in deck.gl.
+  let categories = new Map();
   if (colorData) {
     for (let i = 0; i < shape[0]; i += step) {
       const cat = String(colorData[i]);
       if (!categories.has(cat)) {
+        if (categories.size >= MAX_CATEGORIES) {
+          // Too many unique values — treat as uncategorized
+          categories = new Map();
+          break;
+        }
         categories.set(cat, (categories.size % CATEGORICAL_COLORS.length));
       }
     }

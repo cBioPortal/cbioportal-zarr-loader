@@ -9,6 +9,7 @@ import {
   getPointFillColor,
   sortCategoriesByCount,
   buildHexCategoryColorConfig,
+  MAX_CATEGORIES,
 } from "./scatterplotUtils";
 import { CATEGORICAL_COLORS, COLOR_SCALES, interpolateColorScale } from "./colors";
 
@@ -369,6 +370,36 @@ describe("buildScatterplotPoints", () => {
       expect(points[0].position[0]).toBe(0);
       expect(points[1].position[0]).toBe(2);
     });
+  });
+
+  it("returns empty categoryColorMap when unique values exceed MAX_CATEGORIES", () => {
+    const n = MAX_CATEGORIES + 10;
+    const flat = new Float32Array(n * 2);
+    for (let i = 0; i < n; i++) {
+      flat[i * 2] = i;
+      flat[i * 2 + 1] = i;
+    }
+    // Every row has a unique category value (simulates a continuous float column)
+    const colorData = Array.from({ length: n }, (_, i) => `val${i}`);
+    const { categoryColorMap, points } = buildScatterplotPoints({
+      data: flat,
+      shape: [n, 2],
+      colorData,
+    });
+    expect(Object.keys(categoryColorMap)).toHaveLength(0);
+    // Points should still be built
+    expect(points).toHaveLength(n);
+  });
+
+  it("keeps categoryColorMap when unique values are within MAX_CATEGORIES", () => {
+    const colorData = ["A", "B", "A", "C"];
+    const { categoryColorMap } = buildScatterplotPoints({
+      data: data4x2,
+      shape: shape4x2,
+      colorData,
+    });
+    expect(Object.keys(categoryColorMap).length).toBeGreaterThan(0);
+    expect(Object.keys(categoryColorMap)).toEqual(["A", "B", "C"]);
   });
 });
 
