@@ -8,6 +8,7 @@ import {
   buildSelectionSummary,
   getPointFillColor,
   sortCategoriesByCount,
+  buildHexCategoryColorConfig,
 } from "./scatterplotUtils";
 import { CATEGORICAL_COLORS, COLOR_SCALES, interpolateColorScale } from "./colors";
 
@@ -698,5 +699,90 @@ describe("sortCategoriesByCount", () => {
     const result = sortCategoriesByCount(colorMap, pts);
     expect(result).toHaveLength(1);
     expect(result[0]).toEqual(["Only", [1, 2, 3]]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// buildHexCategoryColorConfig
+// ---------------------------------------------------------------------------
+
+describe("buildHexCategoryColorConfig", () => {
+  it("uses the same colors as the categoryColorMap from scatter mode", () => {
+    // Categories encountered in data order: C, A, B
+    const colorData = ["C", "A", "B", "C", "A", "B"];
+    const data = new Float32Array([0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5]);
+    const { categoryColorMap } = buildScatterplotPoints({
+      data,
+      shape: [6, 2],
+      colorData,
+    });
+
+    const hexConfig = buildHexCategoryColorConfig(categoryColorMap);
+
+    // colorRange should match the scatter mode colors in the same category order
+    const cats = Object.keys(categoryColorMap);
+    for (let i = 0; i < cats.length; i++) {
+      expect(hexConfig.colorRange[i]).toEqual(categoryColorMap[cats[i]]);
+    }
+  });
+
+  it("preserves encounter-order colors, not alphabetical order", () => {
+    // Data encounters "Zebra" first, then "Apple" — Zebra should get color index 0
+    const colorData = ["Zebra", "Apple", "Zebra", "Apple"];
+    const data = new Float32Array([0, 0, 1, 1, 2, 2, 3, 3]);
+    const { categoryColorMap } = buildScatterplotPoints({
+      data,
+      shape: [4, 2],
+      colorData,
+    });
+
+    const hexConfig = buildHexCategoryColorConfig(categoryColorMap);
+
+    // Zebra was encountered first → should get CATEGORICAL_COLORS[0]
+    expect(categoryColorMap["Zebra"]).toEqual(CATEGORICAL_COLORS[0]);
+    expect(categoryColorMap["Apple"]).toEqual(CATEGORICAL_COLORS[1]);
+
+    // Hex config should use the same mapping
+    const zebraIdx = hexConfig._uniqueCats.indexOf("Zebra");
+    const appleIdx = hexConfig._uniqueCats.indexOf("Apple");
+    expect(hexConfig.colorRange[zebraIdx]).toEqual(CATEGORICAL_COLORS[0]);
+    expect(hexConfig.colorRange[appleIdx]).toEqual(CATEGORICAL_COLORS[1]);
+  });
+
+  it("getColorValue returns index of the dominant category in a bin", () => {
+    const categoryColorMap = {
+      A: CATEGORICAL_COLORS[0],
+      B: CATEGORICAL_COLORS[1],
+      C: CATEGORICAL_COLORS[2],
+    };
+    const hexConfig = buildHexCategoryColorConfig(categoryColorMap);
+
+    // Bin with 3 B's and 1 A → dominant is B (index 1)
+    const binPoints = [
+      { category: "B" },
+      { category: "A" },
+      { category: "B" },
+      { category: "B" },
+    ];
+    expect(hexConfig.getColorValue(binPoints)).toBe(1);
+  });
+
+  it("sets correct colorDomain based on number of categories", () => {
+    const categoryColorMap = {
+      X: [1, 2, 3],
+      Y: [4, 5, 6],
+      Z: [7, 8, 9],
+    };
+    const hexConfig = buildHexCategoryColorConfig(categoryColorMap);
+    expect(hexConfig.colorDomain).toEqual([0, 2]);
+    expect(hexConfig.colorScaleType).toBe("ordinal");
+  });
+
+  it("handles a single category", () => {
+    const categoryColorMap = { Only: CATEGORICAL_COLORS[0] };
+    const hexConfig = buildHexCategoryColorConfig(categoryColorMap);
+    expect(hexConfig.colorRange).toEqual([CATEGORICAL_COLORS[0]]);
+    expect(hexConfig.colorDomain).toEqual([0, 0]);
+    expect(hexConfig._uniqueCats).toEqual(["Only"]);
   });
 });
