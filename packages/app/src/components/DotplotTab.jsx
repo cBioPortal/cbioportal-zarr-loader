@@ -169,6 +169,7 @@ export default function DotplotTab() {
           open={drawerOpen}
           onClose={() => setDrawerOpen(false)}
           width={360}
+          mask={false}
         >
           <Button
             size="small"
