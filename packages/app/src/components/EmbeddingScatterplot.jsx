@@ -17,6 +17,7 @@ import {
   computeViewState,
   getPointFillColor,
   sortCategoriesByCount,
+  buildHexCategoryColorConfig,
 } from "../utils/scatterplotUtils";
 import HoverTooltip from "./HoverTooltip";
 import ExpressionLegend from "./ExpressionLegend";
@@ -248,28 +249,7 @@ export default function EmbeddingScatterplot({
       };
     }
     if (hexColorMode === "category") {
-      // Build list of unique categories in order
-      const uniqueCats = [...new Set(points.map((p) => p.category))].sort();
-      const catToIndex = Object.fromEntries(uniqueCats.map((c, i) => [c, i]));
-      const catColors = uniqueCats.map((_, i) => CATEGORICAL_COLORS[i % CATEGORICAL_COLORS.length]);
-      return {
-        getColorValue: (pts) => {
-          // Find dominant category in this bin
-          const counts = {};
-          for (const p of pts) {
-            counts[p.category] = (counts[p.category] || 0) + 1;
-          }
-          let maxCount = 0, dominant = pts[0].category;
-          for (const [cat, cnt] of Object.entries(counts)) {
-            if (cnt > maxCount) { maxCount = cnt; dominant = cat; }
-          }
-          return catToIndex[dominant] ?? 0;
-        },
-        colorRange: catColors,
-        colorDomain: [0, catColors.length - 1],
-        colorScaleType: "ordinal",
-        _uniqueCats: uniqueCats,
-      };
+      return buildHexCategoryColorConfig(categoryColorMap);
     }
     // Density fallback — blue ramp matching the default scatterplot color
     return {
@@ -282,7 +262,7 @@ export default function EmbeddingScatterplot({
         [8, 100, 200],
       ],
     };
-  }, [hexColorMode, colorScaleName, expressionRange, points]);
+  }, [hexColorMode, colorScaleName, expressionRange, points, categoryColorMap]);
 
   const hexHover = useCallback((info) => {
     if (!info.object) { setHoverInfo(null); return; }

@@ -290,6 +290,37 @@ export function getPointFillColor(point, { selectedSet, geneExpression, expressi
 }
 
 /**
+ * Build the hexbin color configuration for categorical coloring.
+ * Reuses the same category→color mapping as scatter mode so colors stay
+ * consistent when switching between scatter and hexbin views.
+ *
+ * @param {Object} categoryColorMap - Map of category name to RGB color array (from buildScatterplotPoints)
+ * @returns {{ getColorValue: Function, colorRange: Array, colorDomain: [number, number], colorScaleType: string, _uniqueCats: string[] }}
+ */
+export function buildHexCategoryColorConfig(categoryColorMap) {
+  const uniqueCats = Object.keys(categoryColorMap);
+  const catToIndex = Object.fromEntries(uniqueCats.map((c, i) => [c, i]));
+  const catColors = uniqueCats.map((c) => categoryColorMap[c]);
+  return {
+    getColorValue: (pts) => {
+      const counts = {};
+      for (const p of pts) {
+        counts[p.category] = (counts[p.category] || 0) + 1;
+      }
+      let maxCount = 0, dominant = pts[0].category;
+      for (const [cat, cnt] of Object.entries(counts)) {
+        if (cnt > maxCount) { maxCount = cnt; dominant = cat; }
+      }
+      return catToIndex[dominant] ?? 0;
+    },
+    colorRange: catColors,
+    colorDomain: [0, catColors.length - 1],
+    colorScaleType: "ordinal",
+    _uniqueCats: uniqueCats,
+  };
+}
+
+/**
  * Sort categories by point count descending for legend display.
  *
  * @param {Object} categoryColorMap - Map of category name to RGB color array
