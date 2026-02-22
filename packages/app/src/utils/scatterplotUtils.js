@@ -326,8 +326,8 @@ export function buildHexCategoryColorConfig(categoryColorMap) {
       return catToIndex[dominant] ?? 0;
     },
     colorRange: catColors,
-    colorDomain: [0, catColors.length - 1],
-    colorScaleType: "ordinal",
+    colorDomain: [0, catColors.length],
+    colorScaleType: "quantize",
     _uniqueCats: uniqueCats,
   };
 }

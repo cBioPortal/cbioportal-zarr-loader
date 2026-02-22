@@ -805,15 +805,15 @@ describe("buildHexCategoryColorConfig", () => {
       Z: [7, 8, 9],
     };
     const hexConfig = buildHexCategoryColorConfig(categoryColorMap);
-    expect(hexConfig.colorDomain).toEqual([0, 2]);
-    expect(hexConfig.colorScaleType).toBe("ordinal");
+    expect(hexConfig.colorDomain).toEqual([0, 3]);
+    expect(hexConfig.colorScaleType).toBe("quantize");
   });
 
   it("handles a single category", () => {
     const categoryColorMap = { Only: CATEGORICAL_COLORS[0] };
     const hexConfig = buildHexCategoryColorConfig(categoryColorMap);
     expect(hexConfig.colorRange).toEqual([CATEGORICAL_COLORS[0]]);
-    expect(hexConfig.colorDomain).toEqual([0, 0]);
+    expect(hexConfig.colorDomain).toEqual([0, 1]);
     expect(hexConfig._uniqueCats).toEqual(["Only"]);
   });
 });
