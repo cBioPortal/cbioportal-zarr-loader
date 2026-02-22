@@ -120,6 +120,7 @@ export default function ObsmTab() {
       return;
     }
 
+    setChildDrawerOpen(false);
     setDrawerOpen(false);
   };
 
@@ -294,7 +295,7 @@ export default function ObsmTab() {
             size={480}
             open={drawerOpen}
             onClose={() => setDrawerOpen(false)}
-            mask={false}
+            styles={{ mask: { background: "transparent" } }}
           >
             {activeSelectionIndex != null ? (
               <>
@@ -386,7 +387,7 @@ export default function ObsmTab() {
               width={480}
               open={childDrawerOpen}
               onClose={() => setChildDrawerOpen(false)}
-              mask={false}
+              styles={{ mask: { background: "transparent" } }}
             >
               <Input.TextArea
                 autoSize={{ minRows: 2 }}
