@@ -168,7 +168,7 @@ export default function DotplotTab() {
           placement="right"
           open={drawerOpen}
           onClose={() => setDrawerOpen(false)}
-          width={360}
+          size={360}
           styles={{ mask: { background: "transparent" } }}
         >
           <Button
