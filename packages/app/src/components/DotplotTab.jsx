@@ -253,7 +253,7 @@ export default function DotplotTab() {
               width="90vw"
               style={{ top: 20 }}
               styles={{ body: { height: "80vh", padding: 12 } }}
-              destroyOnClose
+              destroyOnHidden
             >
               <div style={{ marginBottom: 8, fontSize: 12, color: "#595959", display: "flex", alignItems: "center", gap: 12 }}>
                 <Checkbox
