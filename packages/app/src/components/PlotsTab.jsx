@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
 import { Alert, Card, Checkbox, Typography, Spin, Select } from "antd";
 import SearchableList from "./SearchableList";
 import TabLayout from "./TabLayout";
@@ -28,6 +28,10 @@ export default function PlotsTab() {
 
   const { geneNames, obsColumns } = metadata;
   const [filterExpression, setFilterExpression] = useState(null);
+  const [isPending, startTransition] = useTransition();
+  const handleFilterChange = (val) => {
+    startTransition(() => setFilterExpression(val ?? null));
+  };
   const [raincloudHorizontal, setRaincloudHorizontal] = useState(true);
   const [containerWidth, setContainerWidth] = useState(800);
   const containerRef = useCallback((node) => {
@@ -62,14 +66,10 @@ export default function PlotsTab() {
       }));
   }, [plotGeneExpression]);
 
-  // Auto-select the most frequent expression value for filtering
+  // Reset filter when gene changes
   useEffect(() => {
-    if (frequentValues.length > 0) {
-      setFilterExpression(frequentValues[0].value);
-    } else {
-      setFilterExpression(null);
-    }
-  }, [frequentValues]);
+    setFilterExpression(null);
+  }, [plotGene]);
 
   const data = useMemo(() => {
     if (!plotGeneExpression || !plotObsData) return null;
@@ -156,10 +156,11 @@ export default function PlotsTab() {
                 allowClear
                 placeholder="Select value to exclude"
                 value={filterExpression}
-                onChange={(val) => setFilterExpression(val ?? null)}
+                onChange={handleFilterChange}
                 options={frequentValues}
                 style={{ width: 200 }}
               />
+              {isPending && <Spin size="small" style={{ marginLeft: 8 }} />}
             </div>
             {tooManyCategories && (
               <Alert
