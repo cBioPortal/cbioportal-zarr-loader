@@ -93,6 +93,7 @@ export default function Dotplot({ genes, groups, data, width = 600, height = 400
 
   return (
     <div style={{ position: "relative", display: "flex", gap: 12 }}>
+      <div style={{ flex: 1, minWidth: 0, overflowX: "auto" }}>
       <svg width={svgWidth} height={height}>
         <Group left={MARGIN.left} top={MARGIN.top}>
           {/* Horizontal gridlines */}
@@ -227,6 +228,7 @@ export default function Dotplot({ genes, groups, data, width = 600, height = 400
           />
         </Group>
       </svg>
+      </div>
 
       {/* HTML legends */}
       <div style={{ fontSize: 10, color: "#595959", paddingTop: MARGIN.top, flexShrink: 0, width: 74 }}>

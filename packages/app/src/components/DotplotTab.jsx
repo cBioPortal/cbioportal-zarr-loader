@@ -279,21 +279,17 @@ export default function DotplotTab() {
                   style={{ width: 90 }}
                 />
               </div>
-              <div style={{ width: "100%", height: "calc(100% - 32px)" }}>
-                <ParentSize>
-                  {({ width, height }) => (
-                    <Dotplot
-                      genes={dotplotGenes}
-                      groups={groups}
-                      data={dotplotData}
-                      width={width}
-                      height={height}
-                      showLabels={showLabels}
-                      swapAxes={swapAxes}
-                      colorScaleName={colorScaleName}
-                    />
-                  )}
-                </ParentSize>
+              <div style={{ width: "100%", height: "calc(100% - 32px)", overflowX: "auto", overflowY: "auto" }}>
+                <Dotplot
+                  genes={dotplotGenes}
+                  groups={groups}
+                  data={dotplotData}
+                  width={chartWidth}
+                  height={chartHeight}
+                  showLabels={showLabels}
+                  swapAxes={swapAxes}
+                  colorScaleName={colorScaleName}
+                />
               </div>
             </Modal>
             <div style={{ marginTop: 12, fontSize: 11, color: "#595959", lineHeight: 1.6 }}>
