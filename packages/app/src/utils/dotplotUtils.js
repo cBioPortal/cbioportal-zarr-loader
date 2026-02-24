@@ -22,6 +22,15 @@ export function computeDotplotStats(genes, geneExpressions, obsData, groups) {
   for (const gene of genes) {
     const expr = geneExpressions[gene];
     if (!expr) continue;
+
+    // Find the minimum expression value for this gene.
+    // In log-normalized data, non-expressing cells all share the same
+    // baseline value (the transformed zero), which may be negative.
+    let geneMin = Infinity;
+    for (let i = 0; i < expr.length; i++) {
+      if (expr[i] < geneMin) geneMin = expr[i];
+    }
+
     for (const group of groups) {
       const indices = groupIndices[group];
       if (indices.length === 0) continue;
@@ -30,7 +39,7 @@ export function computeDotplotStats(genes, geneExpressions, obsData, groups) {
       for (const idx of indices) {
         const val = expr[idx];
         sum += val;
-        if (val > 0) expressing++;
+        if (val > geneMin) expressing++;
       }
       stats.push({
         gene,
