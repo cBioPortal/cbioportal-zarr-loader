@@ -90,12 +90,12 @@ export default function App() {
       label: "Plots",
       children: <PlotsTab />,
     },
+    ...(featureFlags.dotplot ? [{ key: "dotplot", label: "Dotplot", children: <DotplotTab /> }] : []),
     {
       key: "info",
       label: "Info",
       children: <InfoTab />,
     },
-    ...(featureFlags.dotplot ? [{ key: "dotplot", label: "Dotplot", children: <DotplotTab /> }] : []),
   ];
 
   return (
