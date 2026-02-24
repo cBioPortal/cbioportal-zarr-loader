@@ -86,17 +86,42 @@ describe("computeDotplotStats", () => {
     }
   });
 
-  it("handles all cells expressing", () => {
+  it("handles all cells expressing (all above baseline minimum)", () => {
     const genes = ["EGFR"];
+    // Cell at index 2 has the baseline min (0); all others are above it
     const geneExpressions = {
-      EGFR: [2, 3, 4, 5, 6],
+      EGFR: [2, 3, 0, 5, 6],
     };
     const stats = computeDotplotStats(genes, geneExpressions, obsData, groups);
 
-    for (const s of stats) {
-      expect(s.fractionExpressing).toBe(1);
-      expect(s.expressingCount).toBe(s.cellCount);
-    }
+    // TypeA: indices 0,1,4 → values 2,3,6 — all above min (0) → fraction 1.0
+    const typeA = stats.find((s) => s.group === "TypeA");
+    expect(typeA.fractionExpressing).toBe(1);
+    expect(typeA.expressingCount).toBe(typeA.cellCount);
+
+    // TypeB: indices 2,3 → values 0,5 — one at min → fraction 0.5
+    const typeB = stats.find((s) => s.group === "TypeB");
+    expect(typeB.fractionExpressing).toBe(0.5);
+    expect(typeB.expressingCount).toBe(1);
+  });
+
+  it("correctly thresholds log-normalized data with negative baseline", () => {
+    const genes = ["CETN2"];
+    // Simulates log-normalized values where non-expressing cells have a negative baseline
+    const geneExpressions = {
+      CETN2: [-0.56, -0.56, 1.2, -0.56, 2.5],
+    };
+    const stats = computeDotplotStats(genes, geneExpressions, obsData, groups);
+
+    // TypeA: indices 0,1,4 → values -0.56, -0.56, 2.5 — one above min
+    const typeA = stats.find((s) => s.group === "TypeA");
+    expect(typeA.expressingCount).toBe(1);
+    expect(typeA.fractionExpressing).toBeCloseTo(1 / 3);
+
+    // TypeB: indices 2,3 → values 1.2, -0.56 — one above min
+    const typeB = stats.find((s) => s.group === "TypeB");
+    expect(typeB.expressingCount).toBe(1);
+    expect(typeB.fractionExpressing).toBeCloseTo(0.5);
   });
 
   it("ignores obs values not in groups list", () => {
