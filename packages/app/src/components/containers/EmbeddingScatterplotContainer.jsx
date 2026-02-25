@@ -1,14 +1,14 @@
 import { useMemo, useCallback } from "react";
-import useAppStore from "../store/useAppStore";
-import { COLOR_SCALES } from "../utils/colors";
+import useAppStore from "../../store/useAppStore";
+import { COLOR_SCALES } from "../../utils/colors";
 import {
   buildScatterplotPoints,
   buildSelectionSummary,
   computeRange,
   sortCategoriesByCount,
   buildHexCategoryColorConfig,
-} from "../utils/scatterplotUtils";
-import EmbeddingScatterplot from "./EmbeddingScatterplot";
+} from "../../utils/scatterplotUtils";
+import EmbeddingScatterplot from "../charts/EmbeddingScatterplot";
 
 export default function EmbeddingScatterplotContainer({
   data,

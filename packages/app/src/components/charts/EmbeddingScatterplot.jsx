@@ -5,19 +5,19 @@ import DeckGL from "@deck.gl/react";
 import { ScatterplotLayer } from "@deck.gl/layers";
 import { HexagonLayer } from "@deck.gl/aggregation-layers";
 import { OrthographicView } from "@deck.gl/core";
-import { calculatePlotDimensions } from "../utils/calculatePlotDimensions";
-import { COLOR_SCALES, CATEGORICAL_COLORS } from "../utils/colors";
+import { calculatePlotDimensions } from "../../utils/calculatePlotDimensions";
+import { COLOR_SCALES, CATEGORICAL_COLORS } from "../../utils/colors";
 import {
   computeViewState,
   getPointFillColor,
   MAX_CATEGORIES,
-} from "../utils/scatterplotUtils";
-import HoverTooltip from "./HoverTooltip";
-import ExpressionLegend from "./ExpressionLegend";
-import SelectionSummaryPanel from "./SelectionSummaryPanel";
-import CollapsibleLegend from "./CollapsibleLegend";
-import SelectionOverlay from "./ui/SelectionOverlay";
-import useSelectionInteraction from "../hooks/useSelectionInteraction";
+} from "../../utils/scatterplotUtils";
+import HoverTooltip from "../ui/HoverTooltip";
+import ExpressionLegend from "../ui/ExpressionLegend";
+import SelectionSummaryPanel from "../ui/SelectionSummaryPanel";
+import CollapsibleLegend from "../ui/CollapsibleLegend";
+import SelectionOverlay from "../ui/SelectionOverlay";
+import useSelectionInteraction from "../../hooks/useSelectionInteraction";
 
 const { Text } = Typography;
 
