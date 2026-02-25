@@ -2,5 +2,6 @@
   "heatmap": false,
   "dotplot": false,
   "raincloud": false,
-  "hexbin": false
+  "hexbin": false,
+  "loadDataset": false
 }

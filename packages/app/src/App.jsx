@@ -111,6 +111,8 @@ function ViewerContent() {
 }
 
 export default function App() {
+  const { featureFlags } = useAppStore();
+
   return (
     <Layout style={{ minHeight: "100vh" }}>
       {!isEmbedded && (
@@ -128,9 +130,11 @@ export default function App() {
             cBioportal ZExplorer
           </span>
           <nav style={{ display: "flex", gap: 16, alignItems: "center" }}>
-            <Link to="/load">
-              <Button type="text" icon={<UploadOutlined />}>Load Dataset</Button>
-            </Link>
+            {featureFlags.loadDataset && (
+              <Link to="/load">
+                <Button type="text" icon={<UploadOutlined />}>Load Dataset</Button>
+              </Link>
+            )}
             <a
               href="https://github.com/cbioportal/cbioportal-zarr-loader"
               target="_blank"
@@ -143,7 +147,9 @@ export default function App() {
       )}
       <Content style={{ background: "#fff" }}>
         <Routes>
-          <Route path="/load" element={<LoadPage />} />
+          {featureFlags.loadDataset && (
+            <Route path="/load" element={<LoadPage />} />
+          )}
           <Route path="/*" element={<ViewerContent />} />
         </Routes>
       </Content>
