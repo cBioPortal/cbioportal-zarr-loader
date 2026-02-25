@@ -1,5 +1,5 @@
 import { useEffect, useMemo } from "react";
-import { Routes, Route, useSearchParams, Link } from "react-router";
+import { Routes, Route, Navigate, useSearchParams, Link } from "react-router";
 import {
   Layout,
   Spin,
@@ -20,12 +20,11 @@ import usePostMessage from "./hooks/usePostMessage";
 import useIframeResize from "./hooks/useIframeResize";
 import useLinkWithParams from "./hooks/useLinkWithParams";
 import { saveRecentUrl } from "./utils/recentUrls";
+import { DEFAULT_URL } from "./constants";
 
 const isEmbedded = window.self !== window.top || new URLSearchParams(window.location.search).has("embedded");
 
 const { Header, Content } = Layout;
-
-const DEFAULT_URL = "https://cbioportal-public-imaging.assets.cbioportal.org/msk_spectrum_tme_2022/zarr/spectrum_all_cells.zarr";
 
 function ViewerContent() {
   const [searchParams] = useSearchParams();
@@ -40,11 +39,16 @@ function ViewerContent() {
   } = useAppStore();
 
   useEffect(() => {
+    if (!url) return;
     initialize(url).then(() => {
       const { error } = useAppStore.getState();
-      if (!error && url !== DEFAULT_URL) saveRecentUrl(url);
+      if (!error) saveRecentUrl(url);
     });
   }, [initialize, url]);
+
+  if (!url) {
+    return <Navigate to="/load" replace />;
+  }
 
   const postMessageHandlers = useMemo(() => ({
     applyConfig: async (payload) => {
@@ -153,9 +157,7 @@ export default function App() {
       )}
       <Content style={{ background: "#fff" }}>
         <Routes>
-          {featureFlags.loadDataset && (
-            <Route path="/load" element={<LoadPage />} />
-          )}
+          <Route path="/load" element={<LoadPage />} />
           <Route path="/*" element={<ViewerContent />} />
         </Routes>
       </Content>
