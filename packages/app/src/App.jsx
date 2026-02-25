@@ -1,17 +1,19 @@
 import { useEffect, useMemo } from "react";
-import { Routes, Route } from "react-router";
+import { Routes, Route, useSearchParams, Link } from "react-router";
 import {
   Layout,
   Spin,
   Alert,
   Tabs,
+  Button,
 } from "antd";
-import { GithubOutlined } from "@ant-design/icons";
+import { GithubOutlined, UploadOutlined } from "@ant-design/icons";
 import ColumnsTab from "./components/views/ColumnsTab";
 import InfoTab from "./components/views/InfoTab";
 import ObsmTab from "./components/views/ObsmTab";
 import PlotsTab from "./components/views/PlotsTab";
 import DotplotTab from "./components/views/DotplotTab";
+import LoadPage from "./pages/LoadPage";
 
 import useAppStore from "./store/useAppStore";
 import usePostMessage from "./hooks/usePostMessage";
@@ -21,9 +23,12 @@ const isEmbedded = window.self !== window.top || new URLSearchParams(window.loca
 
 const { Header, Content } = Layout;
 
-const URL = "https://cbioportal-public-imaging.assets.cbioportal.org/msk_spectrum_tme_2022/zarr/spectrum_all_cells.zarr";
+const DEFAULT_URL = "https://cbioportal-public-imaging.assets.cbioportal.org/msk_spectrum_tme_2022/zarr/spectrum_all_cells.zarr";
 
-export default function App() {
+function ViewerContent() {
+  const [searchParams] = useSearchParams();
+  const url = searchParams.get("url") || DEFAULT_URL;
+
   const {
     loading,
     error,
@@ -33,8 +38,8 @@ export default function App() {
   } = useAppStore();
 
   useEffect(() => {
-    initialize(URL);
-  }, [initialize]);
+    initialize(url);
+  }, [initialize, url]);
 
   const postMessageHandlers = useMemo(() => ({
     applyConfig: async (payload) => {
@@ -50,7 +55,7 @@ export default function App() {
     return (
       <div style={{ padding: 24, textAlign: "center" }}>
         <Spin size="large" />
-        <p style={{ marginTop: 16 }}>Loading AnnData from {URL}...</p>
+        <p style={{ marginTop: 16 }}>Loading AnnData from {url}...</p>
       </div>
     );
   }
@@ -64,7 +69,7 @@ export default function App() {
           description={
             <>
               <p>{error}</p>
-              <p>Make sure the Zarr store is being served at {URL}</p>
+              <p>Make sure the Zarr store is being served at {url}</p>
             </>
           }
         />
@@ -99,6 +104,14 @@ export default function App() {
   ];
 
   return (
+    <div style={{ padding: isEmbedded ? "0 24px 24px" : 24 }}>
+      <Tabs items={tabItems} defaultActiveKey={import.meta.env.VITE_DEFAULT_TAB || "explorer"} />
+    </div>
+  );
+}
+
+export default function App() {
+  return (
     <Layout style={{ minHeight: "100vh" }}>
       {!isEmbedded && (
         <Header
@@ -114,7 +127,10 @@ export default function App() {
           <span style={{ fontSize: 18, fontWeight: 600 }}>
             cBioportal ZExplorer
           </span>
-          <nav style={{ display: "flex", gap: 16 }}>
+          <nav style={{ display: "flex", gap: 16, alignItems: "center" }}>
+            <Link to="/load">
+              <Button type="text" icon={<UploadOutlined />}>Load Dataset</Button>
+            </Link>
             <a
               href="https://github.com/cbioportal/cbioportal-zarr-loader"
               target="_blank"
@@ -127,14 +143,8 @@ export default function App() {
       )}
       <Content style={{ background: "#fff" }}>
         <Routes>
-          <Route
-            path="/*"
-            element={
-              <div style={{ padding: isEmbedded ? "0 24px 24px" : 24 }}>
-                <Tabs items={tabItems} defaultActiveKey={import.meta.env.VITE_DEFAULT_TAB || "explorer"} />
-              </div>
-            }
-          />
+          <Route path="/load" element={<LoadPage />} />
+          <Route path="/*" element={<ViewerContent />} />
         </Routes>
       </Content>
     </Layout>
