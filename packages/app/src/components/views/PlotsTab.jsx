@@ -42,12 +42,6 @@ export default function PlotsTab() {
     setContainerWidth(node.clientWidth);
   }, []);
 
-  // Dev defaults: auto-select gene and obs column on first mount
-  useEffect(() => {
-    if (!plotGene && geneNames?.includes("CETN2")) setPlotGene("CETN2");
-    if (!plotObsColumn && obsColumns?.includes("cell_type")) setPlotObsColumn("cell_type");
-  }, []);
-
   const { frequentValues, data, categoryCount, tooManyCategories, boxplotData, violinData, MAX_CATEGORIES } =
     usePlotsData(plotGeneExpression, plotObsData, plotObsColumn, plotGene, filterExpression);
 

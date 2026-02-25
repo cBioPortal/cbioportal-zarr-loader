@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { Button, Card, Checkbox, Drawer, Input, Modal, Select, Tag, Typography, Spin, message } from "antd";
 import { ExpandOutlined } from "@ant-design/icons";
 import { ParentSize } from "@visx/responsive";
@@ -26,22 +26,6 @@ export default function DotplotTab() {
   } = useAppStore();
 
   const { geneNames, obsColumns } = metadata;
-
-  // Auto-select defaults on first mount
-  const initialized = useRef(false);
-  useEffect(() => {
-    if (initialized.current) return;
-    initialized.current = true;
-
-    const defaultGenes = ["EGFR", "DAPL1"];
-    for (const name of defaultGenes) {
-      const match = geneNames.find((g) => g.toLowerCase() === name.toLowerCase());
-      if (match && !dotplotGenes.includes(match)) toggleDotplotGene(match);
-    }
-
-    const obsMatch = obsColumns.find((c) => c.toLowerCase() === "cell_type");
-    if (obsMatch && !dotplotObsColumn) setDotplotObsColumn(obsMatch);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [geneListText, setGeneListText] = useState(dotplotGenes.join("\n"));
