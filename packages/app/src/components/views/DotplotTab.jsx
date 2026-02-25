@@ -2,11 +2,11 @@ import { useEffect, useRef, useState } from "react";
 import { Button, Card, Checkbox, Drawer, Input, Modal, Select, Tag, Typography, Spin, message } from "antd";
 import { ExpandOutlined } from "@ant-design/icons";
 import { ParentSize } from "@visx/responsive";
-import SearchableList from "./SearchableList";
-import TabLayout from "./TabLayout";
-import Dotplot from "./charts/Dotplot";
-import useAppStore from "../store/useAppStore";
-import { useDotplotData } from "../hooks/useDotplotData";
+import SearchableList from "../ui/SearchableList";
+import TabLayout from "../layouts/TabLayout";
+import Dotplot from "../charts/Dotplot";
+import useAppStore from "../../store/useAppStore";
+import { useDotplotData } from "../../hooks/useDotplotData";
 
 const { Text } = Typography;
 

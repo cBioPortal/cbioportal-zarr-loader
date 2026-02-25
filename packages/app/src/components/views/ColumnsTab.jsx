@@ -1,10 +1,10 @@
 import { useState } from "react";
 import { Card, Button, Table } from "antd";
-import ColumnExplorer from "./ColumnExplorer";
-import SearchableList from "./SearchableList";
-import TabLayout from "./TabLayout";
-import useAppStore from "../store/useAppStore";
-import { useColumnsData } from "../hooks/useColumnsData";
+import ColumnExplorer from "../ui/ColumnExplorer";
+import SearchableList from "../ui/SearchableList";
+import TabLayout from "../layouts/TabLayout";
+import useAppStore from "../../store/useAppStore";
+import { useColumnsData } from "../../hooks/useColumnsData";
 
 export default function ColumnsTab() {
   const {

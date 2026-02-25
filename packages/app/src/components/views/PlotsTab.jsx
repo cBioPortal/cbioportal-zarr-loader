@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useState, useTransition } from "react";
 import { Alert, Card, Checkbox, Typography, Spin, Select } from "antd";
-import SearchableList from "./SearchableList";
-import TabLayout from "./TabLayout";
-import useAppStore from "../store/useAppStore";
-import { usePlotsData } from "../hooks/usePlotsData";
-import ViolinPlot from "./charts/ViolinPlot";
-import RaincloudPlot from "./charts/RaincloudPlot";
+import SearchableList from "../ui/SearchableList";
+import TabLayout from "../layouts/TabLayout";
+import useAppStore from "../../store/useAppStore";
+import { usePlotsData } from "../../hooks/usePlotsData";
+import ViolinPlot from "../charts/ViolinPlot";
+import RaincloudPlot from "../charts/RaincloudPlot";
 
 const { Text } = Typography;
 

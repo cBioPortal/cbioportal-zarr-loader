@@ -1,5 +1,5 @@
 import { Card, Typography, Descriptions } from "antd";
-import useAppStore from "../store/useAppStore";
+import useAppStore from "../../store/useAppStore";
 
 const { Text } = Typography;
 
