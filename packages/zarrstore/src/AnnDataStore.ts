@@ -96,13 +96,27 @@ export class AnnDataStore {
   static async #loadConsolidatedMetadata(
     zarrStore: ZarrStore,
   ): Promise<ConsolidatedMetadata | null> {
+    const baseUrl = String(zarrStore.store.url).replace(/\/$/, "");
+
+    // Try v2 consolidated metadata first
     try {
-      const response = await fetch(
-        String(zarrStore.store.url).replace(/\/$/, "") + "/.zmetadata",
-      );
+      const response = await fetch(baseUrl + "/.zmetadata");
+      if (response.ok) {
+        const data = (await response.json()) as { metadata?: ConsolidatedMetadata };
+        if (data.metadata) return data.metadata;
+      }
+    } catch {
+      // fall through to v3
+    }
+
+    // Try v3 consolidated metadata (inside zarr.json)
+    try {
+      const response = await fetch(baseUrl + "/zarr.json");
       if (!response.ok) return null;
-      const data = (await response.json()) as { metadata?: ConsolidatedMetadata };
-      return data.metadata || null;
+      const data = (await response.json()) as {
+        consolidated_metadata?: { metadata?: ConsolidatedMetadata };
+      };
+      return data.consolidated_metadata?.metadata || null;
     } catch {
       return null;
     }
@@ -306,7 +320,12 @@ export class AnnDataStore {
         const rest = key.slice(prefix.length);
         const slashIndex = rest.indexOf("/");
         if (slashIndex > 0) {
+          // v2 keys: "obsm/X_umap/.zattrs" → extract "X_umap"
           keys.add(rest.slice(0, slashIndex));
+        } else if (rest.length > 0 && !rest.startsWith(".z")) {
+          // v3 keys: "obsm/X_umap" → bare path, no sub-key suffix
+          // Skip v2 metadata files like .zattrs, .zgroup, .zarray
+          keys.add(rest);
         }
       }
     }
