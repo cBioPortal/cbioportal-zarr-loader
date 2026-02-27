@@ -113,15 +113,19 @@ const createCoreSlice = (set, get) => ({
       const varNames = await store.varNames();
       timings.varNames = performance.now() - start;
 
-      // Try to get feature_name column for display
+      // Try common gene-symbol column names in priority order
       let geneNames = varNames;
-      try {
-        const featureNames = await store.varColumn("feature_name");
-        if (featureNames && featureNames.length === varNames.length) {
-          geneNames = featureNames;
+      const geneSymbolCandidates = ["gene_symbol", "GeneSymbol", "feature_name", "var_name", "gene_name"];
+      for (const col of geneSymbolCandidates) {
+        try {
+          const names = await store.varColumn(col);
+          if (names && names.length === varNames.length) {
+            geneNames = names;
+            break;
+          }
+        } catch {
+          // column doesn't exist, try next
         }
-      } catch {
-        // feature_name column doesn't exist
       }
 
       // Get chunk size from X array
