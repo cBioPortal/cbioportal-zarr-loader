@@ -284,6 +284,7 @@ export default function ObsmTab() {
                 label={selectedObsm}
                 onSaveSelection={handleSaveSelection}
                 showHexbinToggle={!!featureFlags.hexbin}
+                debugMode={!!featureFlags.deckglDebug}
               />
             ) : null}
           </Card>

@@ -18,6 +18,7 @@ interface EmbeddingScatterplotContainerProps {
   maxPoints?: number;
   onSaveSelection?: () => void;
   showHexbinToggle?: boolean;
+  debugMode?: boolean;
 }
 
 interface AppStoreSlice {
@@ -46,6 +47,7 @@ export default function EmbeddingScatterplotContainer({
   maxPoints = Infinity,
   onSaveSelection,
   showHexbinToggle = false,
+  debugMode = false,
 }: EmbeddingScatterplotContainerProps) {
   const {
     colorColumn,
@@ -169,6 +171,7 @@ export default function EmbeddingScatterplotContainer({
       setSelectionGeometry={setSelectionGeometry}
       colorScaleName={colorScaleName}
       setColorScaleName={setColorScaleName}
+      debugMode={debugMode}
     />
   );
 }

@@ -5,6 +5,9 @@ import DeckGL from "@deck.gl/react";
 import { ScatterplotLayer } from "@deck.gl/layers";
 import { HexagonLayer } from "@deck.gl/aggregation-layers";
 import { OrthographicView } from "@deck.gl/core";
+import { _StatsWidget as StatsWidget } from "@deck.gl/widgets";
+import "@deck.gl/widgets/stylesheet.css";
+import { Stats } from "@probe.gl/stats";
 import { calculatePlotDimensions } from "../../utils/calculatePlotDimensions";
 import { COLOR_SCALES, CATEGORICAL_COLORS } from "../../utils/colors";
 import {
@@ -91,6 +94,7 @@ interface EmbeddingScatterplotProps {
   setSelectionGeometry: (geo: SelectionGeometry | null) => void;
   setColorScaleName: (name: string) => void;
   toggleTooltipColumn: (col: string) => void;
+  debugMode?: boolean;
 }
 
 type SelectMode = "pan" | "rectangle" | "lasso";
@@ -152,6 +156,7 @@ export default function EmbeddingScatterplot({
   setSelectionGeometry,
   setColorScaleName,
   toggleTooltipColumn,
+  debugMode = false,
 }: EmbeddingScatterplotProps) {
   const [hoverInfo, setHoverInfo] = useState<HoverState | null>(null);
   const [expanded, setExpanded] = useState(false);
@@ -162,6 +167,79 @@ export default function EmbeddingScatterplot({
   const containerRef = useRef<HTMLDivElement>(null);
   const deckRef = useRef(null);
   const [containerSize, setContainerSize] = useState({ width: 600, height: 600 });
+
+  // Custom Stats object fed by _onMetrics so the widget reads a stable snapshot
+  // instead of deck.gl's own stats (which get reset before the widget reads them).
+  const customStatsRef = useRef<InstanceType<typeof Stats> | null>(null);
+  if (debugMode && !customStatsRef.current) {
+    customStatsRef.current = new Stats({ id: "deck.gl-metrics" });
+  }
+
+  const debugWidgets = useMemo(
+    () =>
+      debugMode && customStatsRef.current
+        ? [
+            new StatsWidget({
+              id: "deck-stats",
+              type: "custom",
+              stats: customStatsRef.current,
+              title: "Deck Stats",
+              framesPerUpdate: 1,
+              formatters: {
+                fps: "fps",
+                "CPU Time": "averageTime",
+                "GPU Time": "averageTime",
+                "Redraw Count": "count",
+                "Pick Count": "count",
+                "setProps Time": "totalTime",
+                "Pick Time": "totalTime",
+              },
+            }),
+          ]
+        : [],
+    [debugMode],
+  );
+
+  const onDebugMetrics = useCallback((metrics: Record<string, number>) => {
+    console.table(metrics);
+    const s = customStatsRef.current;
+    if (!s) return;
+    // Populate our custom Stats from the _onMetrics snapshot.
+    // frameRate uses getHz() so we feed it time-based data.
+    const fpsStat = s.get("fps", "count");
+    fpsStat.reset();
+    fpsStat.addCount(Math.round(metrics.fps));
+
+    const cpuStat = s.get("CPU Time", "totalTime");
+    cpuStat.reset();
+    cpuStat.addTime(metrics.cpuTime ?? 0);
+
+    const gpuStat = s.get("GPU Time", "totalTime");
+    gpuStat.reset();
+    gpuStat.addTime(metrics.gpuTime ?? 0);
+
+    const redrawStat = s.get("Redraw Count", "count");
+    redrawStat.reset();
+    redrawStat.addCount(metrics.framesRedrawn ?? 0);
+
+    const pickCountStat = s.get("Pick Count", "count");
+    pickCountStat.reset();
+    pickCountStat.addCount(metrics.pickCount ?? 0);
+
+    const setPropsStat = s.get("setProps Time", "totalTime");
+    setPropsStat.reset();
+    setPropsStat.addTime(metrics.setPropsTime ?? 0);
+
+    const pickTimeStat = s.get("Pick Time", "totalTime");
+    pickTimeStat.reset();
+    pickTimeStat.addTime(metrics.pickTime ?? 0);
+
+    // Directly update the widget HTML since we own the widget instance
+    // and can't rely on deck redraws to trigger onRedraw.
+    for (const w of debugWidgets) {
+      w.updateHTML();
+    }
+  }, [debugWidgets]);
 
   const {
     selectMode,
@@ -353,6 +431,8 @@ export default function EmbeddingScatterplot({
             initialViewState={initialViewState}
             controller={{ dragPan: selectMode === "pan" }}
             layers={layers}
+            widgets={debugWidgets}
+            {...(debugMode ? { _onMetrics: onDebugMetrics } : {})}
           />
           <SelectionOverlay selectionRectRef={selectionRectRef} lassoSvgRef={lassoSvgRef} />
           <div style={{ position: "absolute", top: 8, left: 8, zIndex: 1, display: "flex", gap: 4 }} onMouseDown={(e) => e.stopPropagation()}>

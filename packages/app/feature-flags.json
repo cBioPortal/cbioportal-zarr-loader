@@ -3,5 +3,6 @@
   "dotplot": false,
   "raincloud": false,
   "hexbin": false,
-  "loadDataset": false
+  "loadDataset": false,
+  "deckglDebug": false
 }
