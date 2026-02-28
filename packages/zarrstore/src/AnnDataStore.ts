@@ -17,6 +17,7 @@ import type {
   DecodeNodeResult,
 } from "./decoders";
 import { ProfileCollector, startMeasure } from "./ProfileCollector";
+import type { ChunkInfo, MeasureExtra } from "./ProfileCollector";
 
 type ZarrGroup = zarr.Group<Readable>;
 type ZarrArray = zarr.Array<zarr.DataType, Readable>;
@@ -32,12 +33,18 @@ interface ObsmBatch {
   total: number;
 }
 
+interface CachedOpts<T> {
+  getChunkInfo?: (result: T) => ChunkInfo | undefined;
+  getLabel?: (result: T) => Promise<string | undefined> | string | undefined;
+}
+
 export class AnnDataStore {
   #zarrStore: ZarrStore;
   #shape: number[];
   #attrs: Record<string, unknown>;
   #consolidatedMetadata: ConsolidatedMetadata | null;
   #cache = new Map<string, Promise<unknown>>();
+  #labelCache = new Map<string, string>();
   profiler: ProfileCollector;
 
   constructor(
@@ -52,27 +59,116 @@ export class AnnDataStore {
     this.profiler = new ProfileCollector();
   }
 
-  #cached<T>(key: string, fn: () => Promise<T>): Promise<T> {
+  /**
+   * Extract ChunkInfo for a zarr array path from consolidated metadata.
+   * Works for both v2 (.zarray keys) and v3 (direct keys with codecs).
+   */
+  #chunkInfoFromMetadata(path: string): ChunkInfo | undefined {
+    const meta = this.#consolidatedMetadata;
+    if (!meta) return undefined;
+
+    // v2: look up "<path>/.zarray"
+    const v2Key = `${path}/.zarray`;
+    const v2Meta = meta[v2Key] as Record<string, unknown> | undefined;
+    if (v2Meta && v2Meta.shape) {
+      return {
+        arrayShape: v2Meta.shape as number[],
+        chunkShape: v2Meta.chunks as number[],
+        dtype: String(v2Meta.dtype ?? ""),
+        sharded: false, // v2 has no sharding
+      };
+    }
+
+    // v3: look up "<path>" directly
+    const v3Meta = meta[path] as Record<string, unknown> | undefined;
+    if (v3Meta && v3Meta.shape) {
+      const codecs = v3Meta.codecs as { name: string }[] | undefined;
+      const sharded = codecs?.some(
+        (c) => c.name === "sharding_indexed",
+      ) ?? false;
+
+      const chunkGrid = v3Meta.chunk_grid as {
+        configuration?: { chunk_shape?: number[] };
+      } | undefined;
+
+      return {
+        arrayShape: v3Meta.shape as number[],
+        chunkShape: chunkGrid?.configuration?.chunk_shape ?? [],
+        dtype: String(v3Meta.data_type ?? ""),
+        sharded,
+      };
+    }
+
+    return undefined;
+  }
+
+  /**
+   * Get ChunkInfo for a dataframe column, handling categoricals
+   * (whose primary data lives at <slot>/<name>/codes).
+   */
+  #chunkInfoForColumn(slot: string, name: string): ChunkInfo | undefined {
+    return this.#chunkInfoFromMetadata(`${slot}/${name}`)
+      ?? this.#chunkInfoFromMetadata(`${slot}/${name}/codes`);
+  }
+
+  /**
+   * Get ChunkInfo for the _index array of a dataframe slot (obs/var).
+   * Reads the index key from .zattrs in consolidated metadata.
+   */
+  #chunkInfoForIndex(slot: string): ChunkInfo | undefined {
+    const meta = this.#consolidatedMetadata;
+    if (!meta) return undefined;
+    const attrs = meta[`${slot}/.zattrs`] as Record<string, unknown> | undefined;
+    const indexKey = attrs?.["_index"] as string | undefined;
+    if (!indexKey) return undefined;
+    return this.#chunkInfoFromMetadata(`${slot}/${indexKey}`)
+      ?? this.#chunkInfoFromMetadata(`${slot}/${indexKey}/codes`);
+  }
+
+  #cached<T>(
+    key: string,
+    fn: () => Promise<T>,
+    opts?: CachedOpts<T>,
+  ): Promise<T> {
     const cacheHit = this.#cache.has(key);
     if (!cacheHit) {
+      const before = this.#zarrStore.snapshotFetchStats();
       const finish = startMeasure(key, false);
       this.#cache.set(
         key,
-        fn().then((result) => {
-          finish();
+        fn().then(async (result) => {
+          const after = this.#zarrStore.snapshotFetchStats();
+          const fetches = {
+            requests: after.requests - before.requests,
+            bytes: after.bytes - before.bytes,
+          };
+          const chunks = opts?.getChunkInfo?.(result);
+          const label = await opts?.getLabel?.(result);
+          const extra: MeasureExtra = {};
+          if (label) {
+            extra.label = label;
+            this.#labelCache.set(key, label);
+          }
+          if (chunks) extra.chunks = chunks;
+          if (fetches.requests > 0 || fetches.bytes > 0) extra.fetches = fetches;
+          finish(extra);
           return result;
         }),
       );
     } else {
       // Fire a zero-duration measure for cache hits
       const finish = startMeasure(key, true);
-      finish();
+      const cachedLabel = this.#labelCache.get(key);
+      const extra: MeasureExtra = { fetches: { requests: 0, bytes: 0 } };
+      if (cachedLabel) extra.label = cachedLabel;
+      finish(extra);
     }
     return this.#cache.get(key) as Promise<T>;
   }
 
   clearCache(): void {
     this.#cache.clear();
+    this.#labelCache.clear();
   }
 
   static async open(url: string): Promise<AnnDataStore> {
@@ -174,6 +270,7 @@ export class AnnDataStore {
 
   async X(sliceRange?: [number, number]): Promise<ArrayResult | SparseMatrix> {
     const key = sliceRange ? `X:${sliceRange[0]}-${sliceRange[1]}` : "X";
+    const before = this.#zarrStore.snapshotFetchStats();
     const finish = startMeasure(key, false);
     let node: ZarrArray | ZarrGroup;
     try {
@@ -193,69 +290,140 @@ export class AnnDataStore {
       result = await readArray(node as ZarrArray);
     }
 
-    finish();
+    const after = this.#zarrStore.snapshotFetchStats();
+    const fetches = {
+      requests: after.requests - before.requests,
+      bytes: after.bytes - before.bytes,
+    };
+    const chunks = this.#chunkInfoFromMetadata("X");
+    const extra: MeasureExtra = {};
+    if (chunks) extra.chunks = chunks;
+    if (fetches.requests > 0 || fetches.bytes > 0) extra.fetches = fetches;
+    finish(extra);
     return result;
   }
 
-  async geneExpression(geneName: string): Promise<zarr.TypedArray<zarr.DataType>> {
-    return this.#cached(`geneExpression:${geneName}`, async () => {
-      // Get gene index from var names
-      const varNames = await this.varNames();
-      const geneIndex = varNames.indexOf(geneName);
-      if (geneIndex === -1) {
-        throw new Error(`Gene "${geneName}" not found`);
-      }
+  /** Common var column names that hold human-readable gene symbols (case-sensitive candidates). */
+  static readonly #GENE_SYMBOL_COLUMNS = [
+    "gene_symbol",
+    "GeneSymbol",
+    "gene_symbols",
+    "feature_name",
+    "var_name",
+    "gene_name",
+    "gene_short_name",
+    "symbol",
+    "name",
+  ];
 
-      // Try to open X as dense array
-      let node: ZarrArray | ZarrGroup;
-      try {
-        node = await this.#zarrStore.openArray("X");
-      } catch {
-        node = await this.#zarrStore.openGroup("X");
-      }
-
-      if ((node.attrs?.["encoding-type"] as string)?.endsWith("_matrix")) {
-        // Sparse matrix - need to decode and extract column
-        const sparse = await decodeSparseMatrix(node as ZarrGroup);
-        // For CSR matrix, we need to iterate through all rows
-        // This is less efficient but works for any sparse format
-        const result = new Float32Array(this.#shape[0]);
-        const data = sparse.data as ArrayLike<number>;
-        const indices = sparse.indices as ArrayLike<number>;
-        const indptr = sparse.indptr as ArrayLike<number>;
-        for (let row = 0; row < this.#shape[0]; row++) {
-          const rowStart = indptr[row];
-          const rowEnd = indptr[row + 1];
-          for (let j = rowStart; j < rowEnd; j++) {
-            if (indices[j] === geneIndex) {
-              result[row] = data[j];
-              break;
-            }
+  /**
+   * Try to resolve a human-readable gene symbol for a var-index gene name.
+   * Returns undefined if no symbol column exists or the name is already the symbol.
+   */
+  async #resolveGeneLabel(geneName: string): Promise<string | undefined> {
+    try {
+      const cols = await this.varColumns();
+      // Try exact match first, then case-insensitive fallback
+      let symbolCol = AnnDataStore.#GENE_SYMBOL_COLUMNS.find((c) =>
+        cols.includes(c),
+      );
+      if (!symbolCol) {
+        const colsLower = cols.map((c) => c.toLowerCase());
+        for (const candidate of AnnDataStore.#GENE_SYMBOL_COLUMNS) {
+          const idx = colsLower.indexOf(candidate.toLowerCase());
+          if (idx !== -1) {
+            symbolCol = cols[idx];
+            break;
           }
         }
-        return result;
       }
+      if (!symbolCol) return undefined;
 
-      // Dense array - slice the column
-      const chunk = await zarr.get(node as ZarrArray, [null, geneIndex]);
-      return chunk.data;
-    });
+      const symbols = await this.varColumn(symbolCol);
+      const varNames = await this.varNames();
+      const idx = varNames.indexOf(geneName);
+      if (idx < 0) return undefined;
+
+      const label = String(symbols[idx]);
+      // Don't return a label if it's identical to the key (already readable)
+      return label && label !== geneName ? label : undefined;
+    } catch {
+      return undefined;
+    }
+  }
+
+  async geneExpression(geneName: string): Promise<zarr.TypedArray<zarr.DataType>> {
+    return this.#cached(
+      `geneExpression:${geneName}`,
+      async () => {
+        // Get gene index from var names
+        const varNames = await this.varNames();
+        const geneIndex = varNames.indexOf(geneName);
+        if (geneIndex === -1) {
+          throw new Error(`Gene "${geneName}" not found`);
+        }
+
+        // Try to open X as dense array
+        let node: ZarrArray | ZarrGroup;
+        try {
+          node = await this.#zarrStore.openArray("X");
+        } catch {
+          node = await this.#zarrStore.openGroup("X");
+        }
+
+        if ((node.attrs?.["encoding-type"] as string)?.endsWith("_matrix")) {
+          // Sparse matrix - need to decode and extract column
+          const sparse = await decodeSparseMatrix(node as ZarrGroup);
+          const result = new Float32Array(this.#shape[0]);
+          const data = sparse.data as ArrayLike<number>;
+          const indices = sparse.indices as ArrayLike<number>;
+          const indptr = sparse.indptr as ArrayLike<number>;
+          for (let row = 0; row < this.#shape[0]; row++) {
+            const rowStart = indptr[row];
+            const rowEnd = indptr[row + 1];
+            for (let j = rowStart; j < rowEnd; j++) {
+              if (indices[j] === geneIndex) {
+                result[row] = data[j];
+                break;
+              }
+            }
+          }
+          return result;
+        }
+
+        // Dense array - slice the column
+        const chunk = await zarr.get(node as ZarrArray, [null, geneIndex]);
+        return chunk.data;
+      },
+      {
+        getChunkInfo: () => this.#chunkInfoFromMetadata("X"),
+        getLabel: () => this.#resolveGeneLabel(geneName),
+      },
+    );
   }
 
   // --- obs / var dataframes ---
 
   obs(): Promise<Dataframe> {
-    return this.#cached("obs", async () => {
-      const group = await this.#zarrStore.openGroup("obs");
-      return decodeDataframe(group);
-    });
+    return this.#cached(
+      "obs",
+      async () => {
+        const group = await this.#zarrStore.openGroup("obs");
+        return decodeDataframe(group);
+      },
+      { getChunkInfo: () => this.#chunkInfoForIndex("obs") },
+    );
   }
 
   obsColumn(name: string): Promise<zarr.TypedArray<zarr.DataType> | (string | number | null)[]> {
-    return this.#cached(`obs:${name}`, async () => {
-      const group = await this.#zarrStore.openGroup("obs");
-      return decodeColumn(group, name);
-    });
+    return this.#cached(
+      `obs:${name}`,
+      async () => {
+        const group = await this.#zarrStore.openGroup("obs");
+        return decodeColumn(group, name);
+      },
+      { getChunkInfo: () => this.#chunkInfoForColumn("obs", name) },
+    );
   }
 
   obsColumns(): Promise<string[]> {
@@ -266,37 +434,49 @@ export class AnnDataStore {
   }
 
   obsNames(): Promise<(string | number | null)[]> {
-    return this.#cached("obsNames", async () => {
-      const group = await this.#zarrStore.openGroup("obs");
-      const indexKey = group.attrs["_index"] as string;
-      // Index can be an array or a categorical group
-      try {
-        const arr = await zarr.open(group.resolve(indexKey), { kind: "array" });
-        const result = await readArray(arr);
-        return toStringArray(result.data);
-      } catch {
-        // It's a categorical group
-        const catGroup = await zarr.open(group.resolve(indexKey), {
-          kind: "group",
-        });
-        const decoded = await decodeCategorical(catGroup);
-        return decoded.values;
-      }
-    });
+    return this.#cached(
+      "obsNames",
+      async () => {
+        const group = await this.#zarrStore.openGroup("obs");
+        const indexKey = group.attrs["_index"] as string;
+        // Index can be an array or a categorical group
+        try {
+          const arr = await zarr.open(group.resolve(indexKey), { kind: "array" });
+          const result = await readArray(arr);
+          return toStringArray(result.data);
+        } catch {
+          // It's a categorical group
+          const catGroup = await zarr.open(group.resolve(indexKey), {
+            kind: "group",
+          });
+          const decoded = await decodeCategorical(catGroup);
+          return decoded.values;
+        }
+      },
+      { getChunkInfo: () => this.#chunkInfoForIndex("obs") },
+    );
   }
 
   var(): Promise<Dataframe> {
-    return this.#cached("var", async () => {
-      const group = await this.#zarrStore.openGroup("var");
-      return decodeDataframe(group);
-    });
+    return this.#cached(
+      "var",
+      async () => {
+        const group = await this.#zarrStore.openGroup("var");
+        return decodeDataframe(group);
+      },
+      { getChunkInfo: () => this.#chunkInfoForIndex("var") },
+    );
   }
 
   varColumn(name: string): Promise<zarr.TypedArray<zarr.DataType> | (string | number | null)[]> {
-    return this.#cached(`var:${name}`, async () => {
-      const group = await this.#zarrStore.openGroup("var");
-      return decodeColumn(group, name);
-    });
+    return this.#cached(
+      `var:${name}`,
+      async () => {
+        const group = await this.#zarrStore.openGroup("var");
+        return decodeColumn(group, name);
+      },
+      { getChunkInfo: () => this.#chunkInfoForColumn("var", name) },
+    );
   }
 
   varColumns(): Promise<string[]> {
@@ -307,23 +487,27 @@ export class AnnDataStore {
   }
 
   varNames(): Promise<(string | number | null)[]> {
-    return this.#cached("varNames", async () => {
-      const group = await this.#zarrStore.openGroup("var");
-      const indexKey = group.attrs["_index"] as string;
-      // Index can be an array or a categorical group
-      try {
-        const arr = await zarr.open(group.resolve(indexKey), { kind: "array" });
-        const result = await readArray(arr);
-        return toStringArray(result.data);
-      } catch {
-        // It's a categorical group
-        const catGroup = await zarr.open(group.resolve(indexKey), {
-          kind: "group",
-        });
-        const decoded = await decodeCategorical(catGroup);
-        return decoded.values;
-      }
-    });
+    return this.#cached(
+      "varNames",
+      async () => {
+        const group = await this.#zarrStore.openGroup("var");
+        const indexKey = group.attrs["_index"] as string;
+        // Index can be an array or a categorical group
+        try {
+          const arr = await zarr.open(group.resolve(indexKey), { kind: "array" });
+          const result = await readArray(arr);
+          return toStringArray(result.data);
+        } catch {
+          // It's a categorical group
+          const catGroup = await zarr.open(group.resolve(indexKey), {
+            kind: "group",
+          });
+          const decoded = await decodeCategorical(catGroup);
+          return decoded.values;
+        }
+      },
+      { getChunkInfo: () => this.#chunkInfoForIndex("var") },
+    );
   }
 
   // --- Dict-of-matrices slots ---
@@ -352,22 +536,34 @@ export class AnnDataStore {
   }
 
   #slotNode(path: string, key: string): Promise<DecodeNodeResult> {
-    return this.#cached(`${path}:${key}`, async () => {
-      const node = await this.#zarrStore.openGroup(`${path}/${key}`);
-      return decodeNode(node);
-    });
+    return this.#cached(
+      `${path}:${key}`,
+      async () => {
+        const node = await this.#zarrStore.openGroup(`${path}/${key}`);
+        return decodeNode(node);
+      },
+      {
+        getChunkInfo: () =>
+          this.#chunkInfoFromMetadata(`${path}/${key}/data`)
+          ?? this.#chunkInfoFromMetadata(`${path}/${key}`),
+      },
+    );
   }
 
   #slotArray(path: string, key: string): Promise<ArrayResult | DecodeNodeResult> {
-    return this.#cached(`${path}:${key}`, async () => {
-      try {
-        const arr = await this.#zarrStore.openArray(`${path}/${key}`);
-        return readArray(arr);
-      } catch {
-        const node = await this.#zarrStore.openGroup(`${path}/${key}`);
-        return decodeNode(node);
-      }
-    });
+    return this.#cached(
+      `${path}:${key}`,
+      async () => {
+        try {
+          const arr = await this.#zarrStore.openArray(`${path}/${key}`);
+          return readArray(arr);
+        } catch {
+          const node = await this.#zarrStore.openGroup(`${path}/${key}`);
+          return decodeNode(node);
+        }
+      },
+      { getChunkInfo: () => this.#chunkInfoFromMetadata(`${path}/${key}`) },
+    );
   }
 
   obsm(key: string): Promise<ArrayResult | DecodeNodeResult> {
@@ -375,6 +571,7 @@ export class AnnDataStore {
   }
 
   async *obsmStreaming(key: string, batchSize?: number): AsyncGenerator<ObsmBatch> {
+    const before = this.#zarrStore.snapshotFetchStats();
     const finish = startMeasure(`obsmStreaming:${key}`, false);
     const arr = await this.#zarrStore.openArray(`obsm/${key}`);
     const [nObs] = arr.shape;
@@ -386,7 +583,16 @@ export class AnnDataStore {
       yield { data: chunk.data, shape: chunk.shape, offset, total: nObs };
     }
 
-    finish();
+    const after = this.#zarrStore.snapshotFetchStats();
+    const fetches = {
+      requests: after.requests - before.requests,
+      bytes: after.bytes - before.bytes,
+    };
+    const chunks = this.#chunkInfoFromMetadata(`obsm/${key}`);
+    const extra: MeasureExtra = {};
+    if (chunks) extra.chunks = chunks;
+    if (fetches.requests > 0 || fetches.bytes > 0) extra.fetches = fetches;
+    finish(extra);
   }
 
   obsmKeys(): string[] {
