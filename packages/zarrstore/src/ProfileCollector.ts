@@ -18,8 +18,13 @@ export class ProfileCollector {
   entries: ProfileEntry[] = [];
   enabled: boolean = true;
   #nextId = 1;
+  #version = 0;
   #listeners: Set<() => void> = new Set();
   #observer: PerformanceObserver;
+
+  get version(): number {
+    return this.#version;
+  }
 
   constructor() {
     this.#observer = new PerformanceObserver((list) => {
@@ -37,6 +42,7 @@ export class ProfileCollector {
           duration: entry.duration,
         });
       }
+      this.#version++;
       this.#notify();
     });
     this.#observer.observe({ type: "measure", buffered: false });
@@ -45,6 +51,7 @@ export class ProfileCollector {
   clear(): void {
     this.entries = [];
     this.#nextId = 1;
+    this.#version++;
     this.#notify();
   }
 

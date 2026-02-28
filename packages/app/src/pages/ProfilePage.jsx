@@ -1,11 +1,13 @@
-import { useState } from "react";
-import { Table, Tag, Button, Card, Space, Typography, Popconfirm } from "antd";
+import { useState, useMemo } from "react";
+import { Table, Tag, Button, Card, Space, Typography, Popconfirm, Statistic, Row, Col } from "antd";
 import { DeleteOutlined, ClearOutlined } from "@ant-design/icons";
 import {
   getProfileHistory,
   removeProfileSession,
   clearProfileHistory,
 } from "../utils/profileStorage";
+import MethodBreakdownChart from "../components/charts/MethodBreakdownChart";
+import CacheEfficiencyChart from "../components/charts/CacheEfficiencyChart";
 
 const { Text, Title } = Typography;
 
@@ -29,6 +31,77 @@ const entryColumns = [
     sorter: (a, b) => a.duration - b.duration,
   },
 ];
+
+function SummaryStats({ history }) {
+  const stats = useMemo(() => {
+    let totalQueries = 0;
+    let totalHits = 0;
+    let slowestQuery = 0;
+
+    for (const session of history) {
+      for (const e of session.entries) {
+        totalQueries++;
+        if (e.cacheHit) totalHits++;
+        if (e.duration > slowestQuery) slowestQuery = e.duration;
+      }
+    }
+
+    const avgHitRate = totalQueries > 0 ? ((totalHits / totalQueries) * 100).toFixed(1) : 0;
+
+    return { totalSessions: history.length, totalQueries, avgHitRate, slowestQuery };
+  }, [history]);
+
+  return (
+    <Row gutter={16} style={{ marginBottom: 24 }}>
+      <Col span={6}>
+        <Card size="small">
+          <Statistic title="Total Sessions" value={stats.totalSessions} />
+        </Card>
+      </Col>
+      <Col span={6}>
+        <Card size="small">
+          <Statistic title="Total Queries" value={stats.totalQueries} />
+        </Card>
+      </Col>
+      <Col span={6}>
+        <Card size="small">
+          <Statistic title="Avg Cache Hit Rate" value={stats.avgHitRate} suffix="%" />
+        </Card>
+      </Col>
+      <Col span={6}>
+        <Card size="small">
+          <Statistic title="Slowest Query" value={stats.slowestQuery.toFixed(1)} suffix="ms" />
+        </Card>
+      </Col>
+    </Row>
+  );
+}
+
+function Charts({ history }) {
+  const sessions = useMemo(
+    () =>
+      history.map((s, i) => ({
+        label: s.url ? new URL(s.url).pathname.split("/").pop() || `Session ${i + 1}` : `Session ${i + 1}`,
+        entries: s.entries,
+      })),
+    [history],
+  );
+
+  return (
+    <Row gutter={24} style={{ marginBottom: 24 }}>
+      <Col span={12}>
+        <Card size="small" title="Duration by Method">
+          <MethodBreakdownChart sessions={sessions} width={440} />
+        </Card>
+      </Col>
+      <Col span={12}>
+        <Card size="small" title="Cache Efficiency">
+          <CacheEfficiencyChart sessions={sessions} width={440} />
+        </Card>
+      </Col>
+    </Row>
+  );
+}
 
 export default function ProfilePage() {
   const [history, setHistory] = useState(() => getProfileHistory());
@@ -121,23 +194,27 @@ export default function ProfilePage() {
           <Text type="secondary">No profile sessions saved yet. Use the profiler drawer to record and save sessions.</Text>
         </Card>
       ) : (
-        <Table
-          size="small"
-          dataSource={history.map((s, i) => ({ ...s, key: i }))}
-          columns={sessionColumns}
-          pagination={false}
-          expandable={{
-            expandedRowRender: (record) => (
-              <Table
-                size="small"
-                dataSource={record.entries}
-                columns={entryColumns}
-                rowKey="id"
-                pagination={{ defaultPageSize: 25, showSizeChanger: true }}
-              />
-            ),
-          }}
-        />
+        <>
+          <SummaryStats history={history} />
+          <Charts history={history} />
+          <Table
+            size="small"
+            dataSource={history.map((s, i) => ({ ...s, key: i }))}
+            columns={sessionColumns}
+            pagination={false}
+            expandable={{
+              expandedRowRender: (record) => (
+                <Table
+                  size="small"
+                  dataSource={record.entries}
+                  columns={entryColumns}
+                  rowKey="id"
+                  pagination={{ defaultPageSize: 25, showSizeChanger: true }}
+                />
+              ),
+            }}
+          />
+        </>
       )}
     </div>
   );
