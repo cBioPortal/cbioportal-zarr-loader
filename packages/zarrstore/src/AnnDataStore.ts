@@ -16,6 +16,7 @@ import type {
   Dataframe,
   DecodeNodeResult,
 } from "./decoders";
+import { ProfileCollector, startMeasure } from "./ProfileCollector";
 
 type ZarrGroup = zarr.Group<Readable>;
 type ZarrArray = zarr.Array<zarr.DataType, Readable>;
@@ -37,6 +38,7 @@ export class AnnDataStore {
   #attrs: Record<string, unknown>;
   #consolidatedMetadata: ConsolidatedMetadata | null;
   #cache = new Map<string, Promise<unknown>>();
+  profiler: ProfileCollector;
 
   constructor(
     zarrStore: ZarrStore,
@@ -47,11 +49,24 @@ export class AnnDataStore {
     this.#attrs = zarrStore.attrs;
     this.#shape = shape;
     this.#consolidatedMetadata = consolidatedMetadata;
+    this.profiler = new ProfileCollector();
   }
 
   #cached<T>(key: string, fn: () => Promise<T>): Promise<T> {
-    if (!this.#cache.has(key)) {
-      this.#cache.set(key, fn());
+    const cacheHit = this.#cache.has(key);
+    if (!cacheHit) {
+      const finish = startMeasure(key, false);
+      this.#cache.set(
+        key,
+        fn().then((result) => {
+          finish();
+          return result;
+        }),
+      );
+    } else {
+      // Fire a zero-duration measure for cache hits
+      const finish = startMeasure(key, true);
+      finish();
     }
     return this.#cache.get(key) as Promise<T>;
   }
@@ -158,6 +173,8 @@ export class AnnDataStore {
   // --- X matrix ---
 
   async X(sliceRange?: [number, number]): Promise<ArrayResult | SparseMatrix> {
+    const key = sliceRange ? `X:${sliceRange[0]}-${sliceRange[1]}` : "X";
+    const finish = startMeasure(key, false);
     let node: ZarrArray | ZarrGroup;
     try {
       node = await this.#zarrStore.openArray("X");
@@ -165,17 +182,19 @@ export class AnnDataStore {
       node = await this.#zarrStore.openGroup("X");
     }
 
+    let result: ArrayResult | SparseMatrix;
     if ((node.attrs?.["encoding-type"] as string)?.endsWith("_matrix")) {
-      return decodeSparseMatrix(node as ZarrGroup);
-    }
-
-    // Dense array
-    if (sliceRange) {
+      result = await decodeSparseMatrix(node as ZarrGroup);
+    } else if (sliceRange) {
       const [start, end] = sliceRange;
       const chunk = await zarr.get(node as ZarrArray, [zarr.slice(start, end), null]);
-      return { data: chunk.data, shape: chunk.shape };
+      result = { data: chunk.data, shape: chunk.shape };
+    } else {
+      result = await readArray(node as ZarrArray);
     }
-    return readArray(node as ZarrArray);
+
+    finish();
+    return result;
   }
 
   async geneExpression(geneName: string): Promise<zarr.TypedArray<zarr.DataType>> {
@@ -356,6 +375,7 @@ export class AnnDataStore {
   }
 
   async *obsmStreaming(key: string, batchSize?: number): AsyncGenerator<ObsmBatch> {
+    const finish = startMeasure(`obsmStreaming:${key}`, false);
     const arr = await this.#zarrStore.openArray(`obsm/${key}`);
     const [nObs] = arr.shape;
     const step = batchSize ?? arr.chunks[0];
@@ -365,6 +385,8 @@ export class AnnDataStore {
       const chunk = await zarr.get(arr, [zarr.slice(offset, end), null]);
       yield { data: chunk.data, shape: chunk.shape, offset, total: nObs };
     }
+
+    finish();
   }
 
   obsmKeys(): string[] {

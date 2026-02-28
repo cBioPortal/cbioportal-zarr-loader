@@ -1,5 +1,7 @@
 export { ZarrStore } from "./ZarrStore";
 export { AnnDataStore } from "./AnnDataStore";
+export { ProfileCollector } from "./ProfileCollector";
+export type { ProfileEntry } from "./ProfileCollector";
 export {
   readArray,
   toStringArray,

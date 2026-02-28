@@ -4,5 +4,6 @@
   "raincloud": false,
   "hexbin": false,
   "loadDataset": false,
-  "deckglDebug": false
+  "deckglDebug": false,
+  "profile": false
 }
