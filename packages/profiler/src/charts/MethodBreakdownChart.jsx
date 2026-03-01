@@ -3,17 +3,7 @@ import { scaleBand, scaleLinear, scaleOrdinal } from "@visx/scale";
 import { AxisBottom, AxisLeft } from "@visx/axis";
 import { useTooltip, TooltipWithBounds, defaultStyles } from "@visx/tooltip";
 import { BarStackHorizontal } from "@visx/shape";
-
-const METHOD_COLORS = {
-  obsm: "#1f77b4",
-  obs: "#ff7f0e",
-  geneExpression: "#2ca02c",
-  var: "#d62728",
-  obsColumns: "#9467bd",
-  X: "#8c564b",
-  uns: "#e377c2",
-};
-const FALLBACK_COLOR = "#7f7f7f";
+import { METHOD_COLORS, DEFAULT_METHOD_COLOR } from "../constants";
 
 const tooltipStyles = {
   ...defaultStyles,
@@ -64,7 +54,7 @@ export default function MethodBreakdownChart({ sessions, width = 500, height: he
 
   const colorScale = scaleOrdinal({
     domain: methods,
-    range: methods.map((m) => METHOD_COLORS[m] || FALLBACK_COLOR),
+    range: methods.map((m) => METHOD_COLORS[m] || DEFAULT_METHOD_COLOR),
   });
 
   return (

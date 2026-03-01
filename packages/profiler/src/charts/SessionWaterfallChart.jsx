@@ -3,33 +3,7 @@ import { Group } from "@visx/group";
 import { scaleLinear } from "@visx/scale";
 import { AxisBottom } from "@visx/axis";
 import { useTooltip, TooltipWithBounds, defaultStyles } from "@visx/tooltip";
-
-const METHOD_COLORS = {
-  obsm: "#1f77b4",
-  obs: "#ff7f0e",
-  geneExpression: "#2ca02c",
-  var: "#d62728",
-  obsColumns: "#9467bd",
-  X: "#8c564b",
-  uns: "#e377c2",
-};
-const FALLBACK_COLOR = "#7f7f7f";
-
-function getMethodColor(method) {
-  return METHOD_COLORS[method] || FALLBACK_COLOR;
-}
-
-function formatBytes(bytes) {
-  if (bytes === 0) return "0 B";
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-function formatShape(shape) {
-  if (!shape || shape.length === 0) return "";
-  return `[${shape.join(" \u00d7 ")}]`;
-}
+import { METHOD_COLORS, getMethodColor, formatBytes, formatShape } from "../constants";
 
 const BAR_HEIGHT = 16;
 const BAR_GAP = 2;

@@ -6,7 +6,7 @@ import {
   clearProfileHistory,
   exportProfileHistory,
   importProfileHistory,
-} from "./profileStorage";
+} from "./storage";
 
 function makeSession(url, timestamp, entries = []) {
   return { url, timestamp, nObs: 100, nVar: 50, entries };

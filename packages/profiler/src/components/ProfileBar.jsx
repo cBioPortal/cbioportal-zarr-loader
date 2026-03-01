@@ -5,37 +5,9 @@ import { Group } from "@visx/group";
 import { scaleLinear } from "@visx/scale";
 import { AxisBottom } from "@visx/axis";
 import { useTooltip, TooltipWithBounds, defaultStyles } from "@visx/tooltip";
-import useAppStore from "../../store/useAppStore";
-import { saveProfileSession } from "../../utils/profileStorage";
+import { METHOD_COLORS, DEFAULT_METHOD_COLOR, getMethodColor, formatBytes, formatShape } from "../constants";
 
 const { Text } = Typography;
-
-const METHOD_COLORS = {
-  obsm: "#1f77b4",
-  obs: "#ff7f0e",
-  geneExpression: "#2ca02c",
-  var: "#d62728",
-  obsColumns: "#9467bd",
-  X: "#8c564b",
-  uns: "#e377c2",
-};
-const DEFAULT_METHOD_COLOR = "#7f7f7f";
-
-function getMethodColor(method) {
-  return METHOD_COLORS[method] || DEFAULT_METHOD_COLOR;
-}
-
-function formatBytes(bytes) {
-  if (bytes === 0) return "0 B";
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-function formatShape(shape) {
-  if (!shape || shape.length === 0) return "";
-  return `[${shape.join(" × ")}]`;
-}
 
 const BAR_HEIGHT = 18;
 const BAR_GAP = 3;
@@ -333,14 +305,16 @@ const pulseStyle = `
 }
 `;
 
-export default function ProfileBar() {
+/**
+ * Live profiler bar that displays at the bottom of the viewport.
+ * @param {{ profiler: object, onSave: (entries: any) => void }} props
+ *   - profiler: ProfileCollector instance (subscribe, entries, version, clear, toJSON)
+ *   - onSave: called when user clicks Save; receives profiler.toJSON()
+ */
+export default function ProfileBar({ profiler, onSave }) {
   const [expanded, setExpanded] = useState(false);
   const containerRef = useRef(null);
   const [barWidth, setBarWidth] = useState(0);
-
-  const adata = useAppStore((s) => s.adata);
-  const url = useAppStore((s) => s.url);
-  const profiler = adata?.profiler;
 
   const subscribe = useCallback(
     (cb) => (profiler ? profiler.subscribe(cb) : () => {}),
@@ -386,8 +360,8 @@ export default function ProfileBar() {
   const handleClear = () => profiler?.clear();
 
   const handleSave = () => {
-    if (!adata || entries.length === 0) return;
-    saveProfileSession(url, adata.nObs, adata.nVar, profiler.toJSON());
+    if (!profiler || entries.length === 0) return;
+    onSave?.(profiler.toJSON());
     message.success("Profile session saved to history");
   };
 

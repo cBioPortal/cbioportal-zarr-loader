@@ -2,17 +2,7 @@ import { Group } from "@visx/group";
 import { scaleBand, scaleLinear, scaleOrdinal } from "@visx/scale";
 import { AxisBottom, AxisLeft } from "@visx/axis";
 import { useTooltip, TooltipWithBounds, defaultStyles } from "@visx/tooltip";
-
-const METHOD_COLORS = {
-  obsm: "#1f77b4",
-  obs: "#ff7f0e",
-  geneExpression: "#2ca02c",
-  var: "#d62728",
-  obsColumns: "#9467bd",
-  X: "#8c564b",
-  uns: "#e377c2",
-};
-const FALLBACK_COLOR = "#7f7f7f";
+import { METHOD_COLORS, DEFAULT_METHOD_COLOR, formatBytes } from "../constants";
 
 const tooltipStyles = {
   ...defaultStyles,
@@ -21,27 +11,27 @@ const tooltipStyles = {
 };
 
 /**
- * Horizontal bar chart — total HTTP fetch count per method.
- * @param {{ entries: Array<{ method: string, fetches?: { requests: number } }>, width?: number, height?: number }} props
+ * Horizontal bar chart — total bytes transferred per method.
+ * @param {{ entries: Array<{ method: string, fetches?: { bytes: number } }>, width?: number, height?: number }} props
  */
-export default function RequestsByMethodChart({ entries, width = 360, height: heightProp }) {
+export default function BytesByMethodChart({ entries, width = 360, height: heightProp }) {
   const { showTooltip, hideTooltip, tooltipOpen, tooltipData, tooltipLeft, tooltipTop } =
     useTooltip();
 
   if (!entries || entries.length === 0) return null;
 
-  // Aggregate request count per method
+  // Aggregate bytes per method
   const byMethod = {};
   for (const e of entries) {
-    const requests = e.fetches?.requests ?? 0;
-    if (requests > 0) {
-      byMethod[e.method] = (byMethod[e.method] || 0) + requests;
+    const bytes = e.fetches?.bytes ?? 0;
+    if (bytes > 0) {
+      byMethod[e.method] = (byMethod[e.method] || 0) + bytes;
     }
   }
 
   const data = Object.entries(byMethod)
-    .map(([method, requests]) => ({ method, requests }))
-    .sort((a, b) => b.requests - a.requests);
+    .map(([method, bytes]) => ({ method, bytes }))
+    .sort((a, b) => b.bytes - a.bytes);
 
   if (data.length === 0) return null;
 
@@ -52,7 +42,7 @@ export default function RequestsByMethodChart({ entries, width = 360, height: he
   const yMax = height - MARGIN.top - MARGIN.bottom;
 
   const xScale = scaleLinear({
-    domain: [0, Math.max(...data.map((d) => d.requests))],
+    domain: [0, Math.max(...data.map((d) => d.bytes))],
     range: [0, xMax],
     nice: true,
   });
@@ -65,7 +55,7 @@ export default function RequestsByMethodChart({ entries, width = 360, height: he
 
   const colorScale = scaleOrdinal({
     domain: data.map((d) => d.method),
-    range: data.map((d) => METHOD_COLORS[d.method] || FALLBACK_COLOR),
+    range: data.map((d) => METHOD_COLORS[d.method] || DEFAULT_METHOD_COLOR),
   });
 
   return (
@@ -73,7 +63,7 @@ export default function RequestsByMethodChart({ entries, width = 360, height: he
       <svg width={width} height={height}>
         <Group left={MARGIN.left} top={MARGIN.top}>
           {data.map((d) => {
-            const barWidth = Math.max(0, xScale(d.requests));
+            const barWidth = Math.max(0, xScale(d.bytes));
             const y = yScale(d.method);
             return (
               <rect
@@ -105,7 +95,7 @@ export default function RequestsByMethodChart({ entries, width = 360, height: he
             scale={xScale}
             top={yMax}
             numTicks={4}
-            tickFormat={(v) => `${v}`}
+            tickFormat={(v) => formatBytes(v)}
             tickLabelProps={() => ({ fontSize: 10, textAnchor: "middle", fill: "#666" })}
           />
           <AxisLeft
@@ -118,7 +108,7 @@ export default function RequestsByMethodChart({ entries, width = 360, height: he
       {tooltipOpen && tooltipData && (
         <TooltipWithBounds left={tooltipLeft} top={tooltipTop} style={tooltipStyles}>
           <div><strong>{tooltipData.method}</strong></div>
-          <div>{tooltipData.requests.toLocaleString()} requests</div>
+          <div>{formatBytes(tooltipData.bytes)}</div>
         </TooltipWithBounds>
       )}
     </div>

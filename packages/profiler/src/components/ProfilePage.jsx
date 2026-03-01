@@ -7,26 +7,20 @@ import {
   clearProfileHistory,
   exportProfileHistory,
   importProfileHistory,
-} from "../utils/profileStorage";
-import MethodBreakdownChart from "../components/charts/MethodBreakdownChart";
-import CacheEfficiencyChart from "../components/charts/CacheEfficiencyChart";
-import BytesByMethodChart from "../components/charts/BytesByMethodChart";
-import RequestsByMethodChart from "../components/charts/RequestsByMethodChart";
-import BytesVsDurationChart from "../components/charts/BytesVsDurationChart";
-import SessionWaterfallChart from "../components/charts/SessionWaterfallChart";
+} from "../storage";
+import { formatBytes, formatShape } from "../constants";
+import MethodBreakdownChart from "../charts/MethodBreakdownChart";
+import CacheEfficiencyChart from "../charts/CacheEfficiencyChart";
+import BytesByMethodChart from "../charts/BytesByMethodChart";
+import RequestsByMethodChart from "../charts/RequestsByMethodChart";
+import BytesVsDurationChart from "../charts/BytesVsDurationChart";
+import SessionWaterfallChart from "../charts/SessionWaterfallChart";
 
 const { Text, Title } = Typography;
 
-function formatBytes(bytes) {
-  if (bytes === 0) return "0 B";
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-function formatShape(shape) {
+function formatShapeLocale(shape) {
   if (!shape || shape.length === 0) return "-";
-  return shape.map((d) => d.toLocaleString()).join(" × ");
+  return shape.map((d) => d.toLocaleString()).join(" \u00d7 ");
 }
 
 /** Build per-method I/O summary rows from a list of profile entries. */
@@ -81,13 +75,13 @@ const methodSummaryColumns = [
     title: "Array Shape",
     key: "arrayShape",
     width: 140,
-    render: (_, r) => r.arrayShape ? formatShape(r.arrayShape) : <Text type="secondary">-</Text>,
+    render: (_, r) => r.arrayShape ? formatShapeLocale(r.arrayShape) : <Text type="secondary">-</Text>,
   },
   {
     title: "Chunk Shape",
     key: "chunkShape",
     width: 140,
-    render: (_, r) => r.chunkShape ? formatShape(r.chunkShape) : <Text type="secondary">-</Text>,
+    render: (_, r) => r.chunkShape ? formatShapeLocale(r.chunkShape) : <Text type="secondary">-</Text>,
   },
   {
     title: "dtype",
@@ -238,7 +232,7 @@ function buildEntryColumns(entries) {
       title: "Chunk Shape",
       key: "chunkShape",
       width: 130,
-      render: (_, r) => r.chunks ? formatShape(r.chunks.chunkShape) : <Text type="secondary">-</Text>,
+      render: (_, r) => r.chunks ? formatShapeLocale(r.chunks.chunkShape) : <Text type="secondary">-</Text>,
     },
     {
       title: "Requests",

@@ -2,30 +2,13 @@ import { Group } from "@visx/group";
 import { scaleLinear, scaleOrdinal } from "@visx/scale";
 import { AxisBottom, AxisLeft } from "@visx/axis";
 import { useTooltip, TooltipWithBounds, defaultStyles } from "@visx/tooltip";
-
-const METHOD_COLORS = {
-  obsm: "#1f77b4",
-  obs: "#ff7f0e",
-  geneExpression: "#2ca02c",
-  var: "#d62728",
-  obsColumns: "#9467bd",
-  X: "#8c564b",
-  uns: "#e377c2",
-};
-const FALLBACK_COLOR = "#7f7f7f";
+import { METHOD_COLORS, DEFAULT_METHOD_COLOR, formatBytes } from "../constants";
 
 const tooltipStyles = {
   ...defaultStyles,
   fontSize: 12,
   padding: "6px 10px",
 };
-
-function formatBytes(bytes) {
-  if (bytes === 0) return "0 B";
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
 
 /**
  * Scatter plot — bytes transferred (x) vs duration in ms (y) per entry.
@@ -61,7 +44,7 @@ export default function BytesVsDurationChart({ entries, width = 360, height = 24
   const methods = [...new Set(data.map((d) => d.method))];
   const colorScale = scaleOrdinal({
     domain: methods,
-    range: methods.map((m) => METHOD_COLORS[m] || FALLBACK_COLOR),
+    range: methods.map((m) => METHOD_COLORS[m] || DEFAULT_METHOD_COLOR),
   });
 
   return (
