@@ -13,7 +13,6 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@ant-design/charts": "^2.6.7",
     "@ant-design/icons": "^6.1.0",
     "@cbioportal-zarr-loader/profiler": "workspace:*",
     "@cbioportal-zarr-loader/zarrstore": "workspace:*",
