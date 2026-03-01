@@ -118,8 +118,12 @@ export class AnnDataStore {
   #chunkInfoForIndex(slot: string): ChunkInfo | undefined {
     const meta = this.#consolidatedMetadata;
     if (!meta) return undefined;
-    const attrs = meta[`${slot}/.zattrs`] as Record<string, unknown> | undefined;
-    const indexKey = attrs?.["_index"] as string | undefined;
+    // v2: attrs live at "<slot>/.zattrs"
+    const v2Attrs = meta[`${slot}/.zattrs`] as Record<string, unknown> | undefined;
+    // v3: attrs live on the group key itself (e.g. "obs" with attributes.{_index})
+    const v3Group = meta[slot] as Record<string, unknown> | undefined;
+    const v3Attributes = v3Group?.attributes as Record<string, unknown> | undefined;
+    const indexKey = (v2Attrs?.["_index"] ?? v3Attributes?.["_index"]) as string | undefined;
     if (!indexKey) return undefined;
     return this.#chunkInfoFromMetadata(`${slot}/${indexKey}`)
       ?? this.#chunkInfoFromMetadata(`${slot}/${indexKey}/codes`);
