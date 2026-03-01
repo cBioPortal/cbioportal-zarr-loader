@@ -4,19 +4,43 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    groups:
+      prod-dependencies:
+        dependency-type: production
+      dev-dependencies:
+        dependency-type: development
   - package-ecosystem: npm
     directory: /packages/app
     schedule:
       interval: weekly
+    groups:
+      prod-dependencies:
+        dependency-type: production
+      dev-dependencies:
+        dependency-type: development
   - package-ecosystem: npm
     directory: /packages/zarrstore
     schedule:
       interval: weekly
+    groups:
+      prod-dependencies:
+        dependency-type: production
+      dev-dependencies:
+        dependency-type: development
   - package-ecosystem: npm
     directory: /docs
     schedule:
       interval: weekly
+    groups:
+      prod-dependencies:
+        dependency-type: production
+      dev-dependencies:
+        dependency-type: development
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: weekly
+    groups:
+      actions:
+        patterns:
+          - "*"
