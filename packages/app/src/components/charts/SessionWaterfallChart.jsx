@@ -89,7 +89,7 @@ export default function SessionWaterfallChart({ entries, width = 800 }) {
               const x = xScale(entry.startTime - t0);
               const barWidth = Math.max(xScale(entry.duration) - xScale(0), 2);
               const y = i * (BAR_HEIGHT + BAR_GAP);
-              const color = getMethodColor(entry.method);
+              const color = entry.aborted ? "#999" : getMethodColor(entry.method);
 
               return (
                 <g key={entry.id ?? i}>
@@ -100,7 +100,8 @@ export default function SessionWaterfallChart({ entries, width = 800 }) {
                     height={BAR_HEIGHT}
                     fill={entry.cacheHit ? "transparent" : color}
                     stroke={color}
-                    strokeWidth={entry.cacheHit ? 1.5 : 0}
+                    strokeWidth={entry.cacheHit || entry.aborted ? 1.5 : 0}
+                    strokeDasharray={entry.aborted ? "4 2" : undefined}
                     rx={2}
                     style={{ cursor: "pointer" }}
                     onMouseEnter={(e) => {
@@ -161,8 +162,8 @@ export default function SessionWaterfallChart({ entries, width = 800 }) {
               {tooltipData.chunks.sharded ? " (sharded)" : ""}
             </div>
           )}
-          <div style={{ fontSize: 11, color: tooltipData.cacheHit ? "#52c41a" : "#ff4d4f" }}>
-            {tooltipData.cacheHit ? "Cache hit" : "Cache miss"}
+          <div style={{ fontSize: 11, color: tooltipData.aborted ? "#fa8c16" : tooltipData.cacheHit ? "#52c41a" : "#ff4d4f" }}>
+            {tooltipData.aborted ? "Aborted" : tooltipData.cacheHit ? "Cache hit" : "Cache miss"}
           </div>
         </TooltipWithBounds>
       )}

@@ -154,12 +154,14 @@ export class AnnDataStore {
       });
       promise.catch((err) => {
         this.#cache.delete(key);
+        const aborted = err?.name === "AbortError";
         const after = this.#zarrStore.snapshotFetchStats();
         const fetches = {
           requests: after.requests - before.requests,
           bytes: after.bytes - before.bytes,
         };
         const extra: MeasureExtra = {};
+        if (aborted) extra.aborted = true;
         if (fetches.requests > 0 || fetches.bytes > 0) extra.fetches = fetches;
         finish(extra);
       });

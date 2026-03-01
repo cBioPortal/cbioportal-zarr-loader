@@ -18,6 +18,7 @@ export interface ProfileEntry {
   key: string;
   label?: string;
   cacheHit: boolean;
+  aborted?: boolean;
   startTime: number;
   duration: number;
   chunks?: ChunkInfo;
@@ -28,6 +29,7 @@ export interface MeasureDetail {
   key: string;
   label?: string;
   cacheHit: boolean;
+  aborted?: boolean;
   chunks?: ChunkInfo;
   fetches?: FetchInfo;
 }
@@ -61,6 +63,7 @@ export class ProfileCollector {
           chunks: detail.chunks,
           fetches: detail.fetches,
         };
+        if (detail.aborted) profileEntry.aborted = true;
         if (detail.label) profileEntry.label = detail.label;
         this.entries.push(profileEntry);
       }
@@ -104,6 +107,7 @@ let measureSeq = 0;
 
 export interface MeasureExtra {
   label?: string;
+  aborted?: boolean;
   chunks?: ChunkInfo;
   fetches?: FetchInfo;
 }
@@ -118,15 +122,14 @@ export function startMeasure(
   const measureName = `${MEASURE_PREFIX}${key}:${seq}`;
   performance.mark(startMark);
   return (extra?: MeasureExtra) => {
-    performance.measure(measureName, {
-      start: startMark,
-      detail: {
-        key,
-        cacheHit,
-        label: extra?.label,
-        chunks: extra?.chunks,
-        fetches: extra?.fetches,
-      } satisfies MeasureDetail,
-    });
+    const detail: MeasureDetail = {
+      key,
+      cacheHit,
+      label: extra?.label,
+      chunks: extra?.chunks,
+      fetches: extra?.fetches,
+    };
+    if (extra?.aborted) detail.aborted = true;
+    performance.measure(measureName, { start: startMark, detail });
   };
 }

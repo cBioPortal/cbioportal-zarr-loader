@@ -97,7 +97,7 @@ function WaterfallTimeline({ entries, width }) {
               const x = xScale(entry.startTime - t0);
               const barWidth = Math.max(xScale(entry.duration) - xScale(0), 2);
               const y = i * (BAR_HEIGHT + BAR_GAP);
-              const color = getMethodColor(entry.method);
+              const color = entry.aborted ? "#999" : getMethodColor(entry.method);
 
               return (
                 <g key={entry.id}>
@@ -108,7 +108,8 @@ function WaterfallTimeline({ entries, width }) {
                     height={BAR_HEIGHT}
                     fill={entry.cacheHit ? "transparent" : color}
                     stroke={color}
-                    strokeWidth={entry.cacheHit ? 1.5 : 0}
+                    strokeWidth={entry.cacheHit || entry.aborted ? 1.5 : 0}
+                    strokeDasharray={entry.aborted ? "4 2" : undefined}
                     rx={2}
                     style={{ cursor: "pointer" }}
                     onMouseEnter={(e) => {
@@ -174,12 +175,16 @@ function WaterfallTimeline({ entries, width }) {
             </div>
           )}
           <div>
-            <Tag
-              color={tooltipData.cacheHit ? "green" : "red"}
-              style={{ margin: 0, marginTop: 2 }}
-            >
-              {tooltipData.cacheHit ? "CACHE HIT" : "CACHE MISS"}
-            </Tag>
+            {tooltipData.aborted ? (
+              <Tag color="orange" style={{ margin: 0, marginTop: 2 }}>ABORTED</Tag>
+            ) : (
+              <Tag
+                color={tooltipData.cacheHit ? "green" : "red"}
+                style={{ margin: 0, marginTop: 2 }}
+              >
+                {tooltipData.cacheHit ? "CACHE HIT" : "CACHE MISS"}
+              </Tag>
+            )}
           </div>
         </TooltipWithBounds>
       )}
@@ -195,6 +200,10 @@ function WaterfallTimeline({ entries, width }) {
         <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
           <span style={{ width: 10, height: 10, borderRadius: 2, border: "1.5px solid #999", display: "inline-block" }} />
           cache hit (outline)
+        </span>
+        <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+          <span style={{ width: 10, height: 10, borderRadius: 2, border: "1.5px dashed #999", display: "inline-block" }} />
+          aborted (dashed)
         </span>
       </div>
     </div>
@@ -259,16 +268,23 @@ function buildTableColumns(entries) {
         ),
     },
     {
-      title: "Cache",
-      dataIndex: "cacheHit",
-      key: "cacheHit",
-      width: 80,
+      title: "Status",
+      key: "status",
+      width: 90,
       filters: [
-        { text: "HIT", value: true },
-        { text: "MISS", value: false },
+        { text: "HIT", value: "hit" },
+        { text: "MISS", value: "miss" },
+        { text: "ABORTED", value: "aborted" },
       ],
-      onFilter: (value, record) => record.cacheHit === value,
-      render: (hit) => <Tag color={hit ? "green" : "red"}>{hit ? "HIT" : "MISS"}</Tag>,
+      onFilter: (value, record) => {
+        if (value === "aborted") return !!record.aborted;
+        if (value === "hit") return record.cacheHit && !record.aborted;
+        return !record.cacheHit && !record.aborted;
+      },
+      render: (_, record) => {
+        if (record.aborted) return <Tag color="orange">ABORTED</Tag>;
+        return <Tag color={record.cacheHit ? "green" : "red"}>{record.cacheHit ? "HIT" : "MISS"}</Tag>;
+      },
     },
     {
       title: "Chunks",

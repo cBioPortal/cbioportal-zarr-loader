@@ -78,14 +78,16 @@ export default function ObsmTab() {
   const { obsmKeys } = metadata;
   const isEmbedding = selectedObsm && obsmData?.shape?.[1] >= 2;
 
-  const debouncedFetchObsm = useMemo(() => {
-    let timer;
-    return (key) => {
-      clearTimeout(timer);
-      useAppStore.setState({ selectedObsm: key });
-      timer = setTimeout(() => fetchObsm(key), 250);
-    };
-  }, [fetchObsm]);
+  useEffect(() => {
+    if (!obsmLoading && obsmTime != null) {
+      message.open({
+        key: "obsm-fetch",
+        type: "success",
+        content: `Fetched ${selectedObsm} in ${obsmTime.toFixed(1)} ms`,
+        duration: 5,
+      });
+    }
+  }, [obsmLoading, obsmTime, selectedObsm]);
 
   // Auto-fetch an embedding on mount (prefer UMAP, fall back to first key)
   useEffect(() => {
@@ -94,6 +96,15 @@ export default function ObsmTab() {
       fetchObsm(defaultKey);
     }
   }, [obsmKeys, selectedObsm, fetchObsm]);
+
+  const debouncedFetchObsm = useMemo(() => {
+    let timer;
+    return (key) => {
+      clearTimeout(timer);
+      useAppStore.setState({ selectedObsm: key });
+      timer = setTimeout(() => fetchObsm(key), 250);
+    };
+  }, [fetchObsm]);
 
   const handleFilterApply = async () => {
     let raw;

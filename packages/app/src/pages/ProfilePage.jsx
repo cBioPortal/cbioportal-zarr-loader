@@ -195,16 +195,23 @@ function buildEntryColumns(entries) {
         ),
     },
     {
-      title: "Cache",
-      dataIndex: "cacheHit",
-      key: "cacheHit",
-      width: 80,
+      title: "Status",
+      key: "status",
+      width: 90,
       filters: [
-        { text: "HIT", value: true },
-        { text: "MISS", value: false },
+        { text: "HIT", value: "hit" },
+        { text: "MISS", value: "miss" },
+        { text: "ABORTED", value: "aborted" },
       ],
-      onFilter: (value, record) => record.cacheHit === value,
-      render: (hit) => <Tag color={hit ? "green" : "red"}>{hit ? "HIT" : "MISS"}</Tag>,
+      onFilter: (value, record) => {
+        if (value === "aborted") return !!record.aborted;
+        if (value === "hit") return record.cacheHit && !record.aborted;
+        return !record.cacheHit && !record.aborted;
+      },
+      render: (_, record) => {
+        if (record.aborted) return <Tag color="orange">ABORTED</Tag>;
+        return <Tag color={record.cacheHit ? "green" : "red"}>{record.cacheHit ? "HIT" : "MISS"}</Tag>;
+      },
     },
     {
       title: "Storage",

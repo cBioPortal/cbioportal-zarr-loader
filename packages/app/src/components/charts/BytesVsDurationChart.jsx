@@ -71,7 +71,7 @@ export default function BytesVsDurationChart({ entries, width = 360, height = 24
           {data.map((d, i) => {
             const cx = xScale(d.fetches.bytes);
             const cy = yScale(d.duration);
-            const color = colorScale(d.method);
+            const color = d.aborted ? "#999" : colorScale(d.method);
             return (
               <circle
                 key={d.id ?? i}
@@ -80,7 +80,8 @@ export default function BytesVsDurationChart({ entries, width = 360, height = 24
                 r={5}
                 fill={d.cacheHit ? "transparent" : color}
                 stroke={color}
-                strokeWidth={d.cacheHit ? 1.5 : 0.5}
+                strokeWidth={d.cacheHit || d.aborted ? 1.5 : 0.5}
+                strokeDasharray={d.aborted ? "3 2" : undefined}
                 opacity={0.8}
                 style={{ cursor: "pointer" }}
                 onMouseEnter={(e) => {
@@ -134,8 +135,8 @@ export default function BytesVsDurationChart({ entries, width = 360, height = 24
           <div><strong>{tooltipData.method}</strong></div>
           <div style={{ fontSize: 11, color: "#666" }}>{tooltipData.key}</div>
           <div>{formatBytes(tooltipData.fetches.bytes)} &middot; {tooltipData.duration.toFixed(1)} ms</div>
-          <div style={{ fontSize: 11, color: tooltipData.cacheHit ? "#52c41a" : "#ff4d4f" }}>
-            {tooltipData.cacheHit ? "Cache hit" : "Cache miss"}
+          <div style={{ fontSize: 11, color: tooltipData.aborted ? "#fa8c16" : tooltipData.cacheHit ? "#52c41a" : "#ff4d4f" }}>
+            {tooltipData.aborted ? "Aborted" : tooltipData.cacheHit ? "Cache hit" : "Cache miss"}
           </div>
         </TooltipWithBounds>
       )}
