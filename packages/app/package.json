@@ -22,7 +22,7 @@
     "@deck.gl/react": "^9.2.6",
     "@visx/visx": "^3.12.0",
     "antd": "^6.2.3",
-    "deck.gl": "^9.2.6",
+    "deck.gl": "^9.2.10",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-router": "^7.13.0",
