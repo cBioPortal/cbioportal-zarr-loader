@@ -1,10 +1,35 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
+import { analyzer } from "vite-bundle-analyzer";
 
 export default defineConfig({
   base: process.env.VITE_BASE_URL || "/",
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          "vendor-react": ["react", "react-dom", "react-router", "zustand"],
+          "vendor-antd": ["antd", "@ant-design/icons", "@ant-design/cssinjs"],
+          "vendor-deckgl": [
+            "deck.gl",
+            "@deck.gl/core",
+            "@deck.gl/layers",
+            "@deck.gl/react",
+            "@luma.gl/core",
+            "@luma.gl/engine",
+            "@luma.gl/webgl",
+            "@luma.gl/shadertools",
+            "@luma.gl/constants",
+          ],
+          "vendor-visx": ["@visx/visx"],
+          "vendor-zod": ["zod"],
+        },
+      },
+    },
+  },
   plugins: [
     react(),
+    process.env.ANALYZE && analyzer({ openAnalyzer: true }),
     {
       name: "docs-bypass",
       configureServer(server) {

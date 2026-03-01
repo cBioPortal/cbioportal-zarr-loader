@@ -13,7 +13,6 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@ant-design/charts": "^2.6.7",
     "@ant-design/icons": "^6.1.0",
     "@cbioportal-zarr-loader/profiler": "workspace:*",
     "@cbioportal-zarr-loader/zarrstore": "workspace:*",
@@ -38,6 +37,7 @@
     "jsdom": "^28.0.0",
     "typescript": "^5.9.3",
     "vite": "^7.2.4",
+    "vite-bundle-analyzer": "^1.3.6",
     "vitest": "^4.0.18"
   }
 }
