@@ -82,6 +82,7 @@ const createCoreSlice = (set, get) => ({
     const timings = {};
 
     try {
+      // Phase 1: Critical path — minimum needed to render the scatterplot
       let start = performance.now();
       const [store, featureFlags] = await Promise.all([
         AnnDataStore.open(url),
@@ -89,31 +90,31 @@ const createCoreSlice = (set, get) => ({
       ]);
       timings.open = performance.now() - start;
 
-      start = performance.now();
-      const obsColumns = await store.obsColumns();
-      timings.obsColumns = performance.now() - start;
-
-      start = performance.now();
-      const varColumns = await store.varColumns();
-      timings.varColumns = performance.now() - start;
-
-      start = performance.now();
       const obsmKeys = store.obsmKeys();
-      timings.obsmKeys = performance.now() - start;
-
-      start = performance.now();
       const layerKeys = store.layerKeys();
-      timings.layerKeys = performance.now() - start;
 
+      // Reveal the UI — scatterplot can render as soon as fetchObsm fires
+      set({
+        url,
+        adata: store,
+        metadata: { obsColumns: [], varColumns: [], obsmKeys, layerKeys, varNames: [], geneNames: [], timings, chunks: null },
+        featureFlags,
+        loading: false,
+        error: null,
+      });
+
+      // Phase 2: Background metadata — populates sidebars, gene search, etc.
       start = performance.now();
-      const obsNames = await store.obsNames();
-      timings.obsNames = performance.now() - start;
+      const [obsColumns, varColumns, varNames] = await Promise.all([
+        store.obsColumns(),
+        store.varColumns(),
+        store.varNames(),
+      ]);
+      timings.obsColumns = performance.now() - start;
+      timings.varColumns = timings.obsColumns;
+      timings.varNames = timings.obsColumns;
 
-      start = performance.now();
-      const varNames = await store.varNames();
-      timings.varNames = performance.now() - start;
-
-      // Try common gene-symbol column names in priority order
+      // Gene symbol lookup (depends on varNames)
       let geneNames = varNames;
       const geneSymbolCandidates = ["gene_symbol", "GeneSymbol", "feature_name", "var_name", "gene_name"];
       for (const col of geneSymbolCandidates) {
@@ -128,7 +129,7 @@ const createCoreSlice = (set, get) => ({
         }
       }
 
-      // Get chunk size from X array
+      // X chunk info (for profiler)
       let chunks = null;
       try {
         const xArray = await store.zarrStore.openArray("X");
@@ -142,16 +143,28 @@ const createCoreSlice = (set, get) => ({
         }
       }
 
+      // Update metadata with full results
       set({
-        url,
-        adata: store,
         metadata: { obsColumns, varColumns, obsmKeys, layerKeys, varNames, geneNames, timings, chunks },
-        obsIndex: obsNames,
         varIndex: varNames,
-        featureFlags,
-        loading: false,
-        error: null,
       });
+
+      // Phase 3: obsNames — large fetch, deferred until the initial obsm fetch settles
+      // so we don't compete for bandwidth/decompression with the scatterplot data.
+      if (get().obsmLoading) {
+        await new Promise((resolve) => {
+          const unsub = useAppStore.subscribe((state) => {
+            if (!state.obsmLoading) { unsub(); resolve(); }
+          });
+        });
+      }
+      start = performance.now();
+      const obsNames = await store.obsNames();
+      timings.obsNames = performance.now() - start;
+      set((prev) => ({
+        obsIndex: obsNames,
+        metadata: { ...prev.metadata, timings: { ...prev.metadata.timings, obsNames: timings.obsNames } },
+      }));
 
       // Drain queued config that arrived before initialization completed
       const { pendingFilterConfig } = get();

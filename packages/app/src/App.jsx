@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { Routes, Route, Navigate, useSearchParams, Link } from "react-router";
 import {
   Layout,
@@ -35,16 +35,20 @@ function ViewerContent() {
   const {
     loading,
     error,
-    metadata,
     featureFlags,
     initialize,
   } = useAppStore();
+
+  const initUrlRef = useRef(null);
 
   useEffect(() => {
     if (!url) return;
     // Skip re-initialization if we already have data for this URL
     const { url: currentUrl, adata } = useAppStore.getState();
     if (currentUrl === url && adata) return;
+    // Deduplicate concurrent calls (e.g. React strict mode double-fire)
+    if (initUrlRef.current === url) return;
+    initUrlRef.current = url;
     initialize(url).then(() => {
       const { error } = useAppStore.getState();
       if (!error) saveRecentUrl(url);
@@ -91,8 +95,6 @@ function ViewerContent() {
     );
   }
 
-  const { obsColumns, varColumns } = metadata;
-
   const tabItems = [
     {
       key: "explorer",
@@ -101,7 +103,7 @@ function ViewerContent() {
     },
     {
       key: "columns",
-      label: `Data (${obsColumns.length + varColumns.length})`,
+      label: "Data",
       children: <ColumnsTab />,
     },
     {
