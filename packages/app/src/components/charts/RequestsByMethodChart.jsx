@@ -73,7 +73,7 @@ export default function RequestsByMethodChart({ entries, width = 360, height: he
       <svg width={width} height={height}>
         <Group left={MARGIN.left} top={MARGIN.top}>
           {data.map((d) => {
-            const barWidth = xScale(d.requests);
+            const barWidth = Math.max(0, xScale(d.requests));
             const y = yScale(d.method);
             return (
               <rect

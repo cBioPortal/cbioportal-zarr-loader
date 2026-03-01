@@ -80,7 +80,7 @@ export default function BytesByMethodChart({ entries, width = 360, height: heigh
       <svg width={width} height={height}>
         <Group left={MARGIN.left} top={MARGIN.top}>
           {data.map((d) => {
-            const barWidth = xScale(d.bytes);
+            const barWidth = Math.max(0, xScale(d.bytes));
             const y = yScale(d.method);
             return (
               <rect
