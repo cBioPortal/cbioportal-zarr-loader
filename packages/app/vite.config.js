@@ -4,6 +4,9 @@ import { analyzer } from "vite-bundle-analyzer";
 
 export default defineConfig({
   base: process.env.VITE_BASE_URL || "/",
+  resolve: {
+    dedupe: ["react", "react-dom", "react-router"],
+  },
   build: {
     rollupOptions: {
       output: {
