@@ -1,5 +1,5 @@
 import { Button } from "antd";
-import { GithubOutlined, UploadOutlined } from "@ant-design/icons";
+import { DashboardOutlined, GithubOutlined, UploadOutlined } from "@ant-design/icons";
 import { Link } from "react-router";
 import useAppStore from "../../store/useAppStore";
 import useLinkWithParams from "../../hooks/useLinkWithParams";
@@ -37,6 +37,11 @@ export default function ExplorerLeftSidebar() {
           {featureFlags.loadDataset && (
             <Link to={linkTo("/load")}>
               <Button type="text" size="small" icon={<UploadOutlined />} />
+            </Link>
+          )}
+          {featureFlags.profile && (
+            <Link to={linkTo("/profile")}>
+              <Button type="text" size="small" icon={<DashboardOutlined />} />
             </Link>
           )}
           <a
