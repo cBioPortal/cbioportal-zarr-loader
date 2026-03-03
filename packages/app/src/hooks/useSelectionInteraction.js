@@ -7,7 +7,10 @@ import { pointInPolygon, simplifyPolygon } from "../utils/scatterplotUtils";
  */
 export default function useSelectionInteraction({
   deckRef,
-  points,
+  points,          // ScatterPoint[] — original path
+  positionBuffer,  // Float32Array — binary path (alternative to points)
+  stride,          // number — columns per point in positionBuffer (default 2)
+  numPoints,       // number — row count for positionBuffer
   setSelectedPoints,
   setSelectionGeometry,
   clearSelectedPoints,
@@ -91,10 +94,21 @@ export default function useSelectionInteraction({
         const maxWy = Math.max(wy1, wy2);
 
         const indices = [];
-        for (const pt of points) {
-          const [px, py] = pt.position;
-          if (px >= minWx && px <= maxWx && py >= minWy && py <= maxWy) {
-            indices.push(pt.index);
+        if (positionBuffer && numPoints) {
+          const s = stride || 2;
+          for (let i = 0; i < numPoints; i++) {
+            const px = positionBuffer[i * s];
+            const py = positionBuffer[i * s + 1];
+            if (px >= minWx && px <= maxWx && py >= minWy && py <= maxWy) {
+              indices.push(i);
+            }
+          }
+        } else if (points) {
+          for (const pt of points) {
+            const [px, py] = pt.position;
+            if (px >= minWx && px <= maxWx && py >= minWy && py <= maxWy) {
+              indices.push(pt.index);
+            }
           }
         }
         setSelectionGeometry({ type: "rectangle", bounds: [minWx, minWy, maxWx, maxWy] });
@@ -115,10 +129,21 @@ export default function useSelectionInteraction({
       if (viewport) {
         const worldPolygon = lassoPoints.map(p => viewport.unproject([p.x, p.y]));
         const indices = [];
-        for (const pt of points) {
-          const [px, py] = pt.position;
-          if (pointInPolygon(px, py, worldPolygon)) {
-            indices.push(pt.index);
+        if (positionBuffer && numPoints) {
+          const s = stride || 2;
+          for (let i = 0; i < numPoints; i++) {
+            const px = positionBuffer[i * s];
+            const py = positionBuffer[i * s + 1];
+            if (pointInPolygon(px, py, worldPolygon)) {
+              indices.push(i);
+            }
+          }
+        } else if (points) {
+          for (const pt of points) {
+            const [px, py] = pt.position;
+            if (pointInPolygon(px, py, worldPolygon)) {
+              indices.push(pt.index);
+            }
           }
         }
         setSelectionGeometry({ type: "lasso", polygon: simplifyPolygon(worldPolygon) });
@@ -128,7 +153,7 @@ export default function useSelectionInteraction({
       const svg = lassoSvgRef.current;
       if (svg) svg.style.display = "none";
     }
-  }, [selectMode, points, setSelectedPoints, setSelectionGeometry, updateSelectionRect]);
+  }, [selectMode, points, positionBuffer, stride, numPoints, setSelectedPoints, setSelectionGeometry, updateSelectionRect]);
 
   return {
     selectMode,
