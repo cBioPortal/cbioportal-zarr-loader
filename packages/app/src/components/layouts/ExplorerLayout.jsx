@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Button, Drawer, Spin, Alert } from "antd";
+import { Button, Drawer, Alert } from "antd";
 import { MenuFoldOutlined, MenuUnfoldOutlined } from "@ant-design/icons";
 import useMediaQuery from "../../hooks/useMediaQuery";
 import useAppStore from "../../store/useAppStore";
@@ -39,33 +39,32 @@ export default function ExplorerLayout() {
   const leftSidebar = <ExplorerLeftSidebar />;
   const rightSidebar = <ExplorerRightSidebar />;
 
-  const centerContent = (
-    <Spin spinning={obsmLoading} tip="Loading coordinates...">
-      {obsmData?.error ? (
-        <Alert type="error" message={obsmData.error} />
-      ) : isEmbedding ? (
-        <EmbeddingScatterplotContainerGL
-          data={obsmData.data}
-          shape={obsmData.shape}
-          label={selectedObsm}
-          debugMode={!!featureFlags.deckglDebug}
-        />
-      ) : (
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            height: "100%",
-            color: "#999",
-          }}
-        >
-          {selectedObsm
-            ? "Selected key is not a 2D embedding"
-            : "Loading embedding..."}
-        </div>
-      )}
-    </Spin>
+  const centerContent = obsmData?.error ? (
+    <Alert type="error" message={obsmData.error} />
+  ) : isEmbedding ? (
+    <EmbeddingScatterplotContainerGL
+      data={obsmData.data}
+      shape={obsmData.shape}
+      label={selectedObsm}
+      debugMode={!!featureFlags.deckglDebug}
+    />
+  ) : (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        height: "100%",
+        color: "#999",
+        fontSize: 14,
+      }}
+    >
+      {obsmLoading
+        ? `Loading ${selectedObsm}...`
+        : selectedObsm
+          ? "Selected key is not a 2D embedding"
+          : "Select an embedding key"}
+    </div>
   );
 
   if (isDesktop) {
@@ -81,7 +80,7 @@ export default function ExplorerLayout() {
         >
           {leftSidebar}
         </div>
-        <div style={{ flex: 1, minWidth: 0 }}>{centerContent}</div>
+        <div style={{ flex: 1, minWidth: 0, height: "100%" }}>{centerContent}</div>
         <div
           style={{
             width: SIDEBAR_WIDTH,

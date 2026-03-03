@@ -4,8 +4,6 @@ import {
   SelectOutlined,
   EditOutlined,
   CloseCircleOutlined,
-  ExpandOutlined,
-  CompressOutlined,
 } from "@ant-design/icons";
 import DeckGL from "@deck.gl/react";
 import { ScatterplotLayer } from "@deck.gl/layers";
@@ -28,6 +26,7 @@ interface EmbeddingScatterplotGLProps {
   selectedPointIndices: number[];
   setSelectedPoints: (indices: number[]) => void;
   clearSelectedPoints: () => void;
+  loading?: boolean;
   selectionGeometry: SelectionGeometry | null;
   setSelectionGeometry: (geo: SelectionGeometry | null) => void;
   debugMode?: boolean;
@@ -39,12 +38,12 @@ export default function EmbeddingScatterplotGL({
   label,
   selectedPointIndices,
   setSelectedPoints,
+  loading = false,
   clearSelectedPoints,
   selectionGeometry,
   setSelectionGeometry,
   debugMode = false,
 }: EmbeddingScatterplotGLProps) {
-  const [expanded, setExpanded] = useState(true);
   const containerRef = useRef<HTMLDivElement>(null);
   const deckRef = useRef(null);
   const [containerSize, setContainerSize] = useState({ width: 600, height: 400 });
@@ -196,7 +195,7 @@ export default function EmbeddingScatterplotGL({
       ref={containerRef}
       style={{
         width: "100%",
-        height: expanded ? "90vh" : "100%",
+        height: "100%",
         minHeight: 300,
         position: "relative",
         border: "1px solid #d9d9d9",
@@ -220,6 +219,24 @@ export default function EmbeddingScatterplotGL({
         {...(debugMode ? { _onMetrics: onDebugMetrics } : {})}
       />
       <SelectionOverlay selectionRectRef={selectionRectRef} lassoSvgRef={lassoSvgRef} />
+
+      {loading && (
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            background: "rgba(255,255,255,0.8)",
+            zIndex: 2,
+            fontSize: 14,
+            color: "#999",
+          }}
+        >
+          Loading {label}...
+        </div>
+      )}
 
       {/* Toolbar: select modes */}
       <div
@@ -255,19 +272,6 @@ export default function EmbeddingScatterplotGL({
           }}
           style={{ opacity: 0.85 }}
           title="Lasso select"
-        />
-      </div>
-
-      {/* Expand/collapse */}
-      <div
-        style={{ position: "absolute", top: 8, right: 8, zIndex: 1 }}
-        onMouseDown={(e) => e.stopPropagation()}
-      >
-        <Button
-          size="small"
-          icon={expanded ? <CompressOutlined /> : <ExpandOutlined />}
-          onClick={() => setExpanded(!expanded)}
-          style={{ opacity: 0.85 }}
         />
       </div>
 

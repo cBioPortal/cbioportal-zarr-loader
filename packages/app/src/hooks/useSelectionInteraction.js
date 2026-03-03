@@ -4,13 +4,27 @@ import { pointInPolygon, simplifyPolygon } from "../utils/scatterplotUtils";
 /**
  * Manages rectangle and lasso selection interactions for the scatterplot.
  * Owns all selection-related refs, state, and mouse event handlers.
+ *
+ * Supports two data paths (provide one or the other):
+ * - `points`: Array of ScatterPoint objects (original path)
+ * - `positionBuffer` + `stride` + `numPoints`: Raw Float32Array (binary path)
+ *
+ * @param {object} options
+ * @param {*} options.deckRef
+ * @param {Array<{position: [number,number], index: number}>} [options.points] - ScatterPoint array (original path)
+ * @param {Float32Array} [options.positionBuffer] - Raw position buffer (binary path)
+ * @param {number} [options.stride] - Columns per row in positionBuffer (default 2)
+ * @param {number} [options.numPoints] - Number of points in positionBuffer
+ * @param {function} options.setSelectedPoints
+ * @param {function} options.setSelectionGeometry
+ * @param {function} options.clearSelectedPoints
  */
 export default function useSelectionInteraction({
   deckRef,
-  points,          // ScatterPoint[] — original path
-  positionBuffer,  // Float32Array — binary path (alternative to points)
-  stride,          // number — columns per point in positionBuffer (default 2)
-  numPoints,       // number — row count for positionBuffer
+  points,
+  positionBuffer,
+  stride = 2,
+  numPoints = 0,
   setSelectedPoints,
   setSelectionGeometry,
   clearSelectedPoints,

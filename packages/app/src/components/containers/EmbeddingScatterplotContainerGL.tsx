@@ -12,6 +12,7 @@ interface Props {
 }
 
 interface StoreSlice {
+  obsmLoading: boolean;
   selectedPointIndices: number[];
   setSelectedPoints: (indices: number[]) => void;
   clearSelectedPoints: () => void;
@@ -26,6 +27,7 @@ export default function EmbeddingScatterplotContainerGL({
   debugMode = false,
 }: Props) {
   const {
+    obsmLoading,
     selectedPointIndices,
     setSelectedPoints,
     clearSelectedPoints,
@@ -40,6 +42,7 @@ export default function EmbeddingScatterplotContainerGL({
       data={f32Data}
       shape={shape}
       label={label}
+      loading={obsmLoading}
       selectedPointIndices={selectedPointIndices}
       setSelectedPoints={setSelectedPoints}
       clearSelectedPoints={clearSelectedPoints}
