@@ -1,12 +1,25 @@
+import { useMemo } from "react";
 import { Button } from "antd";
 import { GithubOutlined, UploadOutlined } from "@ant-design/icons";
 import { Link } from "react-router";
 import useAppStore from "../../store/useAppStore";
 import useLinkWithParams from "../../hooks/useLinkWithParams";
+import SearchableList from "../ui/SearchableList";
+import ColorByPanel from "../ui/ColorByPanel";
 
 export default function ExplorerLeftSidebar() {
-  const { featureFlags } = useAppStore();
+  const { metadata, featureFlags, selectedObsm, obsmLoading, fetchObsm } = useAppStore();
   const linkTo = useLinkWithParams();
+  const { obsmKeys } = metadata;
+
+  const debouncedFetchObsm = useMemo(() => {
+    let timer;
+    return (key) => {
+      clearTimeout(timer);
+      useAppStore.setState({ selectedObsm: key });
+      timer = setTimeout(() => fetchObsm(key), 250);
+    };
+  }, [fetchObsm]);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
@@ -46,7 +59,16 @@ export default function ExplorerLeftSidebar() {
         </nav>
       </div>
       <div style={{ flex: 1, padding: 16, overflow: "auto" }}>
-        {/* Sidebar controls will go here */}
+        <SearchableList
+          title="Keys"
+          items={obsmKeys}
+          selected={selectedObsm}
+          onSelect={debouncedFetchObsm}
+          loading={obsmLoading ? selectedObsm : null}
+          placeholder="Search keys..."
+          height={200}
+        />
+        <ColorByPanel height={300} style={{ marginTop: 16 }} />
       </div>
     </div>
   );
