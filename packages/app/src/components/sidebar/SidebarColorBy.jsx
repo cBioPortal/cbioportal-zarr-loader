@@ -2,6 +2,8 @@ import { useState, useMemo } from "react";
 import { Select } from "antd";
 import useAppStore from "../../store/useAppStore";
 
+const DEBOUNCE_MS = 250;
+
 const sectionLabelStyle = {
   fontSize: 12,
   fontWeight: 600,
@@ -15,6 +17,7 @@ export default function SidebarColorBy() {
     colorColumn,
     selectedGene,
     colorLoading,
+    geneLoading,
     setColorColumn,
     setSelectedGene,
     clearGeneSelection,
@@ -27,11 +30,26 @@ export default function SidebarColorBy() {
   const isColumns = mode === "columns";
   const items = isColumns ? obsColumns : geneNames;
   const selected = isColumns ? colorColumn : selectedGene;
+  const loading = isColumns ? colorLoading : geneLoading;
 
   const options = useMemo(
     () => (items || []).map((name) => ({ label: name, value: name })),
     [items],
   );
+
+  const debouncedSelect = useMemo(() => {
+    let timer;
+    return (value) => {
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        if (isColumns) {
+          setColorColumn(value);
+        } else {
+          setSelectedGene(value);
+        }
+      }, DEBOUNCE_MS);
+    };
+  }, [isColumns, setColorColumn, setSelectedGene]);
 
   const handleModeChange = (newMode) => {
     setMode(newMode);
@@ -39,14 +57,6 @@ export default function SidebarColorBy() {
       clearGeneSelection();
     } else {
       setColorColumn(null);
-    }
-  };
-
-  const handleSelect = (value) => {
-    if (isColumns) {
-      setColorColumn(value);
-    } else {
-      setSelectedGene(value);
     }
   };
 
@@ -87,9 +97,10 @@ export default function SidebarColorBy() {
         style={{ width: "100%" }}
         showSearch
         value={selected}
-        onChange={handleSelect}
+        onChange={debouncedSelect}
         options={options}
-        loading={colorLoading}
+        loading={loading}
+        disabled={loading}
         placeholder={isColumns ? "Select column..." : "Select gene..."}
         optionFilterProp="label"
         virtual
