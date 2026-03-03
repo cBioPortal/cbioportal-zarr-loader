@@ -1,4 +1,5 @@
 import { themes as prismThemes } from 'prism-react-renderer';
+import path from 'path';
 
 /** @type {import('@docusaurus/types').Config} */
 const config = {
@@ -8,14 +9,10 @@ const config = {
 
   url: 'https://anndata-zarr.example.com',
   baseUrl: process.env.DOCS_BASE_URL || '/docs/',
+  trailingSlash: false,
 
   onBrokenLinks: 'throw',
-
-  markdown: {
-    hooks: {
-      onBrokenMarkdownLinks: 'warn',
-    },
-  },
+  onBrokenMarkdownLinks: 'warn',
 
   i18n: {
     defaultLocale: 'en',
@@ -28,13 +25,13 @@ const config = {
       /** @type {import('@docusaurus/preset-classic').Options} */
       ({
         docs: {
-          path: './content',
+          path: path.resolve(__dirname, './content'),
           routeBasePath: '/',
-          sidebarPath: './sidebars.js',
+          sidebarPath: path.resolve(__dirname, './sidebars.js'),
         },
         blog: false,
         theme: {
-          customCss: './src/css/custom.css',
+          customCss: path.resolve(__dirname, './src/css/custom.css'),
         },
       }),
     ],
