@@ -44,6 +44,7 @@ export class AnnDataStore {
   #attrs: Record<string, unknown>;
   #consolidatedMetadata: ConsolidatedMetadata | null;
   #cache = new Map<string, Promise<unknown>>();
+  #settled = new Set<string>();
   #labelCache = new Map<string, string>();
   profiler: ProfileCollector;
 
@@ -139,6 +140,7 @@ export class AnnDataStore {
       const before = this.#zarrStore.snapshotFetchStats();
       const finish = startMeasure(key, false);
       const promise = fn().then(async (result) => {
+        this.#settled.add(key);
         const after = this.#zarrStore.snapshotFetchStats();
         const fetches = {
           requests: after.requests - before.requests,
@@ -157,7 +159,12 @@ export class AnnDataStore {
         return result;
       });
       promise.catch((err) => {
-        this.#cache.delete(key);
+        // Only evict if this is still the cached promise — a newer call for the
+        // same key may have already replaced it (e.g. React StrictMode double-invoke).
+        if (this.#cache.get(key) === promise) {
+          this.#cache.delete(key);
+          this.#settled.delete(key);
+        }
         const aborted = err?.name === "AbortError";
         const after = this.#zarrStore.snapshotFetchStats();
         const fetches = {
@@ -183,6 +190,7 @@ export class AnnDataStore {
 
   clearCache(): void {
     this.#cache.clear();
+    this.#settled.clear();
     this.#labelCache.clear();
   }
 
@@ -582,10 +590,14 @@ export class AnnDataStore {
   }
 
   obsm(key: string, signal?: AbortSignal): Promise<ArrayResult | DecodeNodeResult> {
-    // Evict any cached promise for this key when an abort signal is provided.
-    // This prevents a stale (aborted) promise from being returned to a retry caller.
-    if (signal) {
-      this.#cache.delete(`obsm:${key}`);
+    const cacheKey = `obsm:${key}`;
+    // Only evict pending (unsettled) cache entries when a new signal is provided.
+    // Settled (resolved) entries contain valid data — return them as-is so that
+    // switching back to a previously loaded key is instant.
+    // Pending entries must be evicted because their in-flight fetch may be tied to
+    // a now-aborted signal (e.g. React StrictMode double-invoke).
+    if (signal && this.#cache.has(cacheKey) && !this.#settled.has(cacheKey)) {
+      this.#cache.delete(cacheKey);
     }
     return this.#slotArray("obsm", key, signal);
   }

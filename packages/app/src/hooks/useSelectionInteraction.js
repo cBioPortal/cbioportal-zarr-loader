@@ -4,10 +4,27 @@ import { pointInPolygon, simplifyPolygon } from "../utils/scatterplotUtils";
 /**
  * Manages rectangle and lasso selection interactions for the scatterplot.
  * Owns all selection-related refs, state, and mouse event handlers.
+ *
+ * Supports two data paths (provide one or the other):
+ * - `points`: Array of ScatterPoint objects (original path)
+ * - `positionBuffer` + `stride` + `numPoints`: Raw Float32Array (binary path)
+ *
+ * @param {object} options
+ * @param {*} options.deckRef
+ * @param {Array<{position: [number,number], index: number}>} [options.points] - ScatterPoint array (original path)
+ * @param {Float32Array} [options.positionBuffer] - Raw position buffer (binary path)
+ * @param {number} [options.stride] - Columns per row in positionBuffer (default 2)
+ * @param {number} [options.numPoints] - Number of points in positionBuffer
+ * @param {function} options.setSelectedPoints
+ * @param {function} options.setSelectionGeometry
+ * @param {function} options.clearSelectedPoints
  */
 export default function useSelectionInteraction({
   deckRef,
   points,
+  positionBuffer,
+  stride = 2,
+  numPoints = 0,
   setSelectedPoints,
   setSelectionGeometry,
   clearSelectedPoints,
@@ -91,10 +108,21 @@ export default function useSelectionInteraction({
         const maxWy = Math.max(wy1, wy2);
 
         const indices = [];
-        for (const pt of points) {
-          const [px, py] = pt.position;
-          if (px >= minWx && px <= maxWx && py >= minWy && py <= maxWy) {
-            indices.push(pt.index);
+        if (positionBuffer && numPoints) {
+          const s = stride || 2;
+          for (let i = 0; i < numPoints; i++) {
+            const px = positionBuffer[i * s];
+            const py = positionBuffer[i * s + 1];
+            if (px >= minWx && px <= maxWx && py >= minWy && py <= maxWy) {
+              indices.push(i);
+            }
+          }
+        } else if (points) {
+          for (const pt of points) {
+            const [px, py] = pt.position;
+            if (px >= minWx && px <= maxWx && py >= minWy && py <= maxWy) {
+              indices.push(pt.index);
+            }
           }
         }
         setSelectionGeometry({ type: "rectangle", bounds: [minWx, minWy, maxWx, maxWy] });
@@ -115,10 +143,21 @@ export default function useSelectionInteraction({
       if (viewport) {
         const worldPolygon = lassoPoints.map(p => viewport.unproject([p.x, p.y]));
         const indices = [];
-        for (const pt of points) {
-          const [px, py] = pt.position;
-          if (pointInPolygon(px, py, worldPolygon)) {
-            indices.push(pt.index);
+        if (positionBuffer && numPoints) {
+          const s = stride || 2;
+          for (let i = 0; i < numPoints; i++) {
+            const px = positionBuffer[i * s];
+            const py = positionBuffer[i * s + 1];
+            if (pointInPolygon(px, py, worldPolygon)) {
+              indices.push(i);
+            }
+          }
+        } else if (points) {
+          for (const pt of points) {
+            const [px, py] = pt.position;
+            if (pointInPolygon(px, py, worldPolygon)) {
+              indices.push(pt.index);
+            }
           }
         }
         setSelectionGeometry({ type: "lasso", polygon: simplifyPolygon(worldPolygon) });
@@ -128,7 +167,7 @@ export default function useSelectionInteraction({
       const svg = lassoSvgRef.current;
       if (svg) svg.style.display = "none";
     }
-  }, [selectMode, points, setSelectedPoints, setSelectionGeometry, updateSelectionRect]);
+  }, [selectMode, points, positionBuffer, stride, numPoints, setSelectedPoints, setSelectionGeometry, updateSelectionRect]);
 
   return {
     selectMode,

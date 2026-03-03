@@ -1,7 +1,7 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import { createBrowserRouter, RouterProvider } from "react-router";
-import App, { ViewerLayout, ViewerTabs } from "./App.jsx";
+import App, { ViewerLayout, ViewerContent } from "./App.jsx";
 import LoadPage from "./pages/LoadPage";
 import { ProfilePage } from "@cbioportal-zarr-loader/profiler";
 
@@ -15,8 +15,8 @@ const router = createBrowserRouter([
       {
         Component: ViewerLayout,
         children: [
-          { index: true, Component: ViewerTabs },
-          { path: "*", Component: ViewerTabs },
+          { index: true, Component: ViewerContent },
+          { path: "*", Component: ViewerContent },
         ],
       },
     ],

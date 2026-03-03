@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import { Navigate, Outlet, useSearchParams, Link } from "react-router";
 import {
   Layout,
@@ -13,6 +13,7 @@ import InfoTab from "./components/views/InfoTab";
 import ObsmTab from "./components/views/ObsmTab";
 import PlotsTab from "./components/views/PlotsTab";
 import DotplotTab from "./components/views/DotplotTab";
+import ExplorerLayout from "./components/layouts/ExplorerLayout";
 import { ProfileBar, PROFILE_BAR_HEIGHT, saveProfileSession } from "@cbioportal-zarr-loader/profiler";
 
 import useAppStore from "./store/useAppStore";
@@ -123,6 +124,21 @@ export function ViewerTabs() {
 }
 
 /**
+ * ViewerContent — layout switcher.
+ * Reads ?layout=v3 to choose between tabbed layout and explorer layout.
+ */
+export function ViewerContent() {
+  const [searchParams] = useSearchParams();
+  const layoutVersion = searchParams.get("layout");
+
+  if (layoutVersion === "v3") {
+    return <ExplorerLayout />;
+  }
+
+  return <ViewerTabs />;
+}
+
+/**
  * App — root layout.
  * Owns app-level hooks (postMessage, iframe resize) so they survive route navigation.
  */
@@ -131,6 +147,8 @@ export default function App() {
   const adata = useAppStore((s) => s.adata);
   const url = useAppStore((s) => s.url);
   const linkTo = useLinkWithParams();
+  const [searchParams] = useSearchParams();
+  const isV3 = searchParams.get("layout") === "v3";
 
   const postMessageHandlers = useMemo(() => ({
     applyConfig: async (payload) => {
@@ -142,9 +160,24 @@ export default function App() {
   usePostMessage(postMessageHandlers, import.meta.env.VITE_POSTMESSAGE_ORIGIN || "*");
   useIframeResize();
 
+  // Apply viewport height constraint on #app only for v3 layout.
+  // The old tab layout needs a scrollable page — hard-coding height: 100vh
+  // on #app causes scrollbar toggle loops with the scatterplot resize handler.
+  useLayoutEffect(() => {
+    const el = document.getElementById("app");
+    if (!el) return;
+    if (isV3) {
+      el.style.height = "100vh";
+      el.style.overflow = "hidden";
+    } else {
+      el.style.height = "";
+      el.style.overflow = "";
+    }
+  }, [isV3]);
+
   return (
-    <Layout style={{ minHeight: "100vh" }}>
-      {!isEmbedded && (
+    <Layout style={{ minHeight: "100vh", height: isV3 ? "100vh" : undefined }}>
+      {!isEmbedded && !isV3 && (
         <Header
           style={{
             display: "flex",
@@ -179,7 +212,7 @@ export default function App() {
           </nav>
         </Header>
       )}
-      <Content style={{ background: "#fff", paddingBottom: featureFlags.profile ? PROFILE_BAR_HEIGHT : 0 }}>
+      <Content style={{ background: "#fff", paddingBottom: featureFlags.profile ? PROFILE_BAR_HEIGHT : 0, ...(isV3 ? { flex: 1, overflow: "hidden" } : {}) }}>
         <Outlet />
       </Content>
       {featureFlags.profile && (

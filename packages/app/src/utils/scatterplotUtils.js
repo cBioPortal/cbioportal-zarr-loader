@@ -333,6 +333,31 @@ export function buildHexCategoryColorConfig(categoryColorMap) {
 }
 
 /**
+ * Compute bounding box directly from a flat typed array of 2D coordinates.
+ * Avoids building intermediate JS objects — operates on the raw buffer.
+ *
+ * @param {Float32Array|null} data - Flat row-major array of [x, y, x, y, ...]
+ * @param {[number, number]} shape - [nRows, nCols] where nCols >= 2
+ * @returns {{ minX: number, maxX: number, minY: number, maxY: number } | null}
+ */
+export function computeBoundsFromBuffer(data, shape) {
+  if (!data || data.length === 0) return null;
+  const cols = shape[1];
+  const nRows = shape[0];
+  let minX = Infinity, maxX = -Infinity;
+  let minY = Infinity, maxY = -Infinity;
+  for (let i = 0; i < nRows; i++) {
+    const x = data[i * cols];
+    const y = data[i * cols + 1];
+    if (x < minX) minX = x;
+    if (x > maxX) maxX = x;
+    if (y < minY) minY = y;
+    if (y > maxY) maxY = y;
+  }
+  return { minX, maxX, minY, maxY };
+}
+
+/**
  * Sort categories by point count descending for legend display.
  *
  * @param {Object} categoryColorMap - Map of category name to RGB color array
