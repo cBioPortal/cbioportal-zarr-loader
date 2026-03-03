@@ -161,7 +161,7 @@ export default function App() {
   useIframeResize();
 
   return (
-    <Layout style={{ minHeight: "100vh" }}>
+    <Layout style={{ minHeight: "100vh", height: isV3 ? "100vh" : undefined }}>
       {!isEmbedded && !isV3 && (
         <Header
           style={{
@@ -197,7 +197,7 @@ export default function App() {
           </nav>
         </Header>
       )}
-      <Content style={{ background: "#fff", paddingBottom: featureFlags.profile ? PROFILE_BAR_HEIGHT : 0 }}>
+      <Content style={{ background: "#fff", paddingBottom: featureFlags.profile ? PROFILE_BAR_HEIGHT : 0, ...(isV3 ? { flex: 1, overflow: "hidden" } : {}) }}>
         <Outlet />
       </Content>
       {featureFlags.profile && (
