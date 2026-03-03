@@ -3,19 +3,6 @@ import { render, screen } from "@testing-library/react";
 import useAppStore from "../../../store/useAppStore";
 import SidebarColorBy from "../SidebarColorBy";
 
-// Mock VirtualizedList to avoid react-window v2 measurement renders
-vi.mock("../VirtualizedList", () => ({
-  default: ({ items, selected, onSelect }) => (
-    <div data-testid="virtualized-list">
-      {items.map((item) => (
-        <div key={item} data-item={item} onClick={() => onSelect(item)}>
-          {item}
-        </div>
-      ))}
-    </div>
-  ),
-}));
-
 beforeEach(() => {
   useAppStore.setState({
     metadata: {
@@ -37,9 +24,14 @@ describe("SidebarColorBy", () => {
     expect(screen.getAllByText("Color by").length).toBeGreaterThan(0);
   });
 
-  it("shows columns list by default", () => {
+  it("renders the searchable select with placeholder", () => {
+    render(<SidebarColorBy />);
+    expect(screen.getAllByText("Select column...").length).toBeGreaterThan(0);
+  });
+
+  it("shows the selected column when set", () => {
+    useAppStore.setState({ colorColumn: "cell_type" });
     render(<SidebarColorBy />);
     expect(screen.getAllByText("cell_type").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("batch").length).toBeGreaterThan(0);
   });
 });

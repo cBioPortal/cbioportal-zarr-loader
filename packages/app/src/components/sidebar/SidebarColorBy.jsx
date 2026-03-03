@@ -1,9 +1,6 @@
-import { useState, useMemo, useRef, useEffect } from "react";
-import { Select, Input } from "antd";
+import { useState, useMemo } from "react";
+import { Select } from "antd";
 import useAppStore from "../../store/useAppStore";
-import VirtualizedList from "./VirtualizedList";
-
-const SEARCH_THRESHOLD = 10;
 
 const sectionLabelStyle = {
   fontSize: 12,
@@ -26,37 +23,15 @@ export default function SidebarColorBy() {
   const { obsColumns, geneNames } = metadata;
 
   const [mode, setMode] = useState("columns");
-  const [searchText, setSearchText] = useState("");
-  const containerRef = useRef(null);
-  const [listHeight, setListHeight] = useState(300);
 
   const isColumns = mode === "columns";
   const items = isColumns ? obsColumns : geneNames;
   const selected = isColumns ? colorColumn : selectedGene;
-  const loading = colorLoading ? selected : null;
-  const showSearch = items && items.length > SEARCH_THRESHOLD;
 
-  const filteredItems = useMemo(() => {
-    if (!items) return [];
-    if (!searchText) return items;
-    const search = searchText.toLowerCase();
-    return items.filter((name) => name.toLowerCase().includes(search));
-  }, [items, searchText]);
-
-  // Reset search when switching modes
-  useEffect(() => {
-    setSearchText("");
-  }, [mode]);
-
-  // Measure available height for the virtualized list
-  useEffect(() => {
-    if (!containerRef.current) return;
-    const observer = new ResizeObserver(([entry]) => {
-      setListHeight(entry.contentRect.height);
-    });
-    observer.observe(containerRef.current);
-    return () => observer.disconnect();
-  }, []);
+  const options = useMemo(
+    () => (items || []).map((name) => ({ label: name, value: name })),
+    [items],
+  );
 
   const handleModeChange = (newMode) => {
     setMode(newMode);
@@ -67,11 +42,11 @@ export default function SidebarColorBy() {
     }
   };
 
-  const handleSelect = (item) => {
+  const handleSelect = (value) => {
     if (isColumns) {
-      setColorColumn(item);
+      setColorColumn(value);
     } else {
-      setSelectedGene(item);
+      setSelectedGene(value);
     }
   };
 
@@ -80,15 +55,14 @@ export default function SidebarColorBy() {
       style={{
         display: "flex",
         flexDirection: "column",
-        flex: 1,
-        minHeight: 0,
+        padding: "12px 16px",
         borderBottom: "1px solid #f0f0f0",
+        gap: 8,
       }}
     >
       {/* Header row */}
       <div
         style={{
-          padding: "12px 16px 8px",
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
@@ -107,43 +81,19 @@ export default function SidebarColorBy() {
         />
       </div>
 
-      {/* Search */}
-      {showSearch && (
-        <div style={{ padding: "0 16px 8px" }}>
-          <Input.Search
-            size="small"
-            placeholder={isColumns ? "Search columns..." : "Search genes..."}
-            value={searchText}
-            onChange={(e) => setSearchText(e.target.value)}
-            allowClear
-          />
-        </div>
-      )}
-
-      {/* Status bar */}
-      {searchText && (
-        <div
-          style={{
-            padding: "0 16px 4px",
-            fontSize: 11,
-            color: "#999",
-          }}
-        >
-          {filteredItems.length.toLocaleString()} of {items.length.toLocaleString()}
-          {" "}{isColumns ? "columns" : "genes"}
-        </div>
-      )}
-
-      {/* Virtualized list */}
-      <div ref={containerRef} style={{ flex: 1, minHeight: 0 }}>
-        <VirtualizedList
-          items={filteredItems}
-          selected={selected}
-          onSelect={handleSelect}
-          loading={loading}
-          height={listHeight}
-        />
-      </div>
+      {/* Searchable dropdown */}
+      <Select
+        size="small"
+        style={{ width: "100%" }}
+        showSearch
+        value={selected}
+        onChange={handleSelect}
+        options={options}
+        loading={colorLoading}
+        placeholder={isColumns ? "Select column..." : "Select gene..."}
+        optionFilterProp="label"
+        virtual
+      />
     </div>
   );
 }
