@@ -130,11 +130,14 @@ export default function EmbeddingScatterplotGL({
   );
 
   const initialViewState = useMemo(
-    () => ({
-      ...computeViewState(bounds, containerSize),
-      minZoom: -5,
-      maxZoom: 20,
-    }),
+    () => {
+      const vs = computeViewState(bounds, containerSize);
+      return {
+        ...vs,
+        minZoom: vs.zoom - 1,
+        maxZoom: 20,
+      };
+    },
     [bounds, containerSize],
   );
 
