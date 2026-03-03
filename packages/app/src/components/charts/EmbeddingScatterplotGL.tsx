@@ -251,6 +251,7 @@ export default function EmbeddingScatterplotGL({
         initialViewState={initialViewState}
         onViewStateChange={onViewStateChange}
         controller={{ dragPan: selectMode === "pan", scrollZoom: { speed: 0.01, smooth: false }, inertia: false }}
+        useDevicePixels={false}
         layers={layers}
         widgets={debugWidgets}
         {...(debugMode ? { _onMetrics: onDebugMetrics } : {})}
