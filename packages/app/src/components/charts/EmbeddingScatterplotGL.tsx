@@ -140,6 +140,42 @@ export default function EmbeddingScatterplotGL({
     [bounds, containerSize],
   );
 
+  // Clamp panning so the data can't be dragged completely off-canvas.
+  // At any zoom level, keep at least some data visible in the viewport.
+  const onViewStateChange = useCallback(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ({ viewState }: { viewState: any }) => {
+      if (!bounds) return viewState;
+
+      const zoom = Number(viewState.zoom ?? 0);
+      const target = viewState.target as [number, number];
+      const scale = Math.pow(2, zoom);
+      const halfVisibleX = containerSize.width / scale / 2;
+      const halfVisibleY = containerSize.height / scale / 2;
+
+      // Keep at least ~1/3 of the data range visible on each axis.
+      const rangeX = bounds.maxX - bounds.minX;
+      const rangeY = bounds.maxY - bounds.minY;
+      const keepX = rangeX / 3;
+      const keepY = rangeY / 3;
+
+      const minTargetX = bounds.minX - halfVisibleX + keepX;
+      const maxTargetX = bounds.maxX + halfVisibleX - keepX;
+      const minTargetY = bounds.minY - halfVisibleY + keepY;
+      const maxTargetY = bounds.maxY + halfVisibleY - keepY;
+
+      const clampedX = minTargetX < maxTargetX
+        ? Math.max(minTargetX, Math.min(maxTargetX, target[0]))
+        : (bounds.minX + bounds.maxX) / 2;
+      const clampedY = minTargetY < maxTargetY
+        ? Math.max(minTargetY, Math.min(maxTargetY, target[1]))
+        : (bounds.minY + bounds.maxY) / 2;
+
+      return { ...viewState, target: [clampedX, clampedY] };
+    },
+    [bounds, containerSize],
+  );
+
   const numPoints = shape[0];
 
   const {
@@ -213,7 +249,8 @@ export default function EmbeddingScatterplotGL({
         height={containerSize.height}
         views={new OrthographicView({ id: "ortho" })}
         initialViewState={initialViewState}
-        controller={{ dragPan: selectMode === "pan", scrollZoom: { speed: 0.01, smooth: false }, inertia: 1000 }}
+        onViewStateChange={onViewStateChange}
+        controller={{ dragPan: selectMode === "pan", scrollZoom: { speed: 0.01, smooth: false }, inertia: false }}
         layers={layers}
         widgets={debugWidgets}
         {...(debugMode ? { _onMetrics: onDebugMetrics } : {})}
