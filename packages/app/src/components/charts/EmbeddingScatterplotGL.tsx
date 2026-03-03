@@ -69,9 +69,22 @@ export default function EmbeddingScatterplotGL({
     return () => observer.disconnect();
   }, []);
 
+  // Negate Y so the plot matches the mathematical convention (Y increases upward),
+  // consistent with scanpy/matplotlib output. deck.gl's OrthographicView has Y
+  // increasing downward by default (screen convention).
+  const flippedData = useMemo(() => {
+    const cols = shape[1];
+    const buf = new Float32Array(data.length);
+    for (let i = 0; i < data.length; i += cols) {
+      buf[i] = data[i];         // x unchanged
+      buf[i + 1] = -data[i + 1]; // y negated
+    }
+    return buf;
+  }, [data, shape]);
+
   const bounds = useMemo(
-    () => computeBoundsFromBuffer(data, shape),
-    [data, shape],
+    () => computeBoundsFromBuffer(flippedData, shape),
+    [flippedData, shape],
   );
 
   const initialViewState = useMemo(
@@ -134,7 +147,7 @@ export default function EmbeddingScatterplotGL({
     handleMouseUp,
   } = useSelectionInteraction({
     deckRef,
-    positionBuffer: data,
+    positionBuffer: flippedData,
     stride: shape[1],
     numPoints,
     setSelectedPoints,
@@ -148,10 +161,10 @@ export default function EmbeddingScatterplotGL({
     () => ({
       length: numPoints,
       attributes: {
-        getPosition: { value: data, size: 2 },
+        getPosition: { value: flippedData, size: 2 },
       },
     }),
-    [data, numPoints],
+    [flippedData, numPoints],
   );
 
   const layers = useMemo(
