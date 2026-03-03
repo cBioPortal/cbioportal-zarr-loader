@@ -4,6 +4,7 @@ import {
   simplifyPolygon,
   computeRange,
   computeViewState,
+  computeBoundsFromBuffer,
   buildScatterplotPoints,
   buildSelectionSummary,
   getPointFillColor,
@@ -815,5 +816,35 @@ describe("buildHexCategoryColorConfig", () => {
     expect(hexConfig.colorRange).toEqual([CATEGORICAL_COLORS[0]]);
     expect(hexConfig.colorDomain).toEqual([0, 1]);
     expect(hexConfig._uniqueCats).toEqual(["Only"]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// computeBoundsFromBuffer
+// ---------------------------------------------------------------------------
+
+describe("computeBoundsFromBuffer", () => {
+  it("computes min/max from a flat Float32Array", () => {
+    const data = new Float32Array([1, 2, 3, 4, 5, 6]);
+    const shape = [3, 2];
+    const bounds = computeBoundsFromBuffer(data, shape);
+    expect(bounds).toEqual({ minX: 1, maxX: 5, minY: 2, maxY: 6 });
+  });
+
+  it("returns null for empty data", () => {
+    expect(computeBoundsFromBuffer(null, [0, 2])).toBeNull();
+    expect(computeBoundsFromBuffer(new Float32Array([]), [0, 2])).toBeNull();
+  });
+
+  it("handles single point", () => {
+    const data = new Float32Array([7, 3]);
+    const bounds = computeBoundsFromBuffer(data, [1, 2]);
+    expect(bounds).toEqual({ minX: 7, maxX: 7, minY: 3, maxY: 3 });
+  });
+
+  it("handles negative coordinates", () => {
+    const data = new Float32Array([-5, -3, 2, 4]);
+    const bounds = computeBoundsFromBuffer(data, [2, 2]);
+    expect(bounds).toEqual({ minX: -5, maxX: 2, minY: -3, maxY: 4 });
   });
 });
