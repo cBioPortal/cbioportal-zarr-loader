@@ -1,37 +1,11 @@
 import { interpolateColorScale, COLOR_SCALES, CATEGORICAL_COLORS } from '../utils/colors'
-import type { RGB } from '../utils/colors'
+import { WorkerMessageSchema } from './colorBuffer.schemas'
 
 // In a Web Worker context, workerSelf.postMessage takes (message, transfer[])
 const workerSelf = self as unknown as {
   onmessage: ((e: MessageEvent) => void) | null
   postMessage(message: unknown, transfer: Transferable[]): void
 }
-
-interface BuildDefaultMsg {
-  type: 'buildDefault'
-  numPoints: number
-  rgb: RGB
-  alpha: number
-}
-
-interface BuildFromExpressionMsg {
-  type: 'buildFromExpression'
-  numPoints: number
-  expression: Float32Array
-  min: number
-  max: number
-  alpha: number
-  scaleName: string
-}
-
-interface BuildFromCategoriesMsg {
-  type: 'buildFromCategories'
-  numPoints: number
-  categories: Uint8Array
-  alpha: number
-}
-
-type WorkerMessage = BuildDefaultMsg | BuildFromExpressionMsg | BuildFromCategoriesMsg
 
 /**
  * Web Worker for building color buffers off the main thread.
@@ -41,11 +15,18 @@ type WorkerMessage = BuildDefaultMsg | BuildFromExpressionMsg | BuildFromCategor
  *   buildFromExpression — continuous color scale from Float32Array values
  *   buildFromCategories — categorical colors from integer category indices
  */
-workerSelf.onmessage = (e: MessageEvent<WorkerMessage>) => {
-  const { type } = e.data
+workerSelf.onmessage = (e: MessageEvent) => {
+  const result = WorkerMessageSchema.safeParse(e.data)
+  if (!result.success) {
+    console.warn('colorBuffer worker: invalid message', result.error)
+    return
+  }
+
+  const msg = result.data
+  const { type, version } = msg
 
   if (type === 'buildDefault') {
-    const { numPoints, rgb, alpha } = e.data
+    const { numPoints, rgb, alpha } = msg
     const buf = new Uint8Array(numPoints * 4)
     const a = Math.round(alpha * 255)
     for (let i = 0; i < numPoints; i++) {
@@ -55,12 +36,12 @@ workerSelf.onmessage = (e: MessageEvent<WorkerMessage>) => {
       buf[off + 2] = rgb[2]
       buf[off + 3] = a
     }
-    workerSelf.postMessage({ type: 'colorBuffer', buffer: buf }, [buf.buffer] as Transferable[])
+    workerSelf.postMessage({ type: 'colorBuffer', buffer: buf, version }, [buf.buffer] as Transferable[])
     return
   }
 
   if (type === 'buildFromExpression') {
-    const { numPoints, expression, min, max, alpha, scaleName } = e.data
+    const { numPoints, expression, min, max, alpha, scaleName } = msg
     const scale = COLOR_SCALES[scaleName] || COLOR_SCALES.viridis
     const buf = new Uint8Array(numPoints * 4)
     const a = Math.round(alpha * 255)
@@ -74,12 +55,12 @@ workerSelf.onmessage = (e: MessageEvent<WorkerMessage>) => {
       buf[off + 2] = b
       buf[off + 3] = a
     }
-    workerSelf.postMessage({ type: 'colorBuffer', buffer: buf }, [buf.buffer] as Transferable[])
+    workerSelf.postMessage({ type: 'colorBuffer', buffer: buf, version }, [buf.buffer] as Transferable[])
     return
   }
 
   if (type === 'buildFromCategories') {
-    const { numPoints, categories, alpha } = e.data
+    const { numPoints, categories, alpha } = msg
     const buf = new Uint8Array(numPoints * 4)
     const a = Math.round(alpha * 255)
     const numColors = CATEGORICAL_COLORS.length
@@ -91,7 +72,7 @@ workerSelf.onmessage = (e: MessageEvent<WorkerMessage>) => {
       buf[off + 2] = color[2]
       buf[off + 3] = a
     }
-    workerSelf.postMessage({ type: 'colorBuffer', buffer: buf }, [buf.buffer] as Transferable[])
+    workerSelf.postMessage({ type: 'colorBuffer', buffer: buf, version }, [buf.buffer] as Transferable[])
     return
   }
 }

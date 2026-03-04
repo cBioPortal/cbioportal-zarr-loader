@@ -18,13 +18,14 @@ vi.mock('../workers/colorBuffer.worker.ts?worker', () => {
   }
 })
 
-const { default: useAppStore } = await import('./useAppStore')
+const { default: useAppStore, getColorBuildVersion, resetColorBuildVersion } = await import('./useAppStore')
 
 describe('useAppStore', () => {
   beforeEach(() => {
     vi.useFakeTimers()
     useAppStore.setState(useAppStore.getInitialState())
     mockPostMessage.mockClear()
+    resetColorBuildVersion()
   })
 
   afterEach(() => {
@@ -117,6 +118,7 @@ describe('useAppStore', () => {
         numPoints: 2,
         rgb: [100, 150, 255],
         alpha: 0.5,
+        version: expect.any(Number),
       })
     })
 
@@ -141,6 +143,7 @@ describe('useAppStore', () => {
         numPoints: 2,
         rgb: [100, 150, 255],
         alpha: 0.8,
+        version: expect.any(Number),
       })
     })
   })
@@ -151,7 +154,7 @@ describe('useAppStore', () => {
       expect(mockPostMessage).not.toHaveBeenCalled()
     })
 
-    it('posts buildDefault message to worker', () => {
+    it('posts buildDefault message with version to worker', () => {
       useAppStore.setState({
         embeddingData: {
           positions: new Float32Array([0, 0, 1, 1, 2, 2]),
@@ -168,10 +171,11 @@ describe('useAppStore', () => {
         numPoints: 3,
         rgb: [100, 150, 255],
         alpha: 0.7,
+        version: 1,
       })
     })
 
-    it('worker response sets colorBufferLoading to false', () => {
+    it('worker response with matching version updates store', () => {
       useAppStore.setState({
         embeddingData: {
           positions: new Float32Array([0, 0, 1, 1]),
@@ -181,15 +185,71 @@ describe('useAppStore', () => {
         colorBufferLoading: true,
       })
 
-      // Trigger rebuildColorBuffer to set up worker.onmessage
+      // Trigger rebuildColorBuffer to increment version
       useAppStore.getState().rebuildColorBuffer()
+      const currentVersion = getColorBuildVersion()
 
-      // Simulate the worker posting back a colorBuffer result
+      // Simulate the worker posting back a matching response
       const fakeBuffer = new Uint8Array(8)
-      mockWorkerInstance!.onmessage!({ data: { type: 'colorBuffer', buffer: fakeBuffer } } as MessageEvent)
+      mockWorkerInstance!.onmessage!({
+        data: { type: 'colorBuffer', buffer: fakeBuffer, version: currentVersion },
+      } as MessageEvent)
 
       expect(useAppStore.getState().colorBufferLoading).toBe(false)
       expect(useAppStore.getState().colorBuffer).toBe(fakeBuffer)
+    })
+
+    it('discards stale worker responses with outdated version', () => {
+      useAppStore.setState({
+        embeddingData: {
+          positions: new Float32Array([0, 0, 1, 1]),
+          numPoints: 2,
+          bounds: { minX: 0, maxX: 1, minY: 0, maxY: 1 },
+        },
+        colorBufferLoading: true,
+      })
+
+      // First rebuild — version becomes 1
+      useAppStore.getState().rebuildColorBuffer()
+      const staleVersion = getColorBuildVersion()
+
+      // Second rebuild — version becomes 2
+      useAppStore.getState().rebuildColorBuffer()
+
+      // Simulate the FIRST (stale) response arriving
+      const staleBuffer = new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8])
+      mockWorkerInstance!.onmessage!({
+        data: { type: 'colorBuffer', buffer: staleBuffer, version: staleVersion },
+      } as MessageEvent)
+
+      // Store should NOT have been updated — response was stale
+      expect(useAppStore.getState().colorBuffer).toBeNull()
+      expect(useAppStore.getState().colorBufferLoading).toBe(true)
+    })
+
+    it('accepts response after stale one is discarded', () => {
+      useAppStore.setState({
+        embeddingData: {
+          positions: new Float32Array([0, 0, 1, 1]),
+          numPoints: 2,
+          bounds: { minX: 0, maxX: 1, minY: 0, maxY: 1 },
+        },
+        colorBufferLoading: true,
+      })
+
+      // Two rebuilds
+      useAppStore.getState().rebuildColorBuffer()
+      useAppStore.getState().rebuildColorBuffer()
+      const currentVersion = getColorBuildVersion()
+
+      // Simulate the second (current) response arriving
+      const currentBuffer = new Uint8Array([10, 20, 30, 40, 50, 60, 70, 80])
+      mockWorkerInstance!.onmessage!({
+        data: { type: 'colorBuffer', buffer: currentBuffer, version: currentVersion },
+      } as MessageEvent)
+
+      expect(useAppStore.getState().colorBufferLoading).toBe(false)
+      expect(useAppStore.getState().colorBuffer).toBe(currentBuffer)
     })
   })
 })

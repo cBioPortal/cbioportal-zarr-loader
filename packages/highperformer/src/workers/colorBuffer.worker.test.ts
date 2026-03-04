@@ -1,9 +1,10 @@
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { interpolateColorScale, COLOR_SCALES, CATEGORICAL_COLORS } from '../utils/colors'
 
 interface PostedMessage {
   type: string
   buffer: Uint8Array
+  version: number
 }
 
 // Capture posted messages before the buffer gets transferred/detached.
@@ -31,7 +32,7 @@ describe('colorBuffer worker', () => {
 
   describe('buildDefault', () => {
     it('produces uniform RGBA buffer', () => {
-      handler({ data: { type: 'buildDefault', numPoints: 3, rgb: [100, 150, 255], alpha: 0.5 } })
+      handler({ data: { type: 'buildDefault', numPoints: 3, rgb: [100, 150, 255], alpha: 0.5, version: 1 } })
 
       expect(postedMessages).toHaveLength(1)
       const { type, buffer } = postedMessages[0]
@@ -50,12 +51,17 @@ describe('colorBuffer worker', () => {
     })
 
     it('computes alpha correctly from float', () => {
-      handler({ data: { type: 'buildDefault', numPoints: 1, rgb: [0, 0, 0], alpha: 1.0 } })
+      handler({ data: { type: 'buildDefault', numPoints: 1, rgb: [0, 0, 0], alpha: 1.0, version: 1 } })
       expect(postedMessages[0].buffer[3]).toBe(255)
 
       postedMessages.length = 0
-      handler({ data: { type: 'buildDefault', numPoints: 1, rgb: [0, 0, 0], alpha: 0.0 } })
+      handler({ data: { type: 'buildDefault', numPoints: 1, rgb: [0, 0, 0], alpha: 0.0, version: 1 } })
       expect(postedMessages[0].buffer[3]).toBe(0)
+    })
+
+    it('echoes version in response', () => {
+      handler({ data: { type: 'buildDefault', numPoints: 1, rgb: [0, 0, 0], alpha: 1.0, version: 42 } })
+      expect(postedMessages[0].version).toBe(42)
     })
   })
 
@@ -71,6 +77,7 @@ describe('colorBuffer worker', () => {
           max: 10,
           alpha: 1.0,
           scaleName: 'viridis',
+          version: 1,
         },
       })
 
@@ -102,6 +109,7 @@ describe('colorBuffer worker', () => {
           max: 1,
           alpha: 1.0,
           scaleName: 'nonexistent',
+          version: 1,
         },
       })
 
@@ -111,13 +119,30 @@ describe('colorBuffer worker', () => {
       expect(buffer[1]).toBe(g)
       expect(buffer[2]).toBe(b)
     })
+
+    it('echoes version in response', () => {
+      const expression = new Float32Array([0])
+      handler({
+        data: {
+          type: 'buildFromExpression',
+          numPoints: 1,
+          expression,
+          min: 0,
+          max: 1,
+          alpha: 1.0,
+          scaleName: 'viridis',
+          version: 7,
+        },
+      })
+      expect(postedMessages[0].version).toBe(7)
+    })
   })
 
   describe('buildFromCategories', () => {
     it('maps category indices to categorical colors', () => {
       const categories = new Uint8Array([0, 1, 2])
       handler({
-        data: { type: 'buildFromCategories', numPoints: 3, categories, alpha: 0.8 },
+        data: { type: 'buildFromCategories', numPoints: 3, categories, alpha: 0.8, version: 1 },
       })
 
       const { buffer } = postedMessages[0]
@@ -136,7 +161,7 @@ describe('colorBuffer worker', () => {
     it('wraps category indices beyond palette length', () => {
       const categories = new Uint8Array([15]) // 15 % 15 = 0
       handler({
-        data: { type: 'buildFromCategories', numPoints: 1, categories, alpha: 1.0 },
+        data: { type: 'buildFromCategories', numPoints: 1, categories, alpha: 1.0, version: 1 },
       })
 
       const { buffer } = postedMessages[0]
@@ -144,6 +169,40 @@ describe('colorBuffer worker', () => {
       expect(buffer[0]).toBe(color[0])
       expect(buffer[1]).toBe(color[1])
       expect(buffer[2]).toBe(color[2])
+    })
+
+    it('echoes version in response', () => {
+      const categories = new Uint8Array([0])
+      handler({
+        data: { type: 'buildFromCategories', numPoints: 1, categories, alpha: 1.0, version: 99 },
+      })
+      expect(postedMessages[0].version).toBe(99)
+    })
+  })
+
+  describe('malformed messages', () => {
+    it('ignores messages with unknown type', () => {
+      const spy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+      handler({ data: { type: 'unknown', numPoints: 1 } })
+      expect(postedMessages).toHaveLength(0)
+      expect(spy).toHaveBeenCalled()
+      spy.mockRestore()
+    })
+
+    it('ignores messages missing required fields', () => {
+      const spy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+      handler({ data: { type: 'buildDefault' } }) // missing numPoints, rgb, alpha, version
+      expect(postedMessages).toHaveLength(0)
+      expect(spy).toHaveBeenCalled()
+      spy.mockRestore()
+    })
+
+    it('ignores messages with wrong field types', () => {
+      const spy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+      handler({ data: { type: 'buildDefault', numPoints: 'not a number', rgb: [0, 0, 0], alpha: 1.0, version: 1 } })
+      expect(postedMessages).toHaveLength(0)
+      expect(spy).toHaveBeenCalled()
+      spy.mockRestore()
     })
   })
 })

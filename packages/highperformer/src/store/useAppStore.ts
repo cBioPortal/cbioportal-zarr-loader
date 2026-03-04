@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { AnnDataStore } from '@cbioportal-zarr-loader/zarrstore'
 import type { ArrayResult } from '@cbioportal-zarr-loader/zarrstore'
 import ColorBufferWorker from '../workers/colorBuffer.worker.ts?worker'
+import { ColorBufferResponseSchema } from '../workers/colorBuffer.schemas'
 import type { RGB } from '../utils/colors'
 
 export interface EmbeddingBounds {
@@ -72,10 +73,25 @@ function computeBounds(positions: Float32Array, numPoints: number): EmbeddingBou
   return { minX, maxX, minY, maxY }
 }
 
-// Singleton worker — created lazily, shared across all store actions
+// Version counter for stale response detection
+let colorBuildVersion = 0
+export function getColorBuildVersion(): number { return colorBuildVersion }
+export function resetColorBuildVersion(): void { colorBuildVersion = 0 }
+
+// Singleton worker — created lazily, shared across all store actions.
+// onmessage is set once at creation time (not per-rebuild).
 let colorWorker: Worker | null = null
 function getColorWorker(): Worker {
-  if (!colorWorker) colorWorker = new ColorBufferWorker()
+  if (!colorWorker) {
+    colorWorker = new ColorBufferWorker()
+    colorWorker.onmessage = (e) => {
+      const result = ColorBufferResponseSchema.safeParse(e.data)
+      if (!result.success) return
+      const { buffer, version } = result.data
+      if (version !== colorBuildVersion) return // stale — discard
+      useAppStore.setState({ colorBuffer: buffer, colorBufferLoading: false })
+    }
+  }
   return colorWorker
 }
 
@@ -182,19 +198,14 @@ const useAppStore = create<AppState>((set, get) => ({
     if (!embeddingData) return
 
     const worker = getColorWorker()
-
-    // One-shot listener for this build — replaces any previous listener
-    worker.onmessage = (e) => {
-      if (e.data.type === 'colorBuffer') {
-        set({ colorBuffer: e.data.buffer, colorBufferLoading: false })
-      }
-    }
+    colorBuildVersion++
 
     worker.postMessage({
       type: 'buildDefault',
       numPoints: embeddingData.numPoints,
       rgb: DEFAULT_RGB,
       alpha: opacity,
+      version: colorBuildVersion,
     })
   },
 }))
