@@ -49,6 +49,7 @@ export class ProfileCollector {
   constructor() {
     this.#observer = new PerformanceObserver((list) => {
       if (!this.enabled) return;
+      let added = false;
       for (const entry of list.getEntries()) {
         if (!entry.name.startsWith(MEASURE_PREFIX)) continue;
         const detail = (entry as PerformanceMeasure).detail as MeasureDetail;
@@ -66,9 +67,12 @@ export class ProfileCollector {
         if (detail.aborted) profileEntry.aborted = true;
         if (detail.label) profileEntry.label = detail.label;
         this.entries.push(profileEntry);
+        added = true;
       }
-      this.#version++;
-      this.#notify();
+      if (added) {
+        this.#version++;
+        this.#notify();
+      }
     });
     this.#observer.observe({ type: "measure", buffered: false });
   }
