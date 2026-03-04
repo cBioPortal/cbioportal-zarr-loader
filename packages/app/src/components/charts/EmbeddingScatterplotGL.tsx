@@ -123,6 +123,13 @@ export default function EmbeddingScatterplotGL({
     [data, numPoints],
   );
 
+  const views = useMemo(() => new OrthographicView({ id: "ortho" }), []);
+
+  const controller = useMemo(
+    () => ({ dragPan: selectMode === "pan", scrollZoom: { speed: 0.01, smooth: false }, inertia: false }),
+    [selectMode],
+  );
+
   const layers = useMemo(
     () => [
       new ScatterplotLayer({
@@ -162,9 +169,9 @@ export default function EmbeddingScatterplotGL({
         ref={deckRef}
         width={containerSize.width}
         height={containerSize.height}
-        views={new OrthographicView({ id: "ortho" })}
+        views={views}
         initialViewState={initialViewState}
-        controller={{ dragPan: selectMode === "pan", scrollZoom: { speed: 0.01, smooth: false }, inertia: false }}
+        controller={controller}
         useDevicePixels={false}
         layers={layers}
         widgets={debugWidgets}

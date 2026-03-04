@@ -16,6 +16,7 @@ import DotplotTab from "./components/views/DotplotTab";
 import ExplorerLayout from "./components/layouts/ExplorerLayout";
 import { ProfileBar, PROFILE_BAR_HEIGHT, saveProfileSession } from "@cbioportal-zarr-loader/profiler";
 
+import { useShallow } from "zustand/react/shallow";
 import useAppStore from "./store/useAppStore";
 import usePostMessage from "./hooks/usePostMessage";
 import useIframeResize from "./hooks/useIframeResize";
@@ -143,9 +144,14 @@ export function ViewerContent() {
  * Owns app-level hooks (postMessage, iframe resize) so they survive route navigation.
  */
 export default function App() {
-  const { featureFlags, isEmbedded } = useAppStore();
-  const adata = useAppStore((s) => s.adata);
-  const url = useAppStore((s) => s.url);
+  const { featureFlags, isEmbedded, adata, url } = useAppStore(
+    useShallow((s) => ({
+      featureFlags: s.featureFlags,
+      isEmbedded: s.isEmbedded,
+      adata: s.adata,
+      url: s.url,
+    }))
+  );
   const linkTo = useLinkWithParams();
   const [searchParams] = useSearchParams();
   const isV3 = searchParams.get("layout") === "v3";
