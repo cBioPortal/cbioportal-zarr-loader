@@ -104,6 +104,16 @@ function RenderingControls() {
   )
 }
 
+function ColorBufferSpinner() {
+  const colorBufferLoading = useAppStore((s) => s.colorBufferLoading)
+  if (!colorBufferLoading) return null
+  return (
+    <div style={{ position: 'absolute', bottom: 16, right: 16, zIndex: 1 }}>
+      <Spin size="small" />
+    </div>
+  )
+}
+
 function Visualization() {
   const embeddingData = useAppStore((s) => s.embeddingData)
   const embeddingLoading = useAppStore((s) => s.embeddingLoading)
@@ -183,7 +193,7 @@ function Visualization() {
   )
 
   return (
-    <Content ref={containerRef} style={{ position: 'relative' }}>
+    <div ref={containerRef} style={{ position: 'relative', width: '100%', height: '100%' }}>
       {embeddingLoading && (
         <div style={{ position: 'absolute', top: 16, left: '50%', transform: 'translateX(-50%)', zIndex: 1 }}>
           <Spin />
@@ -197,7 +207,7 @@ function Visualization() {
         layers={layers}
         widgets={WIDGETS}
       />
-    </Content>
+    </div>
   )
 }
 
@@ -228,7 +238,10 @@ function View() {
     <>
       <Layout style={{ height: '100%', flex: 1, paddingBottom: PROFILE_BAR_HEIGHT }}>
         <Sidebar />
-        <Visualization />
+        <Content style={{ position: 'relative' }}>
+          <Visualization />
+          <ColorBufferSpinner />
+        </Content>
       </Layout>
       <ProfileBarWrapper />
     </>

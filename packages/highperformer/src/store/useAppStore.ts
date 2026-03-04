@@ -48,6 +48,7 @@ export interface AppState {
 
   // Color buffer — Uint8Array(numPoints * 4), RGBA per point
   colorBuffer: Uint8Array | null
+  colorBufferLoading: boolean
 
   // Actions
   openDataset: (url: string) => Promise<void>
@@ -78,6 +79,10 @@ function getColorWorker(): Worker {
   return colorWorker
 }
 
+// Debounce timer for opacity-driven color buffer rebuilds
+let debounceTimer: ReturnType<typeof setTimeout> | null = null
+const DEBOUNCE_MS = 150
+
 const useAppStore = create<AppState>((set, get) => ({
   // Dataset
   datasetUrl: null,
@@ -98,8 +103,9 @@ const useAppStore = create<AppState>((set, get) => ({
   collisionRadiusScale: 0,
   setPointRadius: (v) => set({ pointRadius: v }),
   setOpacity: (v) => {
-    set({ opacity: v })
-    get().rebuildColorBuffer()
+    set({ opacity: v, colorBufferLoading: true })
+    if (debounceTimer) clearTimeout(debounceTimer)
+    debounceTimer = setTimeout(() => get().rebuildColorBuffer(), DEBOUNCE_MS)
   },
   setAntialiasing: (v) => set({ antialiasing: v }),
   setCollisionEnabled: (v) => set({ collisionEnabled: v }),
@@ -112,6 +118,7 @@ const useAppStore = create<AppState>((set, get) => ({
 
   // Color buffer — Uint8Array(numPoints * 4), RGBA per point
   colorBuffer: null,
+  colorBufferLoading: false,
 
   // Actions
   openDataset: async (url) => {
@@ -179,7 +186,7 @@ const useAppStore = create<AppState>((set, get) => ({
     // One-shot listener for this build — replaces any previous listener
     worker.onmessage = (e) => {
       if (e.data.type === 'colorBuffer') {
-        set({ colorBuffer: e.data.buffer })
+        set({ colorBuffer: e.data.buffer, colorBufferLoading: false })
       }
     }
 
