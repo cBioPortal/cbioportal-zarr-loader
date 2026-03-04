@@ -43,8 +43,34 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @cbioportal-zarr-loader/app test
 
+  test-profiler:
+    if: github.actor != 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @cbioportal-zarr-loader/profiler test
+
+  test-highperformer:
+    if: github.actor != 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @cbioportal-zarr-loader/highperformer test
+
   build:
-    needs: [test-zarrstore, test-app]
+    needs: [test-zarrstore, test-app, test-profiler, test-highperformer]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6

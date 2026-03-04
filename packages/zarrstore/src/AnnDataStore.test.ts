@@ -182,6 +182,84 @@ describe("AnnDataStore", () => {
       expect(concatenated).toEqual(full.data);
     });
 
+    it("obsm with dims=2 returns only the first 2 columns", async () => {
+      const adata = await AnnDataStore.open(TEST_URL);
+      const keys = adata.obsmKeys();
+      if (keys.length === 0) return;
+
+      // Find a key with more than 2 dims (e.g. X_pca)
+      let targetKey: string | null = null;
+      for (const key of keys) {
+        const full = (await adata.obsm(key)) as ArrayResult;
+        if (full.shape.length === 2 && full.shape[1] > 2) {
+          targetKey = key;
+          break;
+        }
+      }
+      if (!targetKey) return; // no multi-dim obsm in fixture
+
+      const full = (await adata.obsm(targetKey)) as ArrayResult;
+      const sliced = (await adata.obsm(targetKey, undefined, 2)) as ArrayResult;
+
+      expect(sliced.shape).toEqual([full.shape[0], 2]);
+      expect(sliced.data.length).toBe(full.shape[0] * 2);
+
+      // Verify the sliced data matches the first 2 columns of the full data
+      const nObs = full.shape[0];
+      const nCols = full.shape[1];
+      for (let i = 0; i < Math.min(nObs, 10); i++) {
+        expect((sliced.data as Float32Array)[i * 2]).toBeCloseTo(
+          (full.data as Float32Array)[i * nCols],
+        );
+        expect((sliced.data as Float32Array)[i * 2 + 1]).toBeCloseTo(
+          (full.data as Float32Array)[i * nCols + 1],
+        );
+      }
+    });
+
+    it("obsm with dims >= array cols returns the full array", async () => {
+      const adata = await AnnDataStore.open(TEST_URL);
+      const keys = adata.obsmKeys();
+      if (keys.length === 0) return;
+
+      // Find a 2D key (e.g. X_umap) with exactly 2 cols
+      let targetKey: string | null = null;
+      for (const key of keys) {
+        const full = (await adata.obsm(key)) as ArrayResult;
+        if (full.shape.length === 2 && full.shape[1] === 2) {
+          targetKey = key;
+          break;
+        }
+      }
+      if (!targetKey) return;
+
+      const full = (await adata.obsm(targetKey)) as ArrayResult;
+      const sliced = (await adata.obsm(targetKey, undefined, 2)) as ArrayResult;
+
+      expect(sliced.shape).toEqual(full.shape);
+      expect(sliced.data.length).toBe(full.data.length);
+    });
+
+    it("obsm with dims and without dims use separate cache entries", async () => {
+      const adata = await AnnDataStore.open(TEST_URL);
+      const keys = adata.obsmKeys();
+      if (keys.length === 0) return;
+
+      const key = keys[0];
+      const full = (await adata.obsm(key)) as ArrayResult;
+      const sliced = (await adata.obsm(key, undefined, 2)) as ArrayResult;
+
+      // Both should resolve without error — separate cache keys
+      expect(full.data).toBeDefined();
+      expect(sliced.data).toBeDefined();
+
+      // If the full array has more than 2 cols, shapes must differ
+      if (full.shape.length === 2 && full.shape[1] > 2) {
+        expect(sliced.shape[1]).toBe(2);
+        expect(full.shape[1]).toBeGreaterThan(2);
+      }
+    });
+
     it("respects custom batchSize parameter", async () => {
       const adata = await AnnDataStore.open(TEST_URL);
       const keys = adata.obsmKeys();

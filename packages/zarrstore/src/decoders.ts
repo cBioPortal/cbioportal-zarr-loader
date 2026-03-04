@@ -57,6 +57,22 @@ export async function readArray(
   return { data: chunk.data, shape: chunk.shape };
 }
 
+export async function readArraySliced(
+  arr: ZarrArray,
+  dims: number,
+  signal?: AbortSignal,
+): Promise<ArrayResult> {
+  if (arr.shape.length < 2 || arr.shape[1] <= dims) {
+    return readArray(arr, signal);
+  }
+  const chunk = await zarr.get(
+    arr,
+    [null, zarr.slice(0, dims)],
+    signal ? { opts: { signal } } : {},
+  );
+  return { data: chunk.data, shape: chunk.shape };
+}
+
 export function toStringArray(
   data: zarr.TypedArray<zarr.DataType> | string[],
 ): string[] {
@@ -74,13 +90,14 @@ export function toStringArray(
 export async function decodeCategorical(
   group: ZarrGroup,
   open: OpenFn = defaultOpen,
+  signal?: AbortSignal,
 ): Promise<Categorical> {
   const codes = (await open(group.resolve("codes"), { kind: "array" })) as ZarrArray;
   const categories = (await open(group.resolve("categories"), {
     kind: "array",
   })) as ZarrArray;
-  const codesResult = await readArray(codes);
-  const categoriesResult = await readArray(categories);
+  const codesResult = await readArray(codes, signal);
+  const categoriesResult = await readArray(categories, signal);
   const ordered = (group.attrs?.ordered as boolean) ?? false;
 
   const catValues =
@@ -100,6 +117,7 @@ export async function decodeColumn(
   group: ZarrGroup,
   colName: string,
   open: OpenFn = defaultOpen,
+  signal?: AbortSignal,
 ): Promise<zarr.TypedArray<zarr.DataType> | (string | number | null)[]> {
   let node: ZarrGroup;
   try {
@@ -107,7 +125,7 @@ export async function decodeColumn(
   } catch {
     // not a group — open as array
     const arr = (await open(group.resolve(colName), { kind: "array" })) as ZarrArray;
-    const result = await readArray(arr);
+    const result = await readArray(arr, signal);
     if (
       typeof (result.data as unknown as Record<number, unknown>)[0] === "string" ||
       result.data instanceof Array
@@ -119,19 +137,19 @@ export async function decodeColumn(
 
   const encodingType = node.attrs?.["encoding-type"] as string | undefined;
   if (encodingType === "categorical") {
-    const decoded = await decodeCategorical(node, open);
+    const decoded = await decodeCategorical(node, open, signal);
     return decoded.values;
   }
   if (
     encodingType === "nullable-integer" ||
     encodingType === "nullable-boolean"
   ) {
-    const decoded = await decodeNullable(node, open);
+    const decoded = await decodeNullable(node, open, signal);
     return decoded.values;
   }
   // fallback: try reading as categorical (common even without explicit encoding-type)
   try {
-    const decoded = await decodeCategorical(node, open);
+    const decoded = await decodeCategorical(node, open, signal);
     return decoded.values;
   } catch {
     throw new Error(
@@ -163,13 +181,14 @@ export async function decodeDataframe(
 export async function decodeNullable(
   group: ZarrGroup,
   open: OpenFn = defaultOpen,
+  signal?: AbortSignal,
 ): Promise<Nullable> {
   const valuesArr = (await open(group.resolve("values"), {
     kind: "array",
   })) as ZarrArray;
   const maskArr = (await open(group.resolve("mask"), { kind: "array" })) as ZarrArray;
-  const valuesResult = await readArray(valuesArr);
-  const maskResult = await readArray(maskArr);
+  const valuesResult = await readArray(valuesArr, signal);
+  const maskResult = await readArray(maskArr, signal);
 
   const values = Array.from(
     valuesResult.data as ArrayLike<number | boolean>,

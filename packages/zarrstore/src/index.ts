@@ -6,6 +6,7 @@ export { ProfileCollector } from "./ProfileCollector";
 export type { ProfileEntry, ChunkInfo, FetchInfo } from "./ProfileCollector";
 export {
   readArray,
+  readArraySliced,
   toStringArray,
   decodeCategorical,
   decodeColumn,

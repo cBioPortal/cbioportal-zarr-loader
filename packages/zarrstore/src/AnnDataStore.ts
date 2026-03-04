@@ -3,6 +3,7 @@ import type { Readable } from "zarrita";
 import { ZarrStore } from "./ZarrStore";
 import {
   readArray,
+  readArraySliced,
   decodeDataframe,
   decodeColumn,
   decodeCategorical,
@@ -375,9 +376,13 @@ export class AnnDataStore {
     }
   }
 
-  async geneExpression(geneName: string): Promise<zarr.TypedArray<zarr.DataType>> {
+  async geneExpression(geneName: string, signal?: AbortSignal): Promise<zarr.TypedArray<zarr.DataType>> {
+    const cacheKey = `geneExpression:${geneName}`;
+    if (signal && this.#cache.has(cacheKey) && !this.#settled.has(cacheKey)) {
+      this.#cache.delete(cacheKey);
+    }
     return this.#cached(
-      `geneExpression:${geneName}`,
+      cacheKey,
       async () => {
         // Get gene index from var names
         const varNames = await this.varNames();
@@ -415,7 +420,7 @@ export class AnnDataStore {
         }
 
         // Dense array - slice the column
-        const chunk = await zarr.get(node as ZarrArray, [null, geneIndex]);
+        const chunk = await zarr.get(node as ZarrArray, [null, geneIndex], signal ? { opts: { signal } } : {});
         return chunk.data;
       },
       {
@@ -438,12 +443,16 @@ export class AnnDataStore {
     );
   }
 
-  obsColumn(name: string): Promise<zarr.TypedArray<zarr.DataType> | (string | number | null)[]> {
+  obsColumn(name: string, signal?: AbortSignal): Promise<zarr.TypedArray<zarr.DataType> | (string | number | null)[]> {
+    const cacheKey = `obs:${name}`;
+    if (signal && this.#cache.has(cacheKey) && !this.#settled.has(cacheKey)) {
+      this.#cache.delete(cacheKey);
+    }
     return this.#cached(
-      `obs:${name}`,
+      cacheKey,
       async () => {
         const group = await this.#zarrStore.openGroup("obs");
-        return decodeColumn(group, name);
+        return decodeColumn(group, name, undefined, signal);
       },
       { getChunkInfo: () => this.#chunkInfoForColumn("obs", name) },
     );
@@ -589,7 +598,27 @@ export class AnnDataStore {
     );
   }
 
-  obsm(key: string, signal?: AbortSignal): Promise<ArrayResult | DecodeNodeResult> {
+  obsm(key: string, signal?: AbortSignal, dims?: number): Promise<ArrayResult | DecodeNodeResult> {
+    if (dims != null) {
+      const cacheKey = `obsm:${key}:d${dims}`;
+      if (signal && this.#cache.has(cacheKey) && !this.#settled.has(cacheKey)) {
+        this.#cache.delete(cacheKey);
+      }
+      return this.#cached(
+        cacheKey,
+        async () => {
+          try {
+            const arr = await this.#zarrStore.openArray(`obsm/${key}`);
+            return readArraySliced(arr, dims, signal);
+          } catch {
+            // Group-encoded obsm (e.g. sparse) — fall back to full decode
+            const node = await this.#zarrStore.openGroup(`obsm/${key}`);
+            return decodeNode(node);
+          }
+        },
+        { getChunkInfo: () => this.#chunkInfoFromMetadata(`obsm/${key}`) },
+      );
+    }
     const cacheKey = `obsm:${key}`;
     // Only evict pending (unsettled) cache entries when a new signal is provided.
     // Settled (resolved) entries contain valid data — return them as-is so that

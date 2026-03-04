@@ -1,4 +1,6 @@
 let obsmAbortController = null;
+let colorAbortController = null;
+let geneAbortController = null;
 
 export const createEmbeddingSlice = (set, get) => ({
   // Obsm state
@@ -46,7 +48,7 @@ export const createEmbeddingSlice = (set, get) => ({
 
     try {
       const start = performance.now();
-      const result = await adata.obsm(key, signal);
+      const result = await adata.obsm(key, signal, 2);
       if (signal.aborted) {
         if (obsmAbortController?.signal === signal) set({ obsmLoading: false });
         return;
@@ -117,12 +119,19 @@ export const createEmbeddingSlice = (set, get) => ({
   },
 
   setColorColumn: async (colName) => {
+    // Abort any in-flight color column fetch
+    if (colorAbortController) colorAbortController.abort();
+    colorAbortController = null;
+
     const { adata } = get();
 
     if (!colName) {
       set({ colorColumn: null, colorData: null });
       return;
     }
+
+    colorAbortController = new AbortController();
+    const { signal } = colorAbortController;
 
     set({
       colorColumn: colName,
@@ -132,9 +141,17 @@ export const createEmbeddingSlice = (set, get) => ({
     });
 
     try {
-      const values = await adata.obsColumn(colName);
+      const values = await adata.obsColumn(colName, signal);
+      if (signal.aborted) {
+        if (colorAbortController?.signal === signal) set({ colorLoading: false });
+        return;
+      }
       set({ colorData: values, colorLoading: false });
     } catch (err) {
+      if (err.name === "AbortError") {
+        if (colorAbortController?.signal === signal) set({ colorLoading: false });
+        return;
+      }
       console.error(err);
       set({ colorData: null, colorLoading: false });
     }
@@ -143,12 +160,19 @@ export const createEmbeddingSlice = (set, get) => ({
   setColorScaleName: (name) => set({ colorScaleName: name }),
 
   setSelectedGene: async (geneName) => {
+    // Abort any in-flight gene expression fetch
+    if (geneAbortController) geneAbortController.abort();
+    geneAbortController = null;
+
     const { adata, metadata } = get();
 
     if (!geneName) {
       set({ selectedGene: null, geneExpression: null });
       return;
     }
+
+    geneAbortController = new AbortController();
+    const { signal } = geneAbortController;
 
     set({
       selectedGene: geneName,
@@ -169,9 +193,17 @@ export const createEmbeddingSlice = (set, get) => ({
         }
       }
 
-      const values = await adata.geneExpression(queryName);
+      const values = await adata.geneExpression(queryName, signal);
+      if (signal.aborted) {
+        if (geneAbortController?.signal === signal) set({ geneLoading: false });
+        return;
+      }
       set({ geneExpression: values, geneLoading: false });
     } catch (err) {
+      if (err.name === "AbortError") {
+        if (geneAbortController?.signal === signal) set({ geneLoading: false });
+        return;
+      }
       console.error(err);
       set({ geneExpression: null, geneLoading: false });
     }

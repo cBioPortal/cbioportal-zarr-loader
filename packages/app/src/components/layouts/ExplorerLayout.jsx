@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Button, Drawer, Alert } from "antd";
 import { MenuFoldOutlined, MenuUnfoldOutlined } from "@ant-design/icons";
+import { useShallow } from "zustand/react/shallow";
 import useMediaQuery from "../../hooks/useMediaQuery";
 import useAppStore from "../../store/useAppStore";
 import EmbeddingScatterplotContainerGL from "../containers/EmbeddingScatterplotContainerGL";
@@ -22,7 +23,16 @@ export default function ExplorerLayout() {
     obsmLoading,
     fetchObsm,
     featureFlags,
-  } = useAppStore();
+  } = useAppStore(
+    useShallow((s) => ({
+      metadata: s.metadata,
+      selectedObsm: s.selectedObsm,
+      obsmData: s.obsmData,
+      obsmLoading: s.obsmLoading,
+      fetchObsm: s.fetchObsm,
+      featureFlags: s.featureFlags,
+    }))
+  );
 
   const { obsmKeys } = metadata;
   const isEmbedding = selectedObsm && obsmData?.shape?.[1] >= 2;
