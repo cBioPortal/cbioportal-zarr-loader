@@ -1,10 +1,15 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { interpolateColorScale, COLOR_SCALES, CATEGORICAL_COLORS } from '../utils/colors'
 
+interface PostedMessage {
+  type: string
+  buffer: Uint8Array
+}
+
 // Capture posted messages before the buffer gets transferred/detached.
 // The worker calls self.postMessage(data, [buf.buffer]) which would detach the typed array.
-const postedMessages = []
-globalThis.postMessage = (data) => {
+const postedMessages: PostedMessage[] = []
+globalThis.postMessage = (data: PostedMessage) => {
   // Clone the buffer before it could be detached
   const cloned = { ...data }
   if (data.buffer instanceof Uint8Array) {
@@ -14,10 +19,10 @@ globalThis.postMessage = (data) => {
 }
 
 // Dynamic import so our postMessage stub is in place first
-await import('./colorBuffer.worker.js')
+await import('./colorBuffer.worker')
 
 // The worker sets self.onmessage — grab a reference to it
-const handler = globalThis.onmessage
+const handler = globalThis.onmessage as (e: { data: unknown }) => void
 
 describe('colorBuffer worker', () => {
   beforeEach(() => {

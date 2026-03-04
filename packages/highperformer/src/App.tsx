@@ -6,7 +6,7 @@ import View from './pages/View'
 
 const { Header, Content } = Layout
 
-const breadcrumbNameMap = {
+const breadcrumbNameMap: Record<string, string> = {
   '/view': 'View',
   '/profile': 'Profile',
 }

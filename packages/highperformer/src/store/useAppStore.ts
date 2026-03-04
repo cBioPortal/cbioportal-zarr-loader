@@ -1,10 +1,64 @@
 import { create } from 'zustand'
 import { AnnDataStore } from '@cbioportal-zarr-loader/zarrstore'
-import ColorBufferWorker from '../workers/colorBuffer.worker.js?worker'
+import type { ArrayResult } from '@cbioportal-zarr-loader/zarrstore'
+import ColorBufferWorker from '../workers/colorBuffer.worker.ts?worker'
+import type { RGB } from '../utils/colors'
 
-const DEFAULT_RGB = [100, 150, 255]
+export interface EmbeddingBounds {
+  minX: number
+  maxX: number
+  minY: number
+  maxY: number
+}
 
-function computeBounds(positions, numPoints) {
+export interface EmbeddingData {
+  positions: Float32Array
+  numPoints: number
+  bounds: EmbeddingBounds
+}
+
+export interface AppState {
+  // Dataset
+  datasetUrl: string | null
+  adata: AnnDataStore | null
+  loading: boolean
+
+  // Metadata derived from adata (cached on load)
+  obsmKeys: string[]
+
+  // Embedding selection
+  selectedEmbedding: string | null
+
+  // Rendering controls
+  pointRadius: number
+  opacity: number
+  antialiasing: boolean
+  collisionEnabled: boolean
+  collisionRadiusScale: number
+  setPointRadius: (v: number) => void
+  setOpacity: (v: number) => void
+  setAntialiasing: (v: boolean) => void
+  setCollisionEnabled: (v: boolean) => void
+  setCollisionRadiusScale: (v: number) => void
+
+  // Embedding data — typed arrays for direct GPU upload
+  embeddingData: EmbeddingData | null
+  embeddingLoading: boolean
+  _embeddingAbort: AbortController | null
+
+  // Color buffer — Uint8Array(numPoints * 4), RGBA per point
+  colorBuffer: Uint8Array | null
+
+  // Actions
+  openDataset: (url: string) => Promise<void>
+  setSelectedEmbedding: (key: string) => void
+  fetchEmbedding: (key: string) => Promise<void>
+  rebuildColorBuffer: () => void
+}
+
+const DEFAULT_RGB: RGB = [100, 150, 255]
+
+function computeBounds(positions: Float32Array, numPoints: number): EmbeddingBounds {
   let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity
   for (let i = 0; i < numPoints; i++) {
     const x = positions[i * 2]
@@ -18,13 +72,13 @@ function computeBounds(positions, numPoints) {
 }
 
 // Singleton worker — created lazily, shared across all store actions
-let colorWorker = null
-function getColorWorker() {
+let colorWorker: Worker | null = null
+function getColorWorker(): Worker {
   if (!colorWorker) colorWorker = new ColorBufferWorker()
   return colorWorker
 }
 
-const useAppStore = create((set, get) => ({
+const useAppStore = create<AppState>((set, get) => ({
   // Dataset
   datasetUrl: null,
   adata: null,
@@ -52,7 +106,7 @@ const useAppStore = create((set, get) => ({
   setCollisionRadiusScale: (v) => set({ collisionRadiusScale: v }),
 
   // Embedding data — typed arrays for direct GPU upload
-  embeddingData: null, // { positions: Float32Array, numPoints: number, bounds: {minX,maxX,minY,maxY} }
+  embeddingData: null,
   embeddingLoading: false,
   _embeddingAbort: null,
 
@@ -95,11 +149,11 @@ const useAppStore = create((set, get) => ({
     set({ embeddingLoading: true, _embeddingAbort: abortController })
 
     try {
-      const result = await adata.obsm(key, abortController.signal, 2)
+      const result = await adata.obsm(key, abortController.signal, 2) as ArrayResult
       // Ensure Float32Array — deck.gl doesn't support Float16Array as a vertex attribute
       const positions = result.data instanceof Float32Array
         ? result.data
-        : new Float32Array(result.data)
+        : new Float32Array(result.data as ArrayLike<number>)
       const numPoints = result.shape[0]
       const bounds = computeBounds(positions, numPoints)
       set({
@@ -110,7 +164,7 @@ const useAppStore = create((set, get) => ({
       // Build default color buffer for the new embedding
       get().rebuildColorBuffer()
     } catch (err) {
-      if (err.name !== 'AbortError') {
+      if (err instanceof Error && err.name !== 'AbortError') {
         set({ embeddingLoading: false, _embeddingAbort: null })
       }
     }

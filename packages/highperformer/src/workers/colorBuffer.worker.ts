@@ -1,4 +1,37 @@
 import { interpolateColorScale, COLOR_SCALES, CATEGORICAL_COLORS } from '../utils/colors'
+import type { RGB } from '../utils/colors'
+
+// In a Web Worker context, workerSelf.postMessage takes (message, transfer[])
+const workerSelf = self as unknown as {
+  onmessage: ((e: MessageEvent) => void) | null
+  postMessage(message: unknown, transfer: Transferable[]): void
+}
+
+interface BuildDefaultMsg {
+  type: 'buildDefault'
+  numPoints: number
+  rgb: RGB
+  alpha: number
+}
+
+interface BuildFromExpressionMsg {
+  type: 'buildFromExpression'
+  numPoints: number
+  expression: Float32Array
+  min: number
+  max: number
+  alpha: number
+  scaleName: string
+}
+
+interface BuildFromCategoriesMsg {
+  type: 'buildFromCategories'
+  numPoints: number
+  categories: Uint8Array
+  alpha: number
+}
+
+type WorkerMessage = BuildDefaultMsg | BuildFromExpressionMsg | BuildFromCategoriesMsg
 
 /**
  * Web Worker for building color buffers off the main thread.
@@ -8,7 +41,7 @@ import { interpolateColorScale, COLOR_SCALES, CATEGORICAL_COLORS } from '../util
  *   buildFromExpression — continuous color scale from Float32Array values
  *   buildFromCategories — categorical colors from integer category indices
  */
-self.onmessage = (e) => {
+workerSelf.onmessage = (e: MessageEvent<WorkerMessage>) => {
   const { type } = e.data
 
   if (type === 'buildDefault') {
@@ -22,7 +55,7 @@ self.onmessage = (e) => {
       buf[off + 2] = rgb[2]
       buf[off + 3] = a
     }
-    self.postMessage({ type: 'colorBuffer', buffer: buf }, [buf.buffer])
+    workerSelf.postMessage({ type: 'colorBuffer', buffer: buf }, [buf.buffer] as Transferable[])
     return
   }
 
@@ -41,7 +74,7 @@ self.onmessage = (e) => {
       buf[off + 2] = b
       buf[off + 3] = a
     }
-    self.postMessage({ type: 'colorBuffer', buffer: buf }, [buf.buffer])
+    workerSelf.postMessage({ type: 'colorBuffer', buffer: buf }, [buf.buffer] as Transferable[])
     return
   }
 
@@ -58,7 +91,7 @@ self.onmessage = (e) => {
       buf[off + 2] = color[2]
       buf[off + 3] = a
     }
-    self.postMessage({ type: 'colorBuffer', buffer: buf }, [buf.buffer])
+    workerSelf.postMessage({ type: 'colorBuffer', buffer: buf }, [buf.buffer] as Transferable[])
     return
   }
 }

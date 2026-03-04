@@ -1,5 +1,9 @@
+export type RGB = [number, number, number]
+
+export type ColorScale = RGB[]
+
 // Categorical color palette (similar to D3 category10)
-export const CATEGORICAL_COLORS = [
+export const CATEGORICAL_COLORS: RGB[] = [
   [31, 119, 180],   // #1f77b4
   [255, 127, 14],   // #ff7f0e
   [44, 160, 44],    // #2ca02c
@@ -17,7 +21,7 @@ export const CATEGORICAL_COLORS = [
   [197, 176, 213],  // #c5b0d5
 ]
 
-const VIRIDIS = [
+const VIRIDIS: ColorScale = [
   [68, 1, 84],
   [72, 40, 120],
   [62, 74, 137],
@@ -30,7 +34,7 @@ const VIRIDIS = [
   [253, 231, 37],
 ]
 
-const MAGMA = [
+const MAGMA: ColorScale = [
   [0, 0, 4],
   [28, 16, 68],
   [79, 18, 123],
@@ -43,18 +47,15 @@ const MAGMA = [
   [252, 253, 191],
 ]
 
-export const COLOR_SCALES = {
+export const COLOR_SCALES: Record<string, ColorScale> = {
   viridis: VIRIDIS,
   magma: MAGMA,
 }
 
 /**
  * Interpolate through a color scale.
- * @param {number} t - Value between 0 and 1
- * @param {Array} scale - Array of RGB color arrays
- * @returns {[number, number, number]} RGB color array
  */
-export function interpolateColorScale(t, scale) {
+export function interpolateColorScale(t: number, scale: ColorScale): RGB {
   const clampedT = Math.max(0, Math.min(1, t))
   const idx = clampedT * (scale.length - 1)
   const lower = Math.floor(idx)

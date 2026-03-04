@@ -14,7 +14,7 @@ const { Sider, Content } = Layout
 const WIDGETS = [new StatsWidget({ type: 'deck', framesPerUpdate: 5, placement: 'top-left' })]
 
 // Fallback color when no color buffer is ready yet
-const FALLBACK_COLOR = [100, 150, 255, 77]
+const FALLBACK_COLOR: [number, number, number, number] = [100, 150, 255, 77]
 
 function Sidebar() {
   const datasetUrl = useAppStore((s) => s.datasetUrl)
@@ -30,7 +30,7 @@ function Sidebar() {
   return (
     <Sider width={280} theme="light" style={{ borderRight: '1px solid #f0f0f0', padding: 16, overflow: 'auto' }}>
       {datasetName && (
-        <Typography.Text type="secondary" ellipsis title={datasetUrl} style={{ display: 'block', marginBottom: 12 }}>
+        <Typography.Text type="secondary" ellipsis title={datasetUrl ?? undefined} style={{ display: 'block', marginBottom: 12 }}>
           {datasetName}
         </Typography.Text>
       )}
@@ -76,12 +76,12 @@ function RenderingControls() {
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
         <Typography.Text type="secondary" style={{ fontSize: 12 }}>Point radius (px)</Typography.Text>
-        <InputNumber min={0.5} max={20} step={0.5} size="small" value={pointRadius} onChange={setPointRadius} style={{ width: 70 }} />
+        <InputNumber min={0.5} max={20} step={0.5} size="small" value={pointRadius} onChange={(v) => v != null && setPointRadius(v)} style={{ width: 70 }} />
       </div>
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
         <Typography.Text type="secondary" style={{ fontSize: 12 }}>Opacity</Typography.Text>
-        <InputNumber min={0.01} max={1} step={0.05} size="small" value={opacity} onChange={setOpacity} style={{ width: 70 }} />
+        <InputNumber min={0.01} max={1} step={0.05} size="small" value={opacity} onChange={(v) => v != null && setOpacity(v)} style={{ width: 70 }} />
       </div>
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
@@ -97,7 +97,7 @@ function RenderingControls() {
       {collisionEnabled && (
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <Typography.Text type="secondary" style={{ fontSize: 12 }}>Collision scale</Typography.Text>
-          <InputNumber min={0.5} max={10} step={0.5} size="small" value={collisionRadiusScale} onChange={setCollisionRadiusScale} style={{ width: 70 }} />
+          <InputNumber min={0.5} max={10} step={0.5} size="small" value={collisionRadiusScale} onChange={(v) => v != null && setCollisionRadiusScale(v)} style={{ width: 70 }} />
         </div>
       )}
     </div>
@@ -112,11 +112,11 @@ function Visualization() {
   const antialiasing = useAppStore((s) => s.antialiasing)
   const collisionEnabled = useAppStore((s) => s.collisionEnabled)
   const collisionRadiusScale = useAppStore((s) => s.collisionRadiusScale)
-  const containerRef = useRef(null)
+  const containerRef = useRef<HTMLDivElement>(null)
 
   // Derive initial view state from data bounds + container size
   const initialViewState = useMemo(() => {
-    if (!embeddingData?.bounds) return { target: [0, 0, 0], zoom: 1 }
+    if (!embeddingData?.bounds) return { target: [0, 0, 0] as [number, number, number], zoom: 1 }
 
     const { minX, maxX, minY, maxY } = embeddingData.bounds
     const centerX = (minX + maxX) / 2
@@ -138,13 +138,14 @@ function Visualization() {
     const minZoom = zoom - 0.25
     const maxZoom = zoom + 4
 
-    return { target: [centerX, centerY, 0], zoom, minZoom, maxZoom }
+    const target: [number, number, number] = [centerX, centerY, 0]
+    return { target, zoom, minZoom, maxZoom }
   }, [embeddingData])
 
   // Memoize layer data object — only recreate when position or color buffer changes
   const layerData = useMemo(() => {
     if (!embeddingData) return null
-    const attributes = {
+    const attributes: Record<string, { value: Float32Array | Uint8Array; size: number }> = {
       getPosition: { value: embeddingData.positions, size: 2 },
     }
     if (colorBuffer) {
@@ -165,7 +166,7 @@ function Visualization() {
           getFillColor: [colorBuffer],
         },
         getRadius: pointRadius,
-        radiusUnits: 'pixels',
+        radiusUnits: 'pixels' as const,
         antialiasing,
         ...(collisionEnabled && {
           extensions: [new CollisionFilterExtension()],
@@ -207,7 +208,7 @@ function ProfileBarWrapper() {
   return (
     <ProfileBar
       profiler={adata?.profiler}
-      onSave={(entries) => {
+      onSave={(entries: unknown[]) => {
         if (adata) saveProfileSession(datasetUrl, adata.nObs, adata.nVar, entries)
       }}
     />

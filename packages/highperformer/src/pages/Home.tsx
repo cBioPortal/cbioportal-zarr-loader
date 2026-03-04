@@ -5,21 +5,21 @@ import { DeleteOutlined } from '@ant-design/icons'
 
 const STORAGE_KEY = 'highperformer:datasets'
 
-function loadDatasets() {
+function loadDatasets(): string[] {
   try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []
+    return JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '[]') || []
   } catch {
     return []
   }
 }
 
-function saveDatasets(datasets) {
+function saveDatasets(datasets: string[]) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(datasets))
 }
 
 function Home() {
   const [url, setUrl] = useState('')
-  const [datasets, setDatasets] = useState(loadDatasets)
+  const [datasets, setDatasets] = useState<string[]>(loadDatasets)
 
   useEffect(() => {
     saveDatasets(datasets)
@@ -32,7 +32,7 @@ function Home() {
     setUrl('')
   }
 
-  const handleRemove = (target) => {
+  const handleRemove = (target: string) => {
     setDatasets((prev) => prev.filter((d) => d !== target))
   }
 

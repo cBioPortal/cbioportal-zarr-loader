@@ -2,13 +2,11 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 
 // Mock the worker import before importing the store
 const mockPostMessage = vi.fn()
-vi.mock('../workers/colorBuffer.worker.js?worker', () => {
+vi.mock('../workers/colorBuffer.worker.ts?worker', () => {
   return {
     default: class MockWorker {
-      constructor() {
-        this.onmessage = null
-      }
-      postMessage(...args) {
+      onmessage: ((e: MessageEvent) => void) | null = null
+      postMessage(...args: unknown[]) {
         mockPostMessage(...args)
       }
       terminate() {}
