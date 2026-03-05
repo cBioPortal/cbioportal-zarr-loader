@@ -1,7 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams, useNavigate, Link } from 'react-router-dom'
 import { Collapse, InputNumber, Layout, Switch, Typography, Select, Spin } from 'antd'
-import { BgColorsOutlined, DatabaseOutlined, DotChartOutlined, HistoryOutlined, HolderOutlined, LeftOutlined, RightOutlined, SettingOutlined } from '@ant-design/icons'
+import { BgColorsOutlined, DatabaseOutlined, DotChartOutlined, HolderOutlined, LeftOutlined, RightOutlined, SettingOutlined } from '@ant-design/icons'
 import { DeckGL } from '@deck.gl/react'
 import { OrthographicView } from '@deck.gl/core'
 import { ScatterplotLayer } from '@deck.gl/layers'
@@ -148,12 +148,6 @@ function BrandingHeader() {
     <div style={{ padding: '12px 16px', borderBottom: '1px solid #f0f0f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
       <Link to="/" style={{ textDecoration: 'none' }}>
         <Typography.Title level={5} style={{ margin: 0 }}>highperformer</Typography.Title>
-      </Link>
-      <Link to="/profile">
-        <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-          <HistoryOutlined style={{ marginRight: 4 }} />
-          Profile
-        </Typography.Text>
       </Link>
     </div>
   )
@@ -447,6 +441,7 @@ function ProfileBarWrapper() {
       onSave={(entries: unknown[]) => {
         if (adata) saveProfileSession(datasetUrl, adata.nObs, adata.nVar, entries)
       }}
+      renderLink={(children) => <Link to="/profile">{children}</Link>}
     />
   )
 }

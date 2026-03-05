@@ -4,6 +4,7 @@ import { scaleLinear } from "@visx/scale";
 import { AxisBottom } from "@visx/axis";
 import { useTooltip, TooltipWithBounds, defaultStyles } from "@visx/tooltip";
 import { METHOD_COLORS, getMethodColor, formatBytes, formatShape } from "../constants";
+import type { ProfileEntry } from "../types";
 
 const BAR_HEIGHT = 16;
 const BAR_GAP = 2;
@@ -16,16 +17,15 @@ const tooltipStyles = {
   padding: "6px 10px",
 };
 
-/**
- * Full-width waterfall timeline for a single session's entries.
- * Bars positioned by startTime, width = duration, colored by method.
- * Cache hits = outlined, misses = filled (same convention as ProfileBar).
- * @param {{ entries: Array, width?: number }} props
- */
-export default function SessionWaterfallChart({ entries, width = 800 }) {
+interface Props {
+  entries: ProfileEntry[];
+  width?: number;
+}
+
+export default function SessionWaterfallChart({ entries, width = 800 }: Props) {
   const { showTooltip, hideTooltip, tooltipOpen, tooltipData, tooltipLeft, tooltipTop } =
-    useTooltip();
-  const scrollRef = useRef(null);
+    useTooltip<ProfileEntry>();
+  const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -79,11 +79,11 @@ export default function SessionWaterfallChart({ entries, width = 800 }) {
                     rx={2}
                     style={{ cursor: "pointer" }}
                     onMouseEnter={(e) => {
-                      const svg = e.currentTarget.ownerSVGElement;
+                      const svg = e.currentTarget.ownerSVGElement!;
                       const point = svg.createSVGPoint();
                       point.x = e.clientX;
                       point.y = e.clientY;
-                      const svgPoint = point.matrixTransform(svg.getScreenCTM().inverse());
+                      const svgPoint = point.matrixTransform(svg.getScreenCTM()!.inverse());
                       showTooltip({
                         tooltipData: entry,
                         tooltipLeft: svgPoint.x,
@@ -111,8 +111,8 @@ export default function SessionWaterfallChart({ entries, width = 800 }) {
               scale={xScale}
               top={entries.length * (BAR_HEIGHT + BAR_GAP)}
               numTicks={6}
-              tickFormat={(v) => `${v.toFixed(0)} ms`}
-              tickLabelProps={() => ({ fontSize: 10, textAnchor: "middle", fill: "#999" })}
+              tickFormat={(v) => `${(v as number).toFixed(0)} ms`}
+              tickLabelProps={() => ({ fontSize: 10, textAnchor: "middle" as const, fill: "#999" })}
               stroke="#ddd"
               tickStroke="#ddd"
             />

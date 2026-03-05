@@ -8,24 +8,37 @@ import {
   exportProfileHistory,
   importProfileHistory,
 } from "../storage";
-import { formatBytes, formatShape } from "../constants";
+import { formatBytes } from "../constants";
 import MethodBreakdownChart from "../charts/MethodBreakdownChart";
 import CacheEfficiencyChart from "../charts/CacheEfficiencyChart";
 import BytesByMethodChart from "../charts/BytesByMethodChart";
 import RequestsByMethodChart from "../charts/RequestsByMethodChart";
 import BytesVsDurationChart from "../charts/BytesVsDurationChart";
 import SessionWaterfallChart from "../charts/SessionWaterfallChart";
+import type { ProfileEntry, ProfileSession } from "../types";
 
 const { Text, Title } = Typography;
 
-function formatShapeLocale(shape) {
+function formatShapeLocale(shape: number[] | undefined | null): string {
   if (!shape || shape.length === 0) return "-";
   return shape.map((d) => d.toLocaleString()).join(" \u00d7 ");
 }
 
-/** Build per-method I/O summary rows from a list of profile entries. */
-function buildMethodSummary(entries) {
-  const byMethod = {};
+interface MethodSummary {
+  method: string;
+  calls: number;
+  cacheMisses: number;
+  totalRequests: number;
+  totalBytes: number;
+  totalDuration: number;
+  arrayShape: number[] | null;
+  chunkShape: number[] | null;
+  dtype: string | null;
+  sharded: boolean | null;
+}
+
+function buildMethodSummary(entries: ProfileEntry[]): MethodSummary[] {
+  const byMethod: Record<string, MethodSummary> = {};
   for (const e of entries) {
     if (!byMethod[e.method]) {
       byMethod[e.method] = {
@@ -35,7 +48,6 @@ function buildMethodSummary(entries) {
         totalRequests: 0,
         totalBytes: 0,
         totalDuration: 0,
-        // track chunk info from first entry that has it
         arrayShape: null,
         chunkShape: null,
         dtype: null,
@@ -64,7 +76,7 @@ const methodSummaryColumns = [
     title: "Storage",
     key: "storage",
     width: 90,
-    render: (_, r) =>
+    render: (_: unknown, r: MethodSummary) =>
       r.sharded != null ? (
         <Tag color={r.sharded ? "purple" : "blue"}>{r.sharded ? "Sharded" : "Chunked"}</Tag>
       ) : (
@@ -75,78 +87,83 @@ const methodSummaryColumns = [
     title: "Array Shape",
     key: "arrayShape",
     width: 140,
-    render: (_, r) => r.arrayShape ? formatShapeLocale(r.arrayShape) : <Text type="secondary">-</Text>,
+    render: (_: unknown, r: MethodSummary) => r.arrayShape ? formatShapeLocale(r.arrayShape) : <Text type="secondary">-</Text>,
   },
   {
     title: "Chunk Shape",
     key: "chunkShape",
     width: 140,
-    render: (_, r) => r.chunkShape ? formatShapeLocale(r.chunkShape) : <Text type="secondary">-</Text>,
+    render: (_: unknown, r: MethodSummary) => r.chunkShape ? formatShapeLocale(r.chunkShape) : <Text type="secondary">-</Text>,
   },
   {
     title: "dtype",
     key: "dtype",
     width: 80,
-    render: (_, r) => r.dtype || <Text type="secondary">-</Text>,
+    render: (_: unknown, r: MethodSummary) => r.dtype || <Text type="secondary">-</Text>,
   },
   {
     title: "Calls",
     dataIndex: "calls",
     key: "calls",
     width: 70,
-    sorter: (a, b) => a.calls - b.calls,
+    sorter: (a: MethodSummary, b: MethodSummary) => a.calls - b.calls,
   },
   {
     title: "Fetches",
     dataIndex: "totalRequests",
     key: "totalRequests",
     width: 80,
-    sorter: (a, b) => a.totalRequests - b.totalRequests,
+    sorter: (a: MethodSummary, b: MethodSummary) => a.totalRequests - b.totalRequests,
   },
   {
     title: "Avg / Call",
     key: "avgReqPerCall",
     width: 90,
-    render: (_, r) => r.cacheMisses > 0 ? (r.totalRequests / r.cacheMisses).toFixed(1) : "-",
+    render: (_: unknown, r: MethodSummary) => r.cacheMisses > 0 ? (r.totalRequests / r.cacheMisses).toFixed(1) : "-",
   },
   {
     title: "Total Bytes",
     dataIndex: "totalBytes",
     key: "totalBytes",
     width: 100,
-    render: (b) => formatBytes(b),
-    sorter: (a, b) => a.totalBytes - b.totalBytes,
+    render: (b: number) => formatBytes(b),
+    sorter: (a: MethodSummary, b: MethodSummary) => a.totalBytes - b.totalBytes,
   },
   {
     title: "Avg Bytes / Fetch",
     key: "avgBytesPerReq",
     width: 120,
-    render: (_, r) => r.totalRequests > 0 ? formatBytes(Math.round(r.totalBytes / r.totalRequests)) : "-",
+    render: (_: unknown, r: MethodSummary) => r.totalRequests > 0 ? formatBytes(Math.round(r.totalBytes / r.totalRequests)) : "-",
   },
   {
     title: "Total Time",
     dataIndex: "totalDuration",
     key: "totalDuration",
     width: 100,
-    render: (ms) => `${ms.toFixed(1)} ms`,
-    sorter: (a, b) => a.totalDuration - b.totalDuration,
+    render: (ms: number) => `${ms.toFixed(1)} ms`,
+    sorter: (a: MethodSummary, b: MethodSummary) => a.totalDuration - b.totalDuration,
   },
 ];
 
 function keySearchFilter() {
   return {
-    filterDropdown: ({ setSelectedKeys, selectedKeys, confirm, clearFilters }) => (
+    filterDropdown: ({ setSelectedKeys, selectedKeys, confirm, clearFilters }: {
+      setSelectedKeys: (keys: React.Key[]) => void;
+      selectedKeys: React.Key[];
+      confirm: () => void;
+      clearFilters?: () => void;
+    }) => (
       <div style={{ padding: 8 }}>
         <Input
           placeholder="Search key…"
           value={selectedKeys[0]}
           onChange={(e) => setSelectedKeys(e.target.value ? [e.target.value] : [])}
-          onPressEnter={confirm}
+          onPressEnter={() => confirm()}
           style={{ width: 200, marginBottom: 8, display: "block" }}
           size="small"
         />
         <Space>
-          <Button type="primary" onClick={confirm} icon={<SearchOutlined />} size="small" style={{ width: 90 }}>
+          <Button type="primary" onClick={() => confirm()} icon={<SearchOutlined />} size="small" style={{ width: 90 }}>
             Search
           </Button>
           <Button onClick={() => { clearFilters?.(); confirm(); }} size="small" style={{ width: 90 }}>
@@ -155,15 +172,15 @@ function keySearchFilter() {
         </Space>
       </div>
     ),
-    filterIcon: (filtered) => <SearchOutlined style={{ color: filtered ? "#1677ff" : undefined }} />,
-    onFilter: (value, record) => {
-      const v = value.toLowerCase();
+    filterIcon: (filtered: boolean) => <SearchOutlined style={{ color: filtered ? "#1677ff" : undefined }} />,
+    onFilter: (value: unknown, record: ProfileEntry) => {
+      const v = String(value).toLowerCase();
       return record.key.toLowerCase().includes(v) || (record.label?.toLowerCase().includes(v) ?? false);
     },
   };
 }
 
-function buildEntryColumns(entries) {
+function buildEntryColumns(entries: ProfileEntry[]) {
   const methods = [...new Set(entries.map((e) => e.method))].sort();
   return [
     { title: "#", dataIndex: "id", key: "id", width: 50 },
@@ -173,7 +190,7 @@ function buildEntryColumns(entries) {
       key: "method",
       width: 120,
       filters: methods.map((m) => ({ text: m, value: m })),
-      onFilter: (value, record) => record.method === value,
+      onFilter: (value: unknown, record: ProfileEntry) => record.method === value,
     },
     {
       title: "Key",
@@ -181,7 +198,7 @@ function buildEntryColumns(entries) {
       key: "key",
       ellipsis: true,
       ...keySearchFilter(),
-      render: (key, record) =>
+      render: (key: string, record: ProfileEntry) =>
         record.label ? (
           <span>
             {key} <Text type="secondary" style={{ fontSize: 11 }}>({record.label})</Text>
@@ -199,12 +216,12 @@ function buildEntryColumns(entries) {
         { text: "MISS", value: "miss" },
         { text: "ABORTED", value: "aborted" },
       ],
-      onFilter: (value, record) => {
+      onFilter: (value: unknown, record: ProfileEntry) => {
         if (value === "aborted") return !!record.aborted;
         if (value === "hit") return record.cacheHit && !record.aborted;
         return !record.cacheHit && !record.aborted;
       },
-      render: (_, record) => {
+      render: (_: unknown, record: ProfileEntry) => {
         if (record.aborted) return <Tag color="orange">ABORTED</Tag>;
         return <Tag color={record.cacheHit ? "green" : "red"}>{record.cacheHit ? "HIT" : "MISS"}</Tag>;
       },
@@ -217,11 +234,11 @@ function buildEntryColumns(entries) {
         { text: "Sharded", value: "sharded" },
         { text: "Chunked", value: "chunked" },
       ],
-      onFilter: (value, record) => {
+      onFilter: (value: unknown, record: ProfileEntry) => {
         if (!record.chunks) return false;
         return value === "sharded" ? record.chunks.sharded : !record.chunks.sharded;
       },
-      render: (_, r) =>
+      render: (_: unknown, r: ProfileEntry) =>
         r.chunks ? (
           <Tag color={r.chunks.sharded ? "purple" : "blue"}>
             {r.chunks.sharded ? "Shard" : "Chunk"}
@@ -232,34 +249,34 @@ function buildEntryColumns(entries) {
       title: "Chunk Shape",
       key: "chunkShape",
       width: 130,
-      render: (_, r) => r.chunks ? formatShapeLocale(r.chunks.chunkShape) : <Text type="secondary">-</Text>,
+      render: (_: unknown, r: ProfileEntry) => r.chunks ? formatShapeLocale(r.chunks.chunkShape) : <Text type="secondary">-</Text>,
     },
     {
       title: "Requests",
       key: "requests",
       width: 80,
-      render: (_, r) => r.fetches?.requests ?? <Text type="secondary">-</Text>,
-      sorter: (a, b) => (a.fetches?.requests ?? 0) - (b.fetches?.requests ?? 0),
+      render: (_: unknown, r: ProfileEntry) => r.fetches?.requests ?? <Text type="secondary">-</Text>,
+      sorter: (a: ProfileEntry, b: ProfileEntry) => (a.fetches?.requests ?? 0) - (b.fetches?.requests ?? 0),
     },
     {
       title: "Bytes",
       key: "bytes",
       width: 90,
-      render: (_, r) => r.fetches ? formatBytes(r.fetches.bytes) : <Text type="secondary">-</Text>,
-      sorter: (a, b) => (a.fetches?.bytes ?? 0) - (b.fetches?.bytes ?? 0),
+      render: (_: unknown, r: ProfileEntry) => r.fetches ? formatBytes(r.fetches.bytes) : <Text type="secondary">-</Text>,
+      sorter: (a: ProfileEntry, b: ProfileEntry) => (a.fetches?.bytes ?? 0) - (b.fetches?.bytes ?? 0),
     },
     {
       title: "Duration",
       dataIndex: "duration",
       key: "duration",
       width: 100,
-      render: (ms) => `${ms.toFixed(1)} ms`,
-      sorter: (a, b) => a.duration - b.duration,
+      render: (ms: number) => `${ms.toFixed(1)} ms`,
+      sorter: (a: ProfileEntry, b: ProfileEntry) => a.duration - b.duration,
     },
   ];
 }
 
-function SummaryStats({ history }) {
+function SummaryStats({ history }: { history: ProfileSession[] }) {
   const stats = useMemo(() => {
     let totalQueries = 0;
     let totalHits = 0;
@@ -311,9 +328,9 @@ function SummaryStats({ history }) {
   );
 }
 
-function Charts({ history }) {
+function Charts({ history }: { history: ProfileSession[] }) {
   const sessions = useMemo(() => {
-    const counts = {};
+    const counts: Record<string, number> = {};
     return history.map((s, i) => {
       const base = s.url ? new URL(s.url).pathname.split("/").pop() || `Session ${i + 1}` : `Session ${i + 1}`;
       counts[base] = (counts[base] || 0) + 1;
@@ -338,7 +355,7 @@ function Charts({ history }) {
   );
 }
 
-function SessionDetail({ record }) {
+function SessionDetail({ record }: { record: ProfileSession }) {
   const methodRows = useMemo(() => buildMethodSummary(record.entries), [record.entries]);
   const entryColumns = useMemo(() => buildEntryColumns(record.entries), [record.entries]);
 
@@ -398,9 +415,9 @@ function SessionDetail({ record }) {
 
 export default function ProfilePage() {
   const [history, setHistory] = useState(() => getProfileHistory());
-  const fileInputRef = useRef(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleImport = async (e) => {
+  const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     const result = await importProfileHistory(file);
@@ -413,7 +430,7 @@ export default function ProfilePage() {
     e.target.value = "";
   };
 
-  const handleRemove = (index) => {
+  const handleRemove = (index: number) => {
     removeProfileSession(index);
     setHistory(getProfileHistory());
   };
@@ -429,7 +446,7 @@ export default function ProfilePage() {
       dataIndex: "url",
       key: "host",
       width: 140,
-      render: (url) => {
+      render: (url: string) => {
         try { return new URL(url).host; } catch { return "-"; }
       },
     },
@@ -437,7 +454,7 @@ export default function ProfilePage() {
       title: "Dataset",
       dataIndex: "url",
       key: "dataset",
-      render: (url) => {
+      render: (url: string) => {
         let name = url;
         try {
           name = decodeURIComponent(new URL(url).pathname).replace(/\/$/, "").split("/").pop() || url;
@@ -450,28 +467,28 @@ export default function ProfilePage() {
       dataIndex: "timestamp",
       key: "timestamp",
       width: 180,
-      render: (ts) => new Date(ts).toLocaleString(),
-      sorter: (a, b) => a.timestamp - b.timestamp,
-      defaultSortOrder: "descend",
+      render: (ts: number) => new Date(ts).toLocaleString(),
+      sorter: (a: ProfileSession, b: ProfileSession) => a.timestamp - b.timestamp,
+      defaultSortOrder: "descend" as const,
     },
     {
       title: "Shape",
       key: "shape",
       width: 140,
-      render: (_, r) => `${r.nObs?.toLocaleString()} x ${r.nVar?.toLocaleString()}`,
+      render: (_: unknown, r: ProfileSession) => `${r.nObs?.toLocaleString()} x ${r.nVar?.toLocaleString()}`,
     },
     {
       title: "Queries",
       key: "queries",
       width: 80,
-      render: (_, r) => r.entries.length,
+      render: (_: unknown, r: ProfileSession) => r.entries.length,
     },
     {
       title: "Total Time",
       key: "totalTime",
       width: 110,
-      render: (_, r) => `${r.entries.reduce((s, e) => s + e.duration, 0).toFixed(1)} ms`,
-      sorter: (a, b) =>
+      render: (_: unknown, r: ProfileSession) => `${r.entries.reduce((s, e) => s + e.duration, 0).toFixed(1)} ms`,
+      sorter: (a: ProfileSession, b: ProfileSession) =>
         a.entries.reduce((s, e) => s + e.duration, 0) -
         b.entries.reduce((s, e) => s + e.duration, 0),
     },
@@ -479,8 +496,8 @@ export default function ProfilePage() {
       title: "Transfer",
       key: "totalBytes",
       width: 100,
-      render: (_, r) => formatBytes(r.entries.reduce((s, e) => s + (e.fetches?.bytes ?? 0), 0)),
-      sorter: (a, b) =>
+      render: (_: unknown, r: ProfileSession) => formatBytes(r.entries.reduce((s, e) => s + (e.fetches?.bytes ?? 0), 0)),
+      sorter: (a: ProfileSession, b: ProfileSession) =>
         a.entries.reduce((s, e) => s + (e.fetches?.bytes ?? 0), 0) -
         b.entries.reduce((s, e) => s + (e.fetches?.bytes ?? 0), 0),
     },
@@ -488,7 +505,7 @@ export default function ProfilePage() {
       title: "Hit Rate",
       key: "hitRate",
       width: 90,
-      render: (_, r) => {
+      render: (_: unknown, r: ProfileSession) => {
         const hits = r.entries.filter((e) => e.cacheHit).length;
         return r.entries.length > 0 ? `${((hits / r.entries.length) * 100).toFixed(0)}%` : "-";
       },
@@ -497,7 +514,7 @@ export default function ProfilePage() {
       title: "",
       key: "actions",
       width: 50,
-      render: (_, __, index) => (
+      render: (_: unknown, __: ProfileSession, index: number) => (
         <Button
           type="text"
           danger

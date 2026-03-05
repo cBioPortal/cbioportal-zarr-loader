@@ -3,6 +3,7 @@ import { scaleLinear, scaleOrdinal } from "@visx/scale";
 import { AxisBottom, AxisLeft } from "@visx/axis";
 import { useTooltip, TooltipWithBounds, defaultStyles } from "@visx/tooltip";
 import { METHOD_COLORS, DEFAULT_METHOD_COLOR, formatBytes } from "../constants";
+import type { ProfileEntry } from "../types";
 
 const tooltipStyles = {
   ...defaultStyles,
@@ -10,14 +11,15 @@ const tooltipStyles = {
   padding: "6px 10px",
 };
 
-/**
- * Scatter plot — bytes transferred (x) vs duration in ms (y) per entry.
- * Cache hits are rendered as outlined circles, misses as filled.
- * @param {{ entries: Array, width?: number, height?: number }} props
- */
-export default function BytesVsDurationChart({ entries, width = 360, height = 240 }) {
+interface Props {
+  entries: ProfileEntry[];
+  width?: number;
+  height?: number;
+}
+
+export default function BytesVsDurationChart({ entries, width = 360, height = 240 }: Props) {
   const { showTooltip, hideTooltip, tooltipOpen, tooltipData, tooltipLeft, tooltipTop } =
-    useTooltip();
+    useTooltip<ProfileEntry>();
 
   if (!entries || entries.length === 0) return null;
 
@@ -30,7 +32,7 @@ export default function BytesVsDurationChart({ entries, width = 360, height = 24
   const yMax = height - MARGIN.top - MARGIN.bottom;
 
   const xScale = scaleLinear({
-    domain: [0, Math.max(...data.map((d) => d.fetches.bytes))],
+    domain: [0, Math.max(...data.map((d) => d.fetches!.bytes))],
     range: [0, xMax],
     nice: true,
   });
@@ -52,7 +54,7 @@ export default function BytesVsDurationChart({ entries, width = 360, height = 24
       <svg width={width} height={height}>
         <Group left={MARGIN.left} top={MARGIN.top}>
           {data.map((d, i) => {
-            const cx = xScale(d.fetches.bytes);
+            const cx = xScale(d.fetches!.bytes);
             const cy = yScale(d.duration);
             const color = d.aborted ? "#999" : colorScale(d.method);
             return (
@@ -68,11 +70,11 @@ export default function BytesVsDurationChart({ entries, width = 360, height = 24
                 opacity={0.8}
                 style={{ cursor: "pointer" }}
                 onMouseEnter={(e) => {
-                  const svg = e.currentTarget.ownerSVGElement;
+                  const svg = e.currentTarget.ownerSVGElement!;
                   const point = svg.createSVGPoint();
                   point.x = e.clientX;
                   point.y = e.clientY;
-                  const svgPoint = point.matrixTransform(svg.getScreenCTM().inverse());
+                  const svgPoint = point.matrixTransform(svg.getScreenCTM()!.inverse());
                   showTooltip({
                     tooltipData: d,
                     tooltipLeft: svgPoint.x,
@@ -87,14 +89,14 @@ export default function BytesVsDurationChart({ entries, width = 360, height = 24
             scale={xScale}
             top={yMax}
             numTicks={4}
-            tickFormat={(v) => formatBytes(v)}
-            tickLabelProps={() => ({ fontSize: 10, textAnchor: "middle", fill: "#666" })}
+            tickFormat={(v) => formatBytes(v as number)}
+            tickLabelProps={() => ({ fontSize: 10, textAnchor: "middle" as const, fill: "#666" })}
           />
           <AxisLeft
             scale={yScale}
             numTicks={5}
             tickFormat={(v) => `${v} ms`}
-            tickLabelProps={() => ({ fontSize: 10, textAnchor: "end", fill: "#666", dx: -4 })}
+            tickLabelProps={() => ({ fontSize: 10, textAnchor: "end" as const, fill: "#666", dx: -4 })}
           />
         </Group>
       </svg>
@@ -117,7 +119,7 @@ export default function BytesVsDurationChart({ entries, width = 360, height = 24
         <TooltipWithBounds left={tooltipLeft} top={tooltipTop} style={tooltipStyles}>
           <div><strong>{tooltipData.method}</strong></div>
           <div style={{ fontSize: 11, color: "#666" }}>{tooltipData.key}</div>
-          <div>{formatBytes(tooltipData.fetches.bytes)} &middot; {tooltipData.duration.toFixed(1)} ms</div>
+          <div>{formatBytes(tooltipData.fetches!.bytes)} &middot; {tooltipData.duration.toFixed(1)} ms</div>
           <div style={{ fontSize: 11, color: tooltipData.aborted ? "#fa8c16" : tooltipData.cacheHit ? "#52c41a" : "#ff4d4f" }}>
             {tooltipData.aborted ? "Aborted" : tooltipData.cacheHit ? "Cache hit" : "Cache miss"}
           </div>

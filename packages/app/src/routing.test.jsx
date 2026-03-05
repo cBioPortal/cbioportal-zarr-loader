@@ -29,7 +29,7 @@ vi.mock("./store/useAppStore", () => {
 });
 vi.mock("@cbioportal-zarr-loader/profiler", () => ({
   ProfilePage: () => <div data-testid="profile-page">Profile Page</div>,
-  ProfileBar: () => null,
+  ProfileBar: ({ renderLink }) => renderLink ? renderLink("Profile History") : null,
   PROFILE_BAR_HEIGHT: 0,
   saveProfileSession: vi.fn(),
 }));

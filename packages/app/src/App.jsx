@@ -203,11 +203,6 @@ export default function App() {
                 <Button type="text" icon={<UploadOutlined />}>Load Dataset</Button>
               </Link>
             )}
-            {featureFlags.profile && (
-              <Link to={linkTo("/profile")}>
-                <Button type="text">Profile History</Button>
-              </Link>
-            )}
             <a
               href="https://github.com/cbioportal/cbioportal-zarr-loader"
               target="_blank"
@@ -227,6 +222,7 @@ export default function App() {
           onSave={(entries) => {
             if (adata) saveProfileSession(url, adata.nObs, adata.nVar, entries);
           }}
+          renderLink={(children) => <Link to={linkTo("/profile")}>{children}</Link>}
         />
       )}
     </Layout>

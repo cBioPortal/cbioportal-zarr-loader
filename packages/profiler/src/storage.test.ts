@@ -2,14 +2,13 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import {
   getProfileHistory,
   saveProfileSession,
-  removeProfileSession,
-  clearProfileHistory,
   exportProfileHistory,
   importProfileHistory,
 } from "./storage";
+import type { ProfileSession } from "./types";
 
-function makeSession(url, timestamp, entries = []) {
-  return { url, timestamp, nObs: 100, nVar: 50, entries };
+function makeSession(url: string, timestamp: number, entries: unknown[] = []): ProfileSession {
+  return { url, timestamp, nObs: 100, nVar: 50, entries: entries as ProfileSession["entries"] };
 }
 
 describe("profileStorage", () => {
@@ -19,17 +18,17 @@ describe("profileStorage", () => {
 
   describe("exportProfileHistory", () => {
     it("triggers a download with correct filename and JSON content", () => {
-      saveProfileSession("https://a.zarr", 10, 5, [{ method: "get", duration: 1 }]);
+      saveProfileSession("https://a.zarr", 10, 5, [{ method: "get", duration: 1 }] as any);
 
       const clicked = vi.fn();
-      const created = {};
+      const created: Record<string, string> = {};
       vi.spyOn(document, "createElement").mockReturnValueOnce({
-        set href(v) { created.href = v; },
-        set download(v) { created.download = v; },
+        set href(v: string) { created.href = v; },
+        set download(v: string) { created.download = v; },
         click: clicked,
-      });
-      const appendChild = vi.spyOn(document.body, "appendChild").mockImplementation(() => {});
-      const removeChild = vi.spyOn(document.body, "removeChild").mockImplementation(() => {});
+      } as unknown as HTMLElement);
+      const appendChild = vi.spyOn(document.body, "appendChild").mockImplementation(() => null as any);
+      const removeChild = vi.spyOn(document.body, "removeChild").mockImplementation(() => null as any);
       const revokeURL = vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => {});
 
       exportProfileHistory();
@@ -43,7 +42,7 @@ describe("profileStorage", () => {
   });
 
   describe("importProfileHistory", () => {
-    function fileFromJSON(data) {
+    function fileFromJSON(data: unknown) {
       const json = JSON.stringify(data);
       return new File([json], "test.json", { type: "application/json" });
     }
