@@ -29,6 +29,8 @@ export interface AppState {
   loading: boolean
 
   // Metadata derived from adata (cached on load)
+  nObs: number | null
+  nVar: number | null
   obsmKeys: string[]
 
   // Embedding selection
@@ -138,6 +140,8 @@ const useAppStore = create<AppState>((set, get) => ({
   loading: false,
 
   // Metadata derived from adata (cached on load)
+  nObs: null,
+  nVar: null,
   obsmKeys: [],
 
   // Embedding selection
@@ -193,7 +197,7 @@ const useAppStore = create<AppState>((set, get) => ({
   openDataset: async (url) => {
     if (url === get().datasetUrl && get().adata) return
     set({
-      datasetUrl: url, loading: true, adata: null, obsmKeys: [],
+      datasetUrl: url, loading: true, adata: null, nObs: null, nVar: null, obsmKeys: [],
       selectedEmbedding: null, embeddingData: null, colorBuffer: null,
       colorMode: 'category', selectedObsColumn: null, selectedGene: null,
       obsColumnNames: [], varNames: [], categoryMap: [], expressionRange: null,
@@ -207,6 +211,8 @@ const useAppStore = create<AppState>((set, get) => ({
       const defaultKey = umap ?? obsmKeys[0] ?? null
       set({
         adata,
+        nObs: adata.nObs,
+        nVar: adata.nVar,
         obsmKeys,
         selectedEmbedding: defaultKey,
         loading: false,
