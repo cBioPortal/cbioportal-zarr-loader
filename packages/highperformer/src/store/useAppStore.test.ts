@@ -35,7 +35,7 @@ describe('useAppStore', () => {
     it('has correct default values', () => {
       const state = useAppStore.getState()
       expect(state.pointRadius).toBe(1)
-      expect(state.opacity).toBe(0.3)
+      expect(state.opacity).toBe(1.0)
       expect(state.antialiasing).toBe(true)
       expect(state.collisionEnabled).toBe(false)
       expect(state.collisionRadiusScale).toBe(0)

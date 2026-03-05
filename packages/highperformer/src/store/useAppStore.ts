@@ -149,7 +149,7 @@ const useAppStore = create<AppState>((set, get) => ({
 
   // Rendering controls
   pointRadius: 1,
-  opacity: 0.3,
+  opacity: 1.0,
   antialiasing: true,
   collisionEnabled: false,
   collisionRadiusScale: 0,
@@ -216,6 +216,7 @@ const useAppStore = create<AppState>((set, get) => ({
         obsmKeys,
         selectedEmbedding: defaultKey,
         loading: false,
+        opacity: adata.nObs > 1_000_000 ? 0.3 : 1.0,
       })
       if (defaultKey) get().fetchEmbedding(defaultKey)
     } catch {
