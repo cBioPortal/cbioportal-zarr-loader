@@ -3,6 +3,7 @@ import { scaleBand, scaleLinear, scaleOrdinal } from "@visx/scale";
 import { AxisBottom, AxisLeft } from "@visx/axis";
 import { useTooltip, TooltipWithBounds, defaultStyles } from "@visx/tooltip";
 import { METHOD_COLORS, DEFAULT_METHOD_COLOR } from "../constants";
+import type { ProfileEntry } from "../types";
 
 const tooltipStyles = {
   ...defaultStyles,
@@ -10,18 +11,25 @@ const tooltipStyles = {
   padding: "6px 10px",
 };
 
-/**
- * Horizontal bar chart — total HTTP fetch count per method.
- * @param {{ entries: Array<{ method: string, fetches?: { requests: number } }>, width?: number, height?: number }} props
- */
-export default function RequestsByMethodChart({ entries, width = 360, height: heightProp }) {
+interface Props {
+  entries: ProfileEntry[];
+  width?: number;
+  height?: number;
+}
+
+interface DataRow {
+  method: string;
+  requests: number;
+}
+
+export default function RequestsByMethodChart({ entries, width = 360, height: heightProp }: Props) {
   const { showTooltip, hideTooltip, tooltipOpen, tooltipData, tooltipLeft, tooltipTop } =
-    useTooltip();
+    useTooltip<DataRow>();
 
   if (!entries || entries.length === 0) return null;
 
   // Aggregate request count per method
-  const byMethod = {};
+  const byMethod: Record<string, number> = {};
   for (const e of entries) {
     const requests = e.fetches?.requests ?? 0;
     if (requests > 0) {
@@ -29,7 +37,7 @@ export default function RequestsByMethodChart({ entries, width = 360, height: he
     }
   }
 
-  const data = Object.entries(byMethod)
+  const data: DataRow[] = Object.entries(byMethod)
     .map(([method, requests]) => ({ method, requests }))
     .sort((a, b) => b.requests - a.requests);
 
@@ -76,11 +84,11 @@ export default function RequestsByMethodChart({ entries, width = 360, height: he
                 rx={2}
                 style={{ cursor: "pointer" }}
                 onMouseEnter={(e) => {
-                  const svg = e.currentTarget.ownerSVGElement;
+                  const svg = e.currentTarget.ownerSVGElement!;
                   const point = svg.createSVGPoint();
                   point.x = e.clientX;
                   point.y = e.clientY;
-                  const svgPoint = point.matrixTransform(svg.getScreenCTM().inverse());
+                  const svgPoint = point.matrixTransform(svg.getScreenCTM()!.inverse());
                   showTooltip({
                     tooltipData: d,
                     tooltipLeft: svgPoint.x,
@@ -96,11 +104,11 @@ export default function RequestsByMethodChart({ entries, width = 360, height: he
             top={yMax}
             numTicks={4}
             tickFormat={(v) => `${v}`}
-            tickLabelProps={() => ({ fontSize: 10, textAnchor: "middle", fill: "#666" })}
+            tickLabelProps={() => ({ fontSize: 10, textAnchor: "middle" as const, fill: "#666" })}
           />
           <AxisLeft
             scale={yScale}
-            tickLabelProps={() => ({ fontSize: 11, textAnchor: "end", fill: "#666", dx: -4 })}
+            tickLabelProps={() => ({ fontSize: 11, textAnchor: "end" as const, fill: "#666", dx: -4 })}
           />
         </Group>
       </svg>

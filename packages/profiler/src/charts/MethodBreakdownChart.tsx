@@ -4,6 +4,7 @@ import { AxisBottom, AxisLeft } from "@visx/axis";
 import { useTooltip, TooltipWithBounds, defaultStyles } from "@visx/tooltip";
 import { BarStackHorizontal } from "@visx/shape";
 import { METHOD_COLORS, DEFAULT_METHOD_COLOR } from "../constants";
+import type { ProfileEntry } from "../types";
 
 const tooltipStyles = {
   ...defaultStyles,
@@ -11,20 +12,33 @@ const tooltipStyles = {
   padding: "6px 10px",
 };
 
-/**
- * Horizontal stacked bar chart — total duration broken down by method per session.
- * @param {{ sessions: Array<{ label: string, entries: Array<{ method: string, duration: number }> }>, width?: number, height?: number }} props
- */
-export default function MethodBreakdownChart({ sessions, width = 500, height: heightProp }) {
+interface SessionData {
+  label: string;
+  entries: ProfileEntry[];
+}
+
+interface Props {
+  sessions: SessionData[];
+  width?: number;
+  height?: number;
+}
+
+interface TooltipDatum {
+  method: string;
+  value: number;
+  session: string;
+}
+
+export default function MethodBreakdownChart({ sessions, width = 500, height: heightProp }: Props) {
   const { showTooltip, hideTooltip, tooltipOpen, tooltipData, tooltipLeft, tooltipTop } =
-    useTooltip();
+    useTooltip<TooltipDatum>();
 
   if (!sessions || sessions.length === 0) return null;
 
   // Aggregate duration per method per session
-  const allMethods = new Set();
+  const allMethods = new Set<string>();
   const data = sessions.map((s, i) => {
-    const byMethod = {};
+    const byMethod: Record<string, number> = {};
     for (const e of s.entries) {
       byMethod[e.method] = (byMethod[e.method] || 0) + e.duration;
       allMethods.add(e.method);
@@ -41,7 +55,7 @@ export default function MethodBreakdownChart({ sessions, width = 500, height: he
   const yMax = height - MARGIN.top - MARGIN.bottom;
 
   const xScale = scaleLinear({
-    domain: [0, Math.max(...data.map((d) => methods.reduce((sum, m) => sum + (d[m] || 0), 0)))],
+    domain: [0, Math.max(...data.map((d) => methods.reduce((sum, m) => sum + ((d as Record<string, unknown>)[m] as number || 0), 0)))],
     range: [0, xMax],
     nice: true,
   });
@@ -82,13 +96,17 @@ export default function MethodBreakdownChart({ sessions, width = 500, height: he
                     rx={2}
                     style={{ cursor: "pointer" }}
                     onMouseEnter={(e) => {
-                      const svg = e.currentTarget.ownerSVGElement;
+                      const svg = e.currentTarget.ownerSVGElement!;
                       const point = svg.createSVGPoint();
                       point.x = e.clientX;
                       point.y = e.clientY;
-                      const svgPoint = point.matrixTransform(svg.getScreenCTM().inverse());
+                      const svgPoint = point.matrixTransform(svg.getScreenCTM()!.inverse());
                       showTooltip({
-                        tooltipData: { method: barStack.key, value: bar.bar.data[barStack.key], session: bar.bar.data.label },
+                        tooltipData: {
+                          method: barStack.key,
+                          value: (bar.bar.data as Record<string, unknown>)[barStack.key] as number,
+                          session: bar.bar.data.label,
+                        },
                         tooltipLeft: svgPoint.x,
                         tooltipTop: svgPoint.y - 10,
                       });
@@ -103,12 +121,12 @@ export default function MethodBreakdownChart({ sessions, width = 500, height: he
             scale={xScale}
             top={yMax}
             numTicks={5}
-            tickFormat={(v) => `${v.toFixed(0)} ms`}
-            tickLabelProps={() => ({ fontSize: 11, textAnchor: "middle", fill: "#666" })}
+            tickFormat={(v) => `${(v as number).toFixed(0)} ms`}
+            tickLabelProps={() => ({ fontSize: 11, textAnchor: "middle" as const, fill: "#666" })}
           />
           <AxisLeft
             scale={yScale}
-            tickLabelProps={() => ({ fontSize: 11, textAnchor: "end", fill: "#666", dx: -4 })}
+            tickLabelProps={() => ({ fontSize: 11, textAnchor: "end" as const, fill: "#666", dx: -4 })}
           />
         </Group>
       </svg>

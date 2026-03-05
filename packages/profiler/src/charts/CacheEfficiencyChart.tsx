@@ -12,17 +12,36 @@ const tooltipStyles = {
   padding: "6px 10px",
 };
 
-/**
- * Grouped bar chart — cache hits vs misses per session.
- * @param {{ sessions: Array<{ label: string, entries: Array<{ cacheHit: boolean }> }>, width?: number, height?: number }} props
- */
-export default function CacheEfficiencyChart({ sessions, width = 500, height: heightProp }) {
+interface SessionData {
+  label: string;
+  entries: { cacheHit: boolean }[];
+}
+
+interface Props {
+  sessions: SessionData[];
+  width?: number;
+  height?: number;
+}
+
+interface TooltipDatum {
+  session: string;
+  type: string;
+  count: number;
+}
+
+interface DataRow {
+  label: string;
+  hits: number;
+  misses: number;
+}
+
+export default function CacheEfficiencyChart({ sessions, width = 500, height: heightProp }: Props) {
   const { showTooltip, hideTooltip, tooltipOpen, tooltipData, tooltipLeft, tooltipTop } =
-    useTooltip();
+    useTooltip<TooltipDatum>();
 
   if (!sessions || sessions.length === 0) return null;
 
-  const data = sessions.map((s, i) => {
+  const data: DataRow[] = sessions.map((s, i) => {
     const hits = s.entries.filter((e) => e.cacheHit).length;
     const misses = s.entries.length - hits;
     return { label: s.label || `Session ${i + 1}`, hits, misses };
@@ -54,12 +73,12 @@ export default function CacheEfficiencyChart({ sessions, width = 500, height: he
     nice: true,
   });
 
-  const handleHover = (e, d, type) => {
-    const svg = e.currentTarget.ownerSVGElement;
+  const handleHover = (e: React.MouseEvent<SVGRectElement>, d: DataRow, type: string) => {
+    const svg = e.currentTarget.ownerSVGElement!;
     const point = svg.createSVGPoint();
     point.x = e.clientX;
     point.y = e.clientY;
-    const svgPoint = point.matrixTransform(svg.getScreenCTM().inverse());
+    const svgPoint = point.matrixTransform(svg.getScreenCTM()!.inverse());
     showTooltip({
       tooltipData: { session: d.label, type, count: type === "hits" ? d.hits : d.misses },
       tooltipLeft: svgPoint.x,
@@ -72,11 +91,11 @@ export default function CacheEfficiencyChart({ sessions, width = 500, height: he
       <svg width={width} height={height}>
         <Group left={MARGIN.left} top={MARGIN.top}>
           {data.map((d) => {
-            const groupX = sessionScale(d.label);
+            const groupX = sessionScale(d.label) ?? 0;
             return (
               <g key={d.label}>
                 <rect
-                  x={groupX + innerScale("hits")}
+                  x={groupX + (innerScale("hits") ?? 0)}
                   y={yScale(d.hits)}
                   width={innerScale.bandwidth()}
                   height={Math.max(0, yMax - yScale(d.hits))}
@@ -87,7 +106,7 @@ export default function CacheEfficiencyChart({ sessions, width = 500, height: he
                   onMouseLeave={hideTooltip}
                 />
                 <rect
-                  x={groupX + innerScale("misses")}
+                  x={groupX + (innerScale("misses") ?? 0)}
                   y={yScale(d.misses)}
                   width={innerScale.bandwidth()}
                   height={Math.max(0, yMax - yScale(d.misses))}
@@ -105,7 +124,7 @@ export default function CacheEfficiencyChart({ sessions, width = 500, height: he
             top={yMax}
             tickLabelProps={() => ({
               fontSize: 11,
-              textAnchor: "end",
+              textAnchor: "end" as const,
               dy: -4,
               transform: sessions.length > 4 ? "rotate(-30)" : undefined,
               fill: "#666",
@@ -115,7 +134,7 @@ export default function CacheEfficiencyChart({ sessions, width = 500, height: he
             scale={yScale}
             numTicks={5}
             tickFormat={(v) => `${v}`}
-            tickLabelProps={() => ({ fontSize: 11, textAnchor: "end", fill: "#666", dx: -4 })}
+            tickLabelProps={() => ({ fontSize: 11, textAnchor: "end" as const, fill: "#666", dx: -4 })}
           />
         </Group>
       </svg>
