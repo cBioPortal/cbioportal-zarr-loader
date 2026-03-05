@@ -1,11 +1,13 @@
 import { useSyncExternalStore, useCallback, useRef, useEffect, useState, useMemo } from "react";
 import { Table, Tag, Space, Button, Typography, message, Collapse, Input } from "antd";
-import { DeleteOutlined, SaveOutlined, UpOutlined, DownOutlined, SearchOutlined } from "@ant-design/icons";
+import { DeleteOutlined, SaveOutlined, UpOutlined, DownOutlined, SearchOutlined, HistoryOutlined } from "@ant-design/icons";
 import { Group } from "@visx/group";
 import { scaleLinear } from "@visx/scale";
 import { AxisBottom } from "@visx/axis";
 import { useTooltip, TooltipWithBounds, defaultStyles } from "@visx/tooltip";
-import { METHOD_COLORS, DEFAULT_METHOD_COLOR, getMethodColor, formatBytes, formatShape } from "../constants";
+import { METHOD_COLORS, getMethodColor, formatBytes, formatShape } from "../constants";
+import type { ProfileEntry, RenderLink } from "../types";
+import type { FilterDropdownProps } from "antd/es/table/interface";
 
 const { Text } = Typography;
 
@@ -23,10 +25,24 @@ const tooltipStyles = {
   padding: "6px 10px",
 };
 
-function WaterfallTimeline({ entries, width }) {
+interface ProfileCollector {
+  entries: ProfileEntry[];
+  version: number;
+  subscribe: (cb: () => void) => () => void;
+  clear: () => void;
+  toJSON: () => ProfileEntry[];
+}
+
+interface ProfileBarProps {
+  profiler?: ProfileCollector;
+  onSave?: (entries: ProfileEntry[]) => void;
+  renderLink?: RenderLink;
+}
+
+function WaterfallTimeline({ entries, width }: { entries: ProfileEntry[]; width: number }) {
   const { showTooltip, hideTooltip, tooltipOpen, tooltipData, tooltipLeft, tooltipTop } =
-    useTooltip();
-  const scrollRef = useRef(null);
+    useTooltip<ProfileEntry>();
+  const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -85,11 +101,11 @@ function WaterfallTimeline({ entries, width }) {
                     rx={2}
                     style={{ cursor: "pointer" }}
                     onMouseEnter={(e) => {
-                      const svg = e.currentTarget.ownerSVGElement;
+                      const svg = e.currentTarget.ownerSVGElement!;
                       const point = svg.createSVGPoint();
                       point.x = e.clientX;
                       point.y = e.clientY;
-                      const svgPoint = point.matrixTransform(svg.getScreenCTM().inverse());
+                      const svgPoint = point.matrixTransform(svg.getScreenCTM()!.inverse());
                       showTooltip({
                         tooltipData: entry,
                         tooltipLeft: svgPoint.x,
@@ -117,8 +133,8 @@ function WaterfallTimeline({ entries, width }) {
               scale={xScale}
               top={entries.length * (BAR_HEIGHT + BAR_GAP)}
               numTicks={5}
-              tickFormat={(v) => `${v.toFixed(0)} ms`}
-              tickLabelProps={() => ({ fontSize: 10, textAnchor: "middle", fill: "#999" })}
+              tickFormat={(v) => `${(v as number).toFixed(0)} ms`}
+              tickLabelProps={() => ({ fontSize: 10, textAnchor: "middle" as const, fill: "#999" })}
               stroke="#ddd"
               tickStroke="#ddd"
             />
@@ -184,18 +200,18 @@ function WaterfallTimeline({ entries, width }) {
 
 function keySearchFilter() {
   return {
-    filterDropdown: ({ setSelectedKeys, selectedKeys, confirm, clearFilters }) => (
+    filterDropdown: ({ setSelectedKeys, selectedKeys, confirm, clearFilters }: FilterDropdownProps) => (
       <div style={{ padding: 8 }}>
         <Input
           placeholder="Search key…"
           value={selectedKeys[0]}
           onChange={(e) => setSelectedKeys(e.target.value ? [e.target.value] : [])}
-          onPressEnter={confirm}
+          onPressEnter={() => confirm()}
           style={{ width: 200, marginBottom: 8, display: "block" }}
           size="small"
         />
         <Space>
-          <Button type="primary" onClick={confirm} icon={<SearchOutlined />} size="small" style={{ width: 90 }}>
+          <Button type="primary" onClick={() => confirm()} icon={<SearchOutlined />} size="small" style={{ width: 90 }}>
             Search
           </Button>
           <Button onClick={() => { clearFilters?.(); confirm(); }} size="small" style={{ width: 90 }}>
@@ -204,15 +220,15 @@ function keySearchFilter() {
         </Space>
       </div>
     ),
-    filterIcon: (filtered) => <SearchOutlined style={{ color: filtered ? "#1677ff" : undefined }} />,
-    onFilter: (value, record) => {
-      const v = value.toLowerCase();
+    filterIcon: (filtered: boolean) => <SearchOutlined style={{ color: filtered ? "#1677ff" : undefined }} />,
+    onFilter: (value: unknown, record: ProfileEntry) => {
+      const v = String(value).toLowerCase();
       return record.key.toLowerCase().includes(v) || (record.label?.toLowerCase().includes(v) ?? false);
     },
   };
 }
 
-function buildTableColumns(entries) {
+function buildTableColumns(entries: ProfileEntry[]) {
   const methods = [...new Set(entries.map((e) => e.method))].sort();
   return [
     { title: "#", dataIndex: "id", key: "id", width: 50 },
@@ -222,7 +238,7 @@ function buildTableColumns(entries) {
       key: "method",
       width: 120,
       filters: methods.map((m) => ({ text: m, value: m })),
-      onFilter: (value, record) => record.method === value,
+      onFilter: (value: unknown, record: ProfileEntry) => record.method === value,
     },
     {
       title: "Key",
@@ -230,7 +246,7 @@ function buildTableColumns(entries) {
       key: "key",
       ellipsis: true,
       ...keySearchFilter(),
-      render: (key, record) =>
+      render: (key: string, record: ProfileEntry) =>
         record.label ? (
           <span>
             {key} <Text type="secondary" style={{ fontSize: 11 }}>({record.label})</Text>
@@ -248,12 +264,12 @@ function buildTableColumns(entries) {
         { text: "MISS", value: "miss" },
         { text: "ABORTED", value: "aborted" },
       ],
-      onFilter: (value, record) => {
+      onFilter: (value: unknown, record: ProfileEntry) => {
         if (value === "aborted") return !!record.aborted;
         if (value === "hit") return record.cacheHit && !record.aborted;
         return !record.cacheHit && !record.aborted;
       },
-      render: (_, record) => {
+      render: (_: unknown, record: ProfileEntry) => {
         if (record.aborted) return <Tag color="orange">ABORTED</Tag>;
         return <Tag color={record.cacheHit ? "green" : "red"}>{record.cacheHit ? "HIT" : "MISS"}</Tag>;
       },
@@ -262,7 +278,7 @@ function buildTableColumns(entries) {
       title: "Chunks",
       key: "chunks",
       width: 140,
-      render: (_, r) =>
+      render: (_: unknown, r: ProfileEntry) =>
         r.chunks ? (
           <span style={{ fontSize: 11 }}>
             {formatShape(r.chunks.chunkShape)}
@@ -276,23 +292,23 @@ function buildTableColumns(entries) {
       title: "Requests",
       key: "requests",
       width: 80,
-      render: (_, r) => r.fetches?.requests ?? <Text type="secondary">-</Text>,
-      sorter: (a, b) => (a.fetches?.requests ?? 0) - (b.fetches?.requests ?? 0),
+      render: (_: unknown, r: ProfileEntry) => r.fetches?.requests ?? <Text type="secondary">-</Text>,
+      sorter: (a: ProfileEntry, b: ProfileEntry) => (a.fetches?.requests ?? 0) - (b.fetches?.requests ?? 0),
     },
     {
       title: "Bytes",
       key: "bytes",
       width: 90,
-      render: (_, r) => r.fetches ? formatBytes(r.fetches.bytes) : <Text type="secondary">-</Text>,
-      sorter: (a, b) => (a.fetches?.bytes ?? 0) - (b.fetches?.bytes ?? 0),
+      render: (_: unknown, r: ProfileEntry) => r.fetches ? formatBytes(r.fetches.bytes) : <Text type="secondary">-</Text>,
+      sorter: (a: ProfileEntry, b: ProfileEntry) => (a.fetches?.bytes ?? 0) - (b.fetches?.bytes ?? 0),
     },
     {
       title: "Duration",
       dataIndex: "duration",
       key: "duration",
       width: 100,
-      render: (ms) => `${ms.toFixed(1)} ms`,
-      sorter: (a, b) => a.duration - b.duration,
+      render: (ms: number) => `${ms.toFixed(1)} ms`,
+      sorter: (a: ProfileEntry, b: ProfileEntry) => a.duration - b.duration,
     },
   ];
 }
@@ -305,19 +321,13 @@ const pulseStyle = `
 }
 `;
 
-/**
- * Live profiler bar that displays at the bottom of the viewport.
- * @param {{ profiler: object, onSave: (entries: any) => void }} props
- *   - profiler: ProfileCollector instance (subscribe, entries, version, clear, toJSON)
- *   - onSave: called when user clicks Save; receives profiler.toJSON()
- */
-export default function ProfileBar({ profiler, onSave }) {
+export default function ProfileBar({ profiler, onSave, renderLink }: ProfileBarProps) {
   const [expanded, setExpanded] = useState(false);
-  const containerRef = useRef(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const [barWidth, setBarWidth] = useState(0);
 
   const subscribe = useCallback(
-    (cb) => (profiler ? profiler.subscribe(cb) : () => {}),
+    (cb: () => void) => (profiler ? profiler.subscribe(cb) : () => {}),
     [profiler],
   );
   const getSnapshot = useCallback(
@@ -429,6 +439,17 @@ export default function ProfileBar({ profiler, onSave }) {
         </Space>
 
         <Space>
+          {renderLink?.(
+            <span
+              onClick={(e) => e.stopPropagation()}
+              style={{ display: "inline-flex", alignItems: "center" }}
+            >
+              <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                <HistoryOutlined style={{ marginRight: 4 }} />
+                History
+              </Typography.Text>
+            </span>
+          )}
           <Button
             icon={<SaveOutlined />}
             size="small"
