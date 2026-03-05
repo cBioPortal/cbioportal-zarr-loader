@@ -7,7 +7,6 @@ import { AxisBottom } from "@visx/axis";
 import { useTooltip, TooltipWithBounds, defaultStyles } from "@visx/tooltip";
 import { METHOD_COLORS, getMethodColor, formatBytes, formatShape } from "../constants";
 import type { ProfileEntry, RenderLink } from "../types";
-import type { FilterDropdownProps } from "antd/es/table/interface";
 
 const { Text } = Typography;
 
@@ -200,7 +199,12 @@ function WaterfallTimeline({ entries, width }: { entries: ProfileEntry[]; width:
 
 function keySearchFilter() {
   return {
-    filterDropdown: ({ setSelectedKeys, selectedKeys, confirm, clearFilters }: FilterDropdownProps) => (
+    filterDropdown: ({ setSelectedKeys, selectedKeys, confirm, clearFilters }: {
+      setSelectedKeys: (keys: React.Key[]) => void;
+      selectedKeys: React.Key[];
+      confirm: () => void;
+      clearFilters?: () => void;
+    }) => (
       <div style={{ padding: 8 }}>
         <Input
           placeholder="Search key…"

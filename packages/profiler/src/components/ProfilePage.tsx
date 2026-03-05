@@ -16,7 +16,6 @@ import RequestsByMethodChart from "../charts/RequestsByMethodChart";
 import BytesVsDurationChart from "../charts/BytesVsDurationChart";
 import SessionWaterfallChart from "../charts/SessionWaterfallChart";
 import type { ProfileEntry, ProfileSession } from "../types";
-import type { FilterDropdownProps } from "antd/es/table/interface";
 
 const { Text, Title } = Typography;
 
@@ -148,7 +147,12 @@ const methodSummaryColumns = [
 
 function keySearchFilter() {
   return {
-    filterDropdown: ({ setSelectedKeys, selectedKeys, confirm, clearFilters }: FilterDropdownProps) => (
+    filterDropdown: ({ setSelectedKeys, selectedKeys, confirm, clearFilters }: {
+      setSelectedKeys: (keys: React.Key[]) => void;
+      selectedKeys: React.Key[];
+      confirm: () => void;
+      clearFilters?: () => void;
+    }) => (
       <div style={{ padding: 8 }}>
         <Input
           placeholder="Search key…"
