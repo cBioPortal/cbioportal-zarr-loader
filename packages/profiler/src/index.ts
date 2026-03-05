@@ -16,3 +16,6 @@ export { default as BytesVsDurationChart } from "./charts/BytesVsDurationChart";
 
 // Constants
 export { METHOD_COLORS, DEFAULT_METHOD_COLOR } from "./constants";
+
+// Types
+export type { ProfileEntry, ProfileSession, ChunkInfo, FetchInfo, RenderLink, ImportResult } from "./types";
