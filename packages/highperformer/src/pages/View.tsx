@@ -8,6 +8,7 @@ import { CollisionFilterExtension } from '@deck.gl/extensions'
 import { _StatsWidget as StatsWidget } from '@deck.gl/widgets'
 import { ProfileBar, PROFILE_BAR_HEIGHT, saveProfileSession } from '@cbioportal-zarr-loader/profiler'
 import useAppStore from '../store/useAppStore'
+import ColorBySection from '../components/ColorBySection'
 
 const { Sider, Content } = Layout
 
@@ -27,30 +28,37 @@ function Sidebar() {
     ? datasetUrl.replace(/\/+$/, '').split('/').pop()
     : null
 
+  const sectionStyle = { padding: '12px 16px', borderBottom: '1px solid #f0f0f0' } as const
+  const labelStyle = { fontSize: 12, fontWeight: 600, color: '#666', textTransform: 'uppercase', marginBottom: 8 } as const
+
   return (
-    <Sider width={280} theme="light" style={{ borderRight: '1px solid #f0f0f0', padding: 16, overflow: 'auto' }}>
+    <Sider width={280} theme="light" style={{ borderRight: '1px solid #f0f0f0', overflow: 'auto' }}>
       {datasetName && (
-        <Typography.Text type="secondary" ellipsis title={datasetUrl ?? undefined} style={{ display: 'block', marginBottom: 12 }}>
-          {datasetName}
-        </Typography.Text>
+        <div style={sectionStyle}>
+          <Typography.Text type="secondary" ellipsis title={datasetUrl ?? undefined} style={{ display: 'block' }}>
+            {datasetName}
+          </Typography.Text>
+        </div>
       )}
 
-      <Typography.Text strong style={{ display: 'block', marginBottom: 8 }}>
-        Embedding
-      </Typography.Text>
-      {loading ? (
-        <Spin size="small" />
-      ) : (
-        <Select
-          style={{ width: '100%' }}
-          placeholder="Select embedding"
-          value={selectedEmbedding}
-          onChange={setSelectedEmbedding}
-          options={obsmKeys.map((key) => ({ label: key, value: key }))}
-          disabled={obsmKeys.length === 0}
-        />
-      )}
+      <div style={sectionStyle}>
+        <div style={labelStyle}>Embedding</div>
+        {loading ? (
+          <Spin size="small" />
+        ) : (
+          <Select
+            style={{ width: '100%' }}
+            size="small"
+            placeholder="Select embedding"
+            value={selectedEmbedding}
+            onChange={setSelectedEmbedding}
+            options={obsmKeys.map((key) => ({ label: key, value: key }))}
+            disabled={obsmKeys.length === 0}
+          />
+        )}
+      </div>
 
+      <ColorBySection />
       <RenderingControls />
     </Sider>
   )
@@ -69,10 +77,10 @@ function RenderingControls() {
   const setCollisionRadiusScale = useAppStore((s) => s.setCollisionRadiusScale)
 
   return (
-    <div style={{ marginTop: 24 }}>
-      <Typography.Text strong style={{ display: 'block', marginBottom: 8 }}>
+    <div style={{ padding: '12px 16px' }}>
+      <div style={{ fontSize: 12, fontWeight: 600, color: '#666', textTransform: 'uppercase', marginBottom: 8 }}>
         Rendering
-      </Typography.Text>
+      </div>
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
         <Typography.Text type="secondary" style={{ fontSize: 12 }}>Point radius (px)</Typography.Text>

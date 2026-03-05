@@ -62,6 +62,36 @@ describe('COLOR_SCALES', () => {
   })
 })
 
+describe('plasma scale', () => {
+  it('exists in COLOR_SCALES', () => {
+    expect(COLOR_SCALES.plasma).toBeDefined()
+    expect(COLOR_SCALES.plasma.length).toBe(10)
+  })
+
+  it('interpolates at boundaries', () => {
+    const [r0] = interpolateColorScale(0, COLOR_SCALES.plasma)
+    const [r1] = interpolateColorScale(1, COLOR_SCALES.plasma)
+    expect(r0).toBeGreaterThanOrEqual(0)
+    expect(r1).toBeGreaterThanOrEqual(0)
+    expect(r0).not.toBe(r1)
+  })
+})
+
+describe('inferno scale', () => {
+  it('exists in COLOR_SCALES', () => {
+    expect(COLOR_SCALES.inferno).toBeDefined()
+    expect(COLOR_SCALES.inferno.length).toBe(10)
+  })
+
+  it('interpolates at boundaries', () => {
+    const [r0] = interpolateColorScale(0, COLOR_SCALES.inferno)
+    const [r1] = interpolateColorScale(1, COLOR_SCALES.inferno)
+    expect(r0).toBeGreaterThanOrEqual(0)
+    expect(r1).toBeGreaterThanOrEqual(0)
+    expect(r0).not.toBe(r1)
+  })
+})
+
 describe('CATEGORICAL_COLORS', () => {
   it('has 15 colors', () => {
     expect(CATEGORICAL_COLORS).toHaveLength(15)

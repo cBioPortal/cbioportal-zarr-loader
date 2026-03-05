@@ -47,9 +47,37 @@ const MAGMA: ColorScale = [
   [252, 253, 191],
 ]
 
+const PLASMA: ColorScale = [
+  [13, 8, 135],
+  [75, 3, 161],
+  [125, 3, 168],
+  [168, 34, 150],
+  [203, 70, 121],
+  [229, 107, 93],
+  [248, 148, 65],
+  [253, 195, 40],
+  [240, 249, 33],
+  [240, 249, 33],
+]
+
+const INFERNO: ColorScale = [
+  [0, 0, 4],
+  [22, 11, 57],
+  [66, 10, 104],
+  [106, 23, 110],
+  [147, 38, 103],
+  [188, 55, 84],
+  [221, 81, 58],
+  [243, 118, 27],
+  [252, 166, 4],
+  [252, 255, 164],
+]
+
 export const COLOR_SCALES: Record<string, ColorScale> = {
   viridis: VIRIDIS,
   magma: MAGMA,
+  plasma: PLASMA,
+  inferno: INFERNO,
 }
 
 /**
