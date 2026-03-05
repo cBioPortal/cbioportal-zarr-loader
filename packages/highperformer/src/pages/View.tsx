@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useSearchParams, useNavigate } from 'react-router-dom'
 import { InputNumber, Layout, Switch, Typography, Select, Spin } from 'antd'
 import { DeckGL } from '@deck.gl/react'
 import { OrthographicView } from '@deck.gl/core'
@@ -9,6 +9,7 @@ import { _StatsWidget as StatsWidget } from '@deck.gl/widgets'
 import { ProfileBar, PROFILE_BAR_HEIGHT, saveProfileSession } from '@cbioportal-zarr-loader/profiler'
 import useAppStore from '../store/useAppStore'
 import ColorBySection from '../components/ColorBySection'
+import { loadDatasets, saveDatasets } from '../utils/datasets'
 
 const { Sider, Content } = Layout
 
@@ -17,29 +18,54 @@ const WIDGETS = [new StatsWidget({ type: 'deck', framesPerUpdate: 5, placement: 
 // Fallback color when no color buffer is ready yet
 const FALLBACK_COLOR: [number, number, number, number] = [100, 150, 255, 77]
 
+function urlLabel(url: string): string {
+  return url.replace(/\/+$/, '').split('/').pop() ?? url
+}
+
 function Sidebar() {
+  const navigate = useNavigate()
   const datasetUrl = useAppStore((s) => s.datasetUrl)
   const loading = useAppStore((s) => s.loading)
+  const nObs = useAppStore((s) => s.nObs)
+  const nVar = useAppStore((s) => s.nVar)
   const obsmKeys = useAppStore((s) => s.obsmKeys)
   const selectedEmbedding = useAppStore((s) => s.selectedEmbedding)
   const setSelectedEmbedding = useAppStore((s) => s.setSelectedEmbedding)
 
-  const datasetName = datasetUrl
-    ? datasetUrl.replace(/\/+$/, '').split('/').pop()
-    : null
+  // Build dataset options from localStorage, ensuring current URL is included
+  const datasetOptions = useMemo(() => {
+    const saved = loadDatasets()
+    if (datasetUrl && !saved.includes(datasetUrl)) {
+      const updated = [datasetUrl, ...saved]
+      saveDatasets(updated)
+      return updated
+    }
+    return saved
+  }, [datasetUrl])
 
   const sectionStyle = { padding: '12px 16px', borderBottom: '1px solid #f0f0f0' } as const
   const labelStyle = { fontSize: 12, fontWeight: 600, color: '#666', textTransform: 'uppercase', marginBottom: 8 } as const
 
   return (
     <Sider width={280} theme="light" style={{ borderRight: '1px solid #f0f0f0', overflow: 'auto' }}>
-      {datasetName && (
-        <div style={sectionStyle}>
-          <Typography.Text type="secondary" ellipsis title={datasetUrl ?? undefined} style={{ display: 'block' }}>
-            {datasetName}
-          </Typography.Text>
+      <div style={sectionStyle}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', ...labelStyle }}>
+          <span>Dataset</span>
+          {nObs != null && (
+            <Typography.Text type="secondary" style={{ fontSize: 11, fontWeight: 400, textTransform: 'none' }}>
+              {nObs.toLocaleString()} cells &middot; {(nVar ?? 0).toLocaleString()} genes
+            </Typography.Text>
+          )}
         </div>
-      )}
+        <Select
+          style={{ width: '100%' }}
+          size="small"
+          placeholder="Select dataset"
+          value={datasetUrl}
+          onChange={(url: string) => navigate(`/view?url=${encodeURIComponent(url)}`)}
+          options={datasetOptions.map((url) => ({ label: urlLabel(url), value: url }))}
+        />
+      </div>
 
       <div style={sectionStyle}>
         <div style={labelStyle}>Embedding</div>

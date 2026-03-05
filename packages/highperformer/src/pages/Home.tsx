@@ -2,20 +2,7 @@ import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { Input, Button, List, Typography, Space } from 'antd'
 import { DeleteOutlined } from '@ant-design/icons'
-
-const STORAGE_KEY = 'highperformer:datasets'
-
-function loadDatasets(): string[] {
-  try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '[]') || []
-  } catch {
-    return []
-  }
-}
-
-function saveDatasets(datasets: string[]) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(datasets))
-}
+import { loadDatasets, saveDatasets } from '../utils/datasets'
 
 function Home() {
   const [url, setUrl] = useState('')
