@@ -26,13 +26,15 @@ export default function VariablePicker({ label, options, selected, onAdd, onRemo
         showSearch
         value={undefined}
         onChange={(value: string) => onAdd(value)}
-        filterOption={(input, option) =>
-          (option?.label as string ?? '').toLowerCase().includes(input.toLowerCase())
-        }
+        filterOption={(input, option) => {
+          const lower = input.toLowerCase()
+          return (option?.label as string ?? '').toLowerCase().includes(lower)
+            || (option?.value as string ?? '').toLowerCase().includes(lower)
+        }}
         options={available.map((name) => {
           const display = labelMap?.get(name)
           return {
-            label: display ? `${display} (${name})` : name,
+            label: display ?? name,
             value: name,
           }
         })}

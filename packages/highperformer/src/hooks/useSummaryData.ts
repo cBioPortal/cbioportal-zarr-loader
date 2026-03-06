@@ -42,6 +42,7 @@ export function useSummaryData(): SummaryResult[] {
   const _categoryCodes = useAppStore((s) => s._categoryCodes)
   const categoryMap = useAppStore((s) => s.categoryMap)
   const _expressionData = useAppStore((s) => s._expressionData)
+  const geneLabelMap = useAppStore((s) => s.geneLabelMap)
 
   const [results, setResults] = useState<SummaryResult[]>([])
   const versionRef = useRef(0)
@@ -62,7 +63,8 @@ export function useSummaryData(): SummaryResult[] {
     if (colorMode === 'category' && selectedObsColumn && _categoryCodes && categoryMap.length > 0) {
       tasks.push(computeCategorySummary(selectedObsColumn, _categoryCodes, categoryMap, groupsWithIndices, version, versionRef))
     } else if (colorMode === 'gene' && selectedGene && _expressionData) {
-      tasks.push(computeExpressionSummary(selectedGene, _expressionData, groupsWithIndices, version, versionRef))
+      const displayName = geneLabelMap?.get(selectedGene) ?? selectedGene
+      tasks.push(computeExpressionSummary(displayName, _expressionData, groupsWithIndices, version, versionRef))
     }
 
     // Pinned obs columns
@@ -78,7 +80,8 @@ export function useSummaryData(): SummaryResult[] {
       const data = pinnedGeneData.get(name)
       if (!data) continue
       if (colorMode === 'gene' && name === selectedGene) continue
-      tasks.push(computeExpressionSummary(name, data, groupsWithIndices, version, versionRef))
+      const displayName = geneLabelMap?.get(name) ?? name
+      tasks.push(computeExpressionSummary(displayName, data, groupsWithIndices, version, versionRef))
     }
 
     Promise.all(tasks).then((resolved) => {
@@ -86,7 +89,7 @@ export function useSummaryData(): SummaryResult[] {
       setResults(resolved)
     })
   }, [selectionGroups, pinnedObsColumns, pinnedGenes, pinnedObsData, pinnedGeneData,
-      colorMode, selectedObsColumn, selectedGene, _categoryCodes, categoryMap, _expressionData])
+      colorMode, selectedObsColumn, selectedGene, _categoryCodes, categoryMap, _expressionData, geneLabelMap])
 
   return results
 }
