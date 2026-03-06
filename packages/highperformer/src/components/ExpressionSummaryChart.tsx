@@ -22,7 +22,6 @@ interface ExpressionSummaryChartProps {
   name: string
   statsByGroup: Map<number, ExpressionStats>
   groups: SelectionGroup[]
-  singleGroupId?: number
 }
 
 function formatNum(n: number): string {
@@ -134,12 +133,10 @@ function ExpressionStatsTable({ statsByGroup, activeGroups, fontSize = 10 }: {
   )
 }
 
-export default function ExpressionSummaryChart({ name, statsByGroup, groups, singleGroupId }: ExpressionSummaryChartProps) {
+export default function ExpressionSummaryChart({ name, statsByGroup, groups }: ExpressionSummaryChartProps) {
   const [modalOpen, setModalOpen] = useState(false)
 
-  const activeGroups = singleGroupId != null
-    ? groups.filter((g) => g.id === singleGroupId)
-    : groups.filter((g) => statsByGroup.has(g.id))
+  const activeGroups = groups.filter((g) => statsByGroup.has(g.id))
 
   if (activeGroups.length === 0) return null
 

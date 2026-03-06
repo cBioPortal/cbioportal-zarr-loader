@@ -14,7 +14,6 @@ interface CategorySummaryChartProps {
   categoryMap: { label: string; color: RGB }[]
   countsByGroup: Map<number, Uint32Array>
   groups: SelectionGroup[]
-  singleGroupId?: number
 }
 
 interface CategoryRow {
@@ -174,13 +173,11 @@ function CategoryTable({ data, activeGroups }: { data: CategoryRow[]; activeGrou
   )
 }
 
-export default function CategorySummaryChart({ name, categoryMap, countsByGroup, groups, singleGroupId }: CategorySummaryChartProps) {
+export default function CategorySummaryChart({ name, categoryMap, countsByGroup, groups }: CategorySummaryChartProps) {
   const [showTable, setShowTable] = useState(false)
   const [modalOpen, setModalOpen] = useState(false)
 
-  const activeGroups = singleGroupId != null
-    ? groups.filter((g) => g.id === singleGroupId)
-    : groups.filter((g) => countsByGroup.has(g.id))
+  const activeGroups = groups.filter((g) => countsByGroup.has(g.id))
 
   if (activeGroups.length === 0) return null
 

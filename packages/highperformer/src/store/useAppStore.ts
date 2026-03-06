@@ -107,7 +107,6 @@ export interface AppState {
 
   // Summary panel
   summaryPanelOpen: boolean
-  summaryViewMode: 'byVariable' | 'byGroup'
   pinnedObsColumns: string[]
   pinnedGenes: string[]
   pinnedObsData: Map<string, { codes: Uint8Array; categoryMap: { label: string; color: RGB }[] }>
@@ -116,7 +115,6 @@ export interface AppState {
 
   // Summary panel actions
   setSummaryPanelOpen: (open: boolean) => void
-  setSummaryViewMode: (mode: 'byVariable' | 'byGroup') => void
   pinObsColumn: (name: string) => void
   unpinObsColumn: (name: string) => void
   pinGene: (name: string) => void
@@ -255,7 +253,6 @@ const useAppStore = create<AppState>((set, get) => ({
 
   // Summary panel
   summaryPanelOpen: false,
-  summaryViewMode: 'byVariable' as const,
   pinnedObsColumns: [],
   pinnedGenes: [],
   pinnedObsData: new Map(),
@@ -356,7 +353,6 @@ const useAppStore = create<AppState>((set, get) => ({
   },
 
   setSummaryPanelOpen: (open) => set({ summaryPanelOpen: open }),
-  setSummaryViewMode: (mode) => set({ summaryViewMode: mode }),
 
   pinObsColumn: (name) => {
     const { adata, pinnedObsColumns, pinnedObsData } = get()
@@ -426,7 +422,7 @@ const useAppStore = create<AppState>((set, get) => ({
       categoryWarning: null, _categoryCodes: null, _expressionData: null,
       varColumns: [], geneLabelColumn: null, geneLabelMap: null,
       selectionGroups: [], selectionFilterBuffer: null, selectionTool: 'pan', selectionDisplayMode: 'dim',
-      summaryPanelOpen: false, summaryViewMode: 'byVariable' as const,
+      summaryPanelOpen: false,
       pinnedObsColumns: [], pinnedGenes: [],
       pinnedObsData: new Map(), pinnedGeneData: new Map(), pinnedGeneRanges: new Map(),
     })

@@ -1,18 +1,15 @@
-import { Segmented, Typography } from 'antd'
+import { Typography } from 'antd'
 import { CloseOutlined } from '@ant-design/icons'
 import useAppStore from '../store/useAppStore'
 import VariablePicker from './VariablePicker'
 import { useSummaryData } from '../hooks/useSummaryData'
 import ByVariableView from './ByVariableView'
-import ByGroupView from './ByGroupView'
 
 const SOFT_CAP = 10
 
 export default function SummaryPanel() {
   const summaryPanelOpen = useAppStore((s) => s.summaryPanelOpen)
   const setSummaryPanelOpen = useAppStore((s) => s.setSummaryPanelOpen)
-  const summaryViewMode = useAppStore((s) => s.summaryViewMode)
-  const setSummaryViewMode = useAppStore((s) => s.setSummaryViewMode)
   const selectionGroups = useAppStore((s) => s.selectionGroups)
   const pinnedObsColumns = useAppStore((s) => s.pinnedObsColumns)
   const pinnedGenes = useAppStore((s) => s.pinnedGenes)
@@ -50,19 +47,6 @@ export default function SummaryPanel() {
         />
       </div>
 
-      <div style={{ padding: '8px 16px', borderBottom: '1px solid #f0f0f0' }}>
-        <Segmented
-          block
-          size="small"
-          value={summaryViewMode}
-          onChange={(v) => setSummaryViewMode(v as 'byVariable' | 'byGroup')}
-          options={[
-            { label: 'By Variable', value: 'byVariable' },
-            { label: 'By Group', value: 'byGroup' },
-          ]}
-        />
-      </div>
-
       <div style={{ flex: 1, overflow: 'auto', padding: '12px 16px' }}>
         {!hasGroups ? (
           <Typography.Text type="secondary" style={{ fontSize: 12 }}>
@@ -96,11 +80,7 @@ export default function SummaryPanel() {
 
             {results.length > 0 && (
               <div style={{ marginTop: 12, borderTop: '1px solid #f0f0f0', paddingTop: 12 }}>
-                {summaryViewMode === 'byVariable' ? (
-                  <ByVariableView results={results} />
-                ) : (
-                  <ByGroupView results={results} />
-                )}
+                <ByVariableView results={results} />
               </div>
             )}
           </>
