@@ -34,6 +34,7 @@ export function useSummaryData(): SummaryResult[] {
   const pinnedObsColumns = useAppStore((s) => s.pinnedObsColumns)
   const pinnedGenes = useAppStore((s) => s.pinnedGenes)
   const pinnedObsData = useAppStore((s) => s.pinnedObsData)
+  const pinnedObsContinuousData = useAppStore((s) => s.pinnedObsContinuousData)
   const pinnedGeneData = useAppStore((s) => s.pinnedGeneData)
 
   const colorMode = useAppStore((s) => s.colorMode)
@@ -67,12 +68,19 @@ export function useSummaryData(): SummaryResult[] {
       tasks.push(computeExpressionSummary(displayName, _expressionData, groupsWithIndices, version, versionRef))
     }
 
-    // Pinned obs columns
+    // Pinned obs columns (categorical)
     for (const name of pinnedObsColumns) {
-      const data = pinnedObsData.get(name)
-      if (!data) continue
-      if (colorMode === 'category' && name === selectedObsColumn) continue
-      tasks.push(computeCategorySummary(name, data.codes, data.categoryMap, groupsWithIndices, version, versionRef))
+      const catData = pinnedObsData.get(name)
+      if (catData) {
+        if (colorMode === 'category' && name === selectedObsColumn) continue
+        tasks.push(computeCategorySummary(name, catData.codes, catData.categoryMap, groupsWithIndices, version, versionRef))
+        continue
+      }
+      // Continuous obs column
+      const contData = pinnedObsContinuousData.get(name)
+      if (contData) {
+        tasks.push(computeExpressionSummary(name, contData, groupsWithIndices, version, versionRef))
+      }
     }
 
     // Pinned genes
@@ -88,7 +96,7 @@ export function useSummaryData(): SummaryResult[] {
       if (versionRef.current !== version) return
       setResults(resolved)
     })
-  }, [selectionGroups, pinnedObsColumns, pinnedGenes, pinnedObsData, pinnedGeneData,
+  }, [selectionGroups, pinnedObsColumns, pinnedGenes, pinnedObsData, pinnedObsContinuousData, pinnedGeneData,
       colorMode, selectedObsColumn, selectedGene, _categoryCodes, categoryMap, _expressionData, geneLabelMap])
 
   return results

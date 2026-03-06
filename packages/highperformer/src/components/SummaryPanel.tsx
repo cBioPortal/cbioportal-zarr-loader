@@ -16,6 +16,7 @@ export default function SummaryPanel() {
   const geneLabelMap = useAppStore((s) => s.geneLabelMap)
   const pinnedObsData = useAppStore((s) => s.pinnedObsData)
   const pinnedGeneData = useAppStore((s) => s.pinnedGeneData)
+  const pinnedObsContinuousData = useAppStore((s) => s.pinnedObsContinuousData)
   const pinObsColumn = useAppStore((s) => s.pinObsColumn)
   const unpinObsColumn = useAppStore((s) => s.unpinObsColumn)
   const pinGene = useAppStore((s) => s.pinGene)
@@ -56,7 +57,7 @@ export default function SummaryPanel() {
               selected={pinnedObsColumns}
               onAdd={pinObsColumn}
               onRemove={unpinObsColumn}
-              loading={new Set(pinnedObsColumns.filter((c) => !pinnedObsData.has(c)))}
+              loading={new Set(pinnedObsColumns.filter((c) => !pinnedObsData.has(c) && !pinnedObsContinuousData.has(c)))}
             />
 
             <VariablePicker

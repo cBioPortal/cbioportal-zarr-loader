@@ -110,6 +110,7 @@ export interface AppState {
   pinnedObsColumns: string[]
   pinnedGenes: string[]
   pinnedObsData: Map<string, { codes: Uint8Array; categoryMap: { label: string; color: RGB }[] }>
+  pinnedObsContinuousData: Map<string, Float32Array>
   pinnedGeneData: Map<string, Float32Array>
   pinnedGeneRanges: Map<string, { min: number; max: number }>
 
@@ -256,6 +257,7 @@ const useAppStore = create<AppState>((set, get) => ({
   pinnedObsColumns: [],
   pinnedGenes: [],
   pinnedObsData: new Map(),
+  pinnedObsContinuousData: new Map(),
   pinnedGeneData: new Map(),
   pinnedGeneRanges: new Map(),
 
@@ -355,12 +357,36 @@ const useAppStore = create<AppState>((set, get) => ({
   setSummaryPanelOpen: (open) => set({ summaryPanelOpen: open }),
 
   pinObsColumn: (name) => {
-    const { adata, pinnedObsColumns, pinnedObsData } = get()
-    if (!adata || pinnedObsColumns.includes(name) || pinnedObsData.has(name)) return
+    const { adata, pinnedObsColumns, pinnedObsData, pinnedObsContinuousData } = get()
+    if (!adata || pinnedObsColumns.includes(name) || pinnedObsData.has(name) || pinnedObsContinuousData.has(name)) return
     set({ pinnedObsColumns: [...pinnedObsColumns, name] })
     adata.obsColumn(name).then((values) => {
+      // Detect continuous: TypedArray from zarr (numeric column)
+      const isTypedArray = ArrayBuffer.isView(values) && !(values instanceof DataView)
+      if (isTypedArray) {
+        const floats = values instanceof Float32Array ? values : new Float32Array(values as ArrayLike<number>)
+        const next = new Map(get().pinnedObsContinuousData)
+        next.set(name, floats)
+        set({ pinnedObsContinuousData: next })
+        return
+      }
+
+      // String/mixed array — try categorical encoding
       const valuesArray = Array.isArray(values) ? values : Array.from(values as Iterable<number>)
-      const { codes, categoryMap } = encodeCategories(valuesArray as (string | number | null)[])
+      const { codes, categoryMap, uniqueCount } = encodeCategories(valuesArray as (string | number | null)[])
+
+      // Too many unique values — treat as continuous
+      if (uniqueCount > MAX_CATEGORIES) {
+        const floats = new Float32Array(valuesArray.length)
+        for (let i = 0; i < valuesArray.length; i++) {
+          floats[i] = Number(valuesArray[i]) || 0
+        }
+        const next = new Map(get().pinnedObsContinuousData)
+        next.set(name, floats)
+        set({ pinnedObsContinuousData: next })
+        return
+      }
+
       const next = new Map(get().pinnedObsData)
       next.set(name, { codes, categoryMap })
       set({ pinnedObsData: next })
@@ -368,12 +394,15 @@ const useAppStore = create<AppState>((set, get) => ({
   },
 
   unpinObsColumn: (name) => {
-    const { pinnedObsColumns, pinnedObsData } = get()
-    const next = new Map(pinnedObsData)
-    next.delete(name)
+    const { pinnedObsColumns, pinnedObsData, pinnedObsContinuousData } = get()
+    const nextCat = new Map(pinnedObsData)
+    nextCat.delete(name)
+    const nextCont = new Map(pinnedObsContinuousData)
+    nextCont.delete(name)
     set({
       pinnedObsColumns: pinnedObsColumns.filter((c) => c !== name),
-      pinnedObsData: next,
+      pinnedObsData: nextCat,
+      pinnedObsContinuousData: nextCont,
     })
   },
 
@@ -424,7 +453,8 @@ const useAppStore = create<AppState>((set, get) => ({
       selectionGroups: [], selectionFilterBuffer: null, selectionTool: 'pan', selectionDisplayMode: 'dim',
       summaryPanelOpen: false,
       pinnedObsColumns: [], pinnedGenes: [],
-      pinnedObsData: new Map(), pinnedGeneData: new Map(), pinnedGeneRanges: new Map(),
+      pinnedObsData: new Map(), pinnedObsContinuousData: new Map(),
+      pinnedGeneData: new Map(), pinnedGeneRanges: new Map(),
     })
     try {
       const adata = await AnnDataStore.open(url)
