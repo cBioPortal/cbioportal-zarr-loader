@@ -4,12 +4,14 @@ import { Collapse, InputNumber, Layout, Switch, Typography, Select, Spin } from 
 import { BgColorsOutlined, DatabaseOutlined, DotChartOutlined, HolderOutlined, LeftOutlined, RightOutlined, SettingOutlined } from '@ant-design/icons'
 import { DeckGL } from '@deck.gl/react'
 import { OrthographicView } from '@deck.gl/core'
-import { ScatterplotLayer } from '@deck.gl/layers'
-import { CollisionFilterExtension } from '@deck.gl/extensions'
+import { PolygonLayer, ScatterplotLayer } from '@deck.gl/layers'
+import { CollisionFilterExtension, DataFilterExtension } from '@deck.gl/extensions'
 import { _StatsWidget as StatsWidget } from '@deck.gl/widgets'
 import { ProfileBar, PROFILE_BAR_HEIGHT, saveProfileSession } from '@cbioportal-zarr-loader/profiler'
 import useAppStore from '../store/useAppStore'
 import ColorBySection from '../components/ColorBySection'
+import SelectionOverlay from '../components/SelectionOverlay'
+import SelectionToolbar from '../components/SelectionToolbar'
 import { loadDatasets, saveDatasets } from '../utils/datasets'
 
 const { Sider, Content } = Layout
@@ -112,6 +114,20 @@ const WIDGETS = [new StatsWidget({ type: 'deck', framesPerUpdate: 5, placement: 
 
 // Fallback color when no color buffer is ready yet
 const FALLBACK_COLOR: [number, number, number, number] = [100, 150, 255, 77]
+
+const DIM_ALPHA = 10 // ~4% opacity for unselected points in dim mode
+
+function dimColorBuffer(colorBuffer: Uint8Array, filterBuffer: Float32Array): Uint8Array {
+  const out = new Uint8Array(colorBuffer.length)
+  out.set(colorBuffer)
+  const numPoints = filterBuffer.length
+  for (let i = 0; i < numPoints; i++) {
+    if (filterBuffer[i] === 0) {
+      out[i * 4 + 3] = DIM_ALPHA
+    }
+  }
+  return out
+}
 
 function urlLabel(url: string): string {
   return url.replace(/\/+$/, '').split('/').pop() ?? url
@@ -294,13 +310,17 @@ function CanvasLoadingOverlay() {
   )
 }
 
-function Visualization() {
+function Visualization({ deckRef }: { deckRef: React.RefObject<DeckGL | null> }) {
   const embeddingData = useAppStore((s) => s.embeddingData)
   const colorBuffer = useAppStore((s) => s.colorBuffer)
   const pointRadius = useAppStore((s) => s.pointRadius)
   const antialiasing = useAppStore((s) => s.antialiasing)
   const collisionEnabled = useAppStore((s) => s.collisionEnabled)
   const collisionRadiusScale = useAppStore((s) => s.collisionRadiusScale)
+  const selectionFilterBuffer = useAppStore((s) => s.selectionFilterBuffer)
+  const selectionDisplayMode = useAppStore((s) => s.selectionDisplayMode)
+  const selectionGroups = useAppStore((s) => s.selectionGroups)
+  const selectionTool = useAppStore((s) => s.selectionTool)
   const containerRef = useRef<HTMLDivElement>(null)
 
   // Derive initial view state from data bounds + container size
@@ -337,33 +357,67 @@ function Visualization() {
     const attributes: Record<string, { value: Float32Array | Uint8Array; size: number }> = {
       getPosition: { value: embeddingData.positions, size: 2 },
     }
-    if (colorBuffer) {
-      attributes.getFillColor = { value: colorBuffer, size: 4 }
+
+    // Apply selection dimming by modifying color buffer alpha
+    const hasSelection = selectionFilterBuffer !== null
+    const effectiveColor = colorBuffer && hasSelection && selectionDisplayMode === 'dim'
+      ? dimColorBuffer(colorBuffer, selectionFilterBuffer)
+      : colorBuffer
+
+    if (effectiveColor) {
+      attributes.getFillColor = { value: effectiveColor, size: 4 }
     }
     return { length: embeddingData.numPoints, attributes }
-  }, [embeddingData, colorBuffer])
+  }, [embeddingData, colorBuffer, selectionFilterBuffer, selectionDisplayMode])
 
-  const layers = layerData
-    ? [
-      new ScatterplotLayer({
-        id: 'scatterplot',
-        data: layerData,
-        dataComparator: (a, b) => a === b,
-        // Constant fallback when color buffer hasn't arrived yet
-        ...(!colorBuffer && { getFillColor: FALLBACK_COLOR }),
-        updateTriggers: {
-          getFillColor: [colorBuffer],
-        },
-        getRadius: pointRadius,
-        radiusUnits: 'pixels' as const,
-        antialiasing,
-        ...(collisionEnabled && {
-          extensions: [new CollisionFilterExtension()],
-          collisionTestProps: { radiusScale: collisionRadiusScale },
-        }),
+  const layers = useMemo(() => {
+    if (!layerData) return []
+
+    const hasSelection = selectionFilterBuffer !== null
+    const hideMode = hasSelection && selectionDisplayMode === 'hide'
+
+    const scatterplot = new ScatterplotLayer({
+      id: 'scatterplot',
+      data: layerData,
+      dataComparator: (a: unknown, b: unknown) => a === b,
+      ...(!colorBuffer && { getFillColor: FALLBACK_COLOR }),
+      updateTriggers: {
+        getFillColor: [colorBuffer, selectionFilterBuffer, selectionDisplayMode],
+        getFilterValue: [selectionFilterBuffer],
+      },
+      getRadius: pointRadius,
+      radiusUnits: 'pixels' as const,
+      antialiasing,
+      extensions: [
+        new DataFilterExtension({ filterSize: 1 }),
+        ...(collisionEnabled ? [new CollisionFilterExtension()] : []),
+      ],
+      getFilterValue: hideMode
+        ? (_: unknown, { index }: { index: number }) => selectionFilterBuffer![index]
+        : 1,
+      filterEnabled: hideMode,
+      filterRange: [1, 1] as [number, number],
+      ...(collisionEnabled && {
+        collisionTestProps: { radiusScale: collisionRadiusScale },
       }),
-    ]
-    : []
+    })
+
+    const polygonLayer = selectionGroups.length > 0
+      ? new PolygonLayer({
+          id: 'selection-polygons',
+          data: selectionGroups,
+          getPolygon: (d: { polygon: [number, number][] }) => d.polygon,
+          getFillColor: (d: { color: [number, number, number] }) => [...d.color, 30],
+          getLineColor: (d: { color: [number, number, number] }) => [...d.color, 200],
+          getLineWidth: 2,
+          filled: true,
+          stroked: true,
+          lineWidthUnits: 'pixels' as const,
+        })
+      : null
+
+    return polygonLayer ? [scatterplot, polygonLayer] : [scatterplot]
+  }, [layerData, colorBuffer, pointRadius, antialiasing, collisionEnabled, collisionRadiusScale, selectionFilterBuffer, selectionDisplayMode, selectionGroups])
 
   // Key forces deck.gl to re-initialize when view state changes (new embedding)
   const deckKey = useMemo(
@@ -374,10 +428,11 @@ function Visualization() {
   return (
     <div ref={containerRef} style={{ position: 'relative', width: '100%', height: '100%' }}>
       <DeckGL
+        ref={deckRef}
         key={deckKey}
         views={new OrthographicView()}
         initialViewState={initialViewState}
-        controller
+        controller={selectionTool === 'pan'}
         layers={layers}
         widgets={WIDGETS}
       />
@@ -452,6 +507,7 @@ function View() {
   const openDataset = useAppStore((s) => s.openDataset)
   const [leftCollapsed, setLeftCollapsed] = useState(false)
   const [rightWidth, setRightWidth] = useState(RIGHT_SIDEBAR_WIDTH)
+  const deckRef = useRef<DeckGL>(null)
 
   const { onMouseDown: onDragStart, setSnappedRef } = useRightSidebarDrag(setRightWidth)
 
@@ -482,7 +538,9 @@ function View() {
             onClick={() => setLeftCollapsed((c) => !c)}
             icon={leftCollapsed ? <RightOutlined /> : <LeftOutlined />}
           />
-          <MemoizedVisualization />
+          <MemoizedVisualization deckRef={deckRef} />
+          <SelectionOverlay deckRef={deckRef} />
+          <SelectionToolbar />
           <CanvasLoadingOverlay />
           <EdgeTab
             side="right"

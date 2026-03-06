@@ -16,7 +16,7 @@ vi.mock('../workers/universal.worker.ts?worker', () => {
   return { default: class MockWorker {} }
 })
 
-const { default: useAppStore, getColorBuildVersion, resetColorBuildVersion } = await import('./useAppStore')
+const { default: useAppStore, getColorBuildVersion, resetColorBuildVersion, resetSelectionVersion } = await import('./useAppStore')
 
 describe('useAppStore', () => {
   beforeEach(() => {
@@ -24,6 +24,7 @@ describe('useAppStore', () => {
     useAppStore.setState(useAppStore.getInitialState())
     mockDispatch.mockClear()
     resetColorBuildVersion()
+    resetSelectionVersion()
     mockDispatch.mockResolvedValue({ type: 'colorBuffer', buffer: new Uint8Array(8), version: 1 })
   })
 
@@ -608,6 +609,165 @@ describe('useAppStore', () => {
       await vi.waitFor(() => {
         expect(mockAdata.geneExpression).toHaveBeenCalledWith('ENSG001', expect.any(AbortSignal))
       })
+    })
+  })
+
+  describe('selection', () => {
+    const GROUP_COLORS: [number, number, number][] = [
+      [255, 59, 48],
+      [0, 122, 255],
+      [52, 199, 89],
+    ]
+
+    it('initializes with no selection state', () => {
+      const state = useAppStore.getState()
+      expect(state.selectionTool).toBe('pan')
+      expect(state.selectionDisplayMode).toBe('dim')
+      expect(state.selectionGroups).toEqual([])
+      expect(state.selectionFilterBuffer).toBeNull()
+    })
+
+    it('setSelectionTool updates tool mode', () => {
+      useAppStore.getState().setSelectionTool('rectangle')
+      expect(useAppStore.getState().selectionTool).toBe('rectangle')
+
+      useAppStore.getState().setSelectionTool('pan')
+      expect(useAppStore.getState().selectionTool).toBe('pan')
+    })
+
+    it('setSelectionDisplayMode toggles dim/hide', () => {
+      useAppStore.getState().setSelectionDisplayMode('hide')
+      expect(useAppStore.getState().selectionDisplayMode).toBe('hide')
+
+      useAppStore.getState().setSelectionDisplayMode('dim')
+      expect(useAppStore.getState().selectionDisplayMode).toBe('dim')
+    })
+
+    it('commitSelection auto-assigns group ID and color', async () => {
+      useAppStore.setState({
+        embeddingData: {
+          positions: new Float32Array([0, 0, 5, 5, 15, 15]),
+          numPoints: 3,
+          bounds: { minX: 0, maxX: 15, minY: 0, maxY: 15 },
+        },
+      })
+
+      const polygon: [number, number][] = [[0, 0], [10, 0], [10, 10], [0, 10]]
+      useAppStore.getState().commitSelection(polygon, 'rectangle')
+
+      const groups = useAppStore.getState().selectionGroups
+      expect(groups).toHaveLength(1)
+      expect(groups[0].id).toBe(1)
+      expect(groups[0].polygon).toEqual(polygon)
+      expect(groups[0].type).toBe('rectangle')
+      expect(groups[0].color).toEqual(GROUP_COLORS[0])
+    })
+
+    it('clearGroup removes a specific group and remerges filter buffer', () => {
+      useAppStore.setState({
+        embeddingData: {
+          positions: new Float32Array([0, 0, 5, 5]),
+          numPoints: 2,
+          bounds: { minX: 0, maxX: 5, minY: 0, maxY: 5 },
+        },
+        selectionGroups: [{
+          id: 1,
+          polygon: [[0, 0], [10, 0], [10, 10], [0, 10]],
+          type: 'rectangle' as const,
+          indices: new Uint32Array([0, 1]),
+          color: GROUP_COLORS[0],
+        }],
+        selectionFilterBuffer: new Float32Array([1, 1]),
+      })
+
+      useAppStore.getState().clearGroup(1)
+      expect(useAppStore.getState().selectionGroups).toHaveLength(0)
+      expect(useAppStore.getState().selectionFilterBuffer).toBeNull()
+    })
+
+    it('clearAllSelections resets everything', () => {
+      useAppStore.setState({
+        selectionGroups: [{
+          id: 1,
+          polygon: [[0, 0], [10, 0], [10, 10], [0, 10]],
+          type: 'rectangle' as const,
+          indices: new Uint32Array([0]),
+          color: GROUP_COLORS[0],
+        }],
+        selectionFilterBuffer: new Float32Array([1, 0]),
+        selectionTool: 'lasso',
+        selectionDisplayMode: 'hide',
+      })
+
+      useAppStore.getState().clearAllSelections()
+      expect(useAppStore.getState().selectionGroups).toEqual([])
+      expect(useAppStore.getState().selectionFilterBuffer).toBeNull()
+      expect(useAppStore.getState().selectionTool).toBe('pan')
+      expect(useAppStore.getState().selectionDisplayMode).toBe('dim')
+    })
+
+    it('auto-assigns sequential group IDs', () => {
+      useAppStore.setState({
+        embeddingData: {
+          positions: new Float32Array([5, 5]),
+          numPoints: 1,
+          bounds: { minX: 0, maxX: 10, minY: 0, maxY: 10 },
+        },
+        selectionGroups: [{
+          id: 1,
+          polygon: [[0, 0], [10, 0], [10, 10], [0, 10]],
+          type: 'rectangle' as const,
+          indices: new Uint32Array([0]),
+          color: GROUP_COLORS[0],
+        }],
+      })
+
+      useAppStore.getState().commitSelection([[0, 0], [5, 0], [5, 5], [0, 5]], 'lasso')
+      const groups = useAppStore.getState().selectionGroups
+      expect(groups).toHaveLength(2)
+      expect(groups[1].id).toBe(2)
+      expect(groups[1].color).toEqual(GROUP_COLORS[1])
+    })
+
+    it('rejects more than 3 groups', () => {
+      useAppStore.setState({
+        embeddingData: {
+          positions: new Float32Array([5, 5]),
+          numPoints: 1,
+          bounds: { minX: 0, maxX: 10, minY: 0, maxY: 10 },
+        },
+        selectionGroups: [
+          { id: 1, polygon: [[0, 0], [1, 0], [1, 1], [0, 1]], type: 'rectangle' as const, indices: new Uint32Array([0]), color: GROUP_COLORS[0] },
+          { id: 2, polygon: [[0, 0], [1, 0], [1, 1], [0, 1]], type: 'rectangle' as const, indices: new Uint32Array([0]), color: GROUP_COLORS[1] },
+          { id: 3, polygon: [[0, 0], [1, 0], [1, 1], [0, 1]], type: 'rectangle' as const, indices: new Uint32Array([0]), color: GROUP_COLORS[2] },
+        ],
+      })
+
+      useAppStore.getState().commitSelection([[0, 0], [1, 0], [1, 1], [0, 1]], 'rectangle')
+      expect(useAppStore.getState().selectionGroups).toHaveLength(3)
+    })
+
+    it('_mergeFilterBuffer builds correct Float32Array', () => {
+      useAppStore.setState({
+        embeddingData: {
+          positions: new Float32Array([0, 0, 1, 1, 2, 2, 3, 3]),
+          numPoints: 4,
+          bounds: { minX: 0, maxX: 3, minY: 0, maxY: 3 },
+        },
+        selectionGroups: [
+          { id: 1, polygon: [], type: 'rectangle' as const, indices: new Uint32Array([0, 2]), color: GROUP_COLORS[0] },
+          { id: 2, polygon: [], type: 'lasso' as const, indices: new Uint32Array([1, 2]), color: GROUP_COLORS[1] },
+        ],
+      })
+
+      useAppStore.getState()._mergeFilterBuffer()
+      const buf = useAppStore.getState().selectionFilterBuffer!
+      expect(buf).toBeInstanceOf(Float32Array)
+      expect(buf.length).toBe(4)
+      expect(buf[0]).toBe(1) // in group 1
+      expect(buf[1]).toBe(1) // in group 2
+      expect(buf[2]).toBe(1) // in both groups (overlap)
+      expect(buf[3]).toBe(0) // in neither
     })
   })
 })

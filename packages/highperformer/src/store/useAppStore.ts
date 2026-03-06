@@ -22,6 +22,18 @@ export interface EmbeddingData {
 
 export type ColorMode = 'category' | 'gene'
 
+// Selection types
+export type SelectionTool = 'pan' | 'rectangle' | 'lasso'
+export type SelectionDisplayMode = 'dim' | 'hide'
+
+export interface SelectionGroup {
+  id: number
+  polygon: [number, number][]
+  type: 'rectangle' | 'lasso'
+  indices: Uint32Array
+  color: [number, number, number]
+}
+
 export interface AppState {
   // Dataset
   datasetUrl: string | null
@@ -78,6 +90,21 @@ export interface AppState {
   _expressionData: Float32Array | null
   _colorAbort: AbortController | null
 
+  // Selection
+  selectionTool: SelectionTool
+  selectionDisplayMode: SelectionDisplayMode
+  selectionGroups: SelectionGroup[]
+  selectionFilterBuffer: Float32Array | null
+
+  // Selection actions
+  setSelectionTool: (tool: SelectionTool) => void
+  setSelectionDisplayMode: (mode: SelectionDisplayMode) => void
+  commitSelection: (polygon: [number, number][], type: 'rectangle' | 'lasso') => void
+  _onSelectionResult: (groupId: number, indices: Uint32Array, version: number) => void
+  _mergeFilterBuffer: () => void
+  clearGroup: (id: number) => void
+  clearAllSelections: () => void
+
   // Actions
   openDataset: (url: string) => Promise<void>
   setSelectedEmbedding: (key: string) => void
@@ -121,6 +148,16 @@ function computeRange(data: Float32Array): { min: number; max: number } {
 let colorBuildVersion = 0
 export function getColorBuildVersion(): number { return colorBuildVersion }
 export function resetColorBuildVersion(): void { colorBuildVersion = 0 }
+
+const GROUP_COLORS: [number, number, number][] = [
+  [255, 59, 48],   // red
+  [0, 122, 255],   // blue
+  [52, 199, 89],   // green
+]
+
+let selectionVersion = 0
+export function getSelectionVersion(): number { return selectionVersion }
+export function resetSelectionVersion(): void { selectionVersion = 0 }
 
 // Singleton pool — created lazily
 let pool: WorkerPool | null = null
@@ -193,6 +230,103 @@ const useAppStore = create<AppState>((set, get) => ({
   _expressionData: null,
   _colorAbort: null,
 
+  // Selection
+  selectionTool: 'pan',
+  selectionDisplayMode: 'dim',
+  selectionGroups: [],
+  selectionFilterBuffer: null,
+
+  setSelectionTool: (tool) => set({ selectionTool: tool }),
+  setSelectionDisplayMode: (mode) => set({ selectionDisplayMode: mode }),
+
+  commitSelection: (polygon, type) => {
+    const { embeddingData, selectionGroups } = get()
+    if (!embeddingData || selectionGroups.length >= 3) return
+
+    // Auto-assign next available ID (1, 2, or 3)
+    const usedIds = new Set(selectionGroups.map((g) => g.id))
+    let nextId = 1
+    while (usedIds.has(nextId) && nextId <= 3) nextId++
+    if (nextId > 3) return
+
+    const group: SelectionGroup = {
+      id: nextId,
+      polygon,
+      type,
+      indices: new Uint32Array(0), // filled by worker result
+      color: GROUP_COLORS[nextId - 1],
+    }
+
+    set({ selectionGroups: [...selectionGroups, group] })
+
+    // Dispatch hit-testing to worker
+    selectionVersion++
+    const version = selectionVersion
+
+    getPool()
+      .dispatch<{ type: string; indices: Uint32Array; version: number }>({
+        type: 'pointsInPolygon',
+        positions: embeddingData.positions,
+        numPoints: embeddingData.numPoints,
+        polygon,
+        selectionType: type,
+        version,
+      })
+      .then((response) => {
+        get()._onSelectionResult(nextId, response.indices, version)
+      })
+  },
+
+  _onSelectionResult: (groupId, indices, version) => {
+    if (version !== selectionVersion || !indices) return // stale or invalid
+    const { selectionGroups } = get()
+    const updated = selectionGroups.map((g) =>
+      g.id === groupId ? { ...g, indices } : g,
+    )
+    set({ selectionGroups: updated })
+    get()._mergeFilterBuffer()
+  },
+
+  _mergeFilterBuffer: () => {
+    const { embeddingData, selectionGroups } = get()
+    if (!embeddingData) return
+
+    // If no groups have indices, clear the filter buffer
+    const hasAnyIndices = selectionGroups.some((g) => g.indices.length > 0)
+    if (!hasAnyIndices) {
+      set({ selectionFilterBuffer: null })
+      return
+    }
+
+    const buf = new Float32Array(embeddingData.numPoints) // initialized to 0
+    for (const group of selectionGroups) {
+      for (let i = 0; i < group.indices.length; i++) {
+        buf[group.indices[i]] = 1
+      }
+    }
+    set({ selectionFilterBuffer: buf })
+  },
+
+  clearGroup: (id) => {
+    const { selectionGroups } = get()
+    const updated = selectionGroups.filter((g) => g.id !== id)
+    set({ selectionGroups: updated })
+    if (updated.length === 0) {
+      set({ selectionFilterBuffer: null })
+    } else {
+      get()._mergeFilterBuffer()
+    }
+  },
+
+  clearAllSelections: () => {
+    set({
+      selectionGroups: [],
+      selectionFilterBuffer: null,
+      selectionTool: 'pan',
+      selectionDisplayMode: 'dim',
+    })
+  },
+
   // Actions
   openDataset: async (url) => {
     if (url === get().datasetUrl && get().adata) return
@@ -203,6 +337,7 @@ const useAppStore = create<AppState>((set, get) => ({
       obsColumnNames: [], varNames: [], categoryMap: [], expressionRange: null,
       categoryWarning: null, _categoryCodes: null, _expressionData: null,
       varColumns: [], geneLabelColumn: null, geneLabelMap: null,
+      selectionGroups: [], selectionFilterBuffer: null, selectionTool: 'pan', selectionDisplayMode: 'dim',
     })
     try {
       const adata = await AnnDataStore.open(url)
