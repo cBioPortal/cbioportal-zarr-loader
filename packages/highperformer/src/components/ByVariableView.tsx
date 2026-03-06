@@ -1,15 +1,17 @@
 import useAppStore from '../store/useAppStore'
+import type { SelectionGroup } from '../store/useAppStore'
 import CategorySummaryChart from './CategorySummaryChart'
 import ExpressionSummaryChart from './ExpressionSummaryChart'
 import type { SummaryResult } from '../hooks/useSummaryData'
 
 interface ByVariableViewProps {
   results: SummaryResult[]
+  groups?: SelectionGroup[]
 }
 
-export default function ByVariableView({ results }: ByVariableViewProps) {
+export default function ByVariableView({ results, groups: groupsOverride }: ByVariableViewProps) {
   const selectionGroups = useAppStore((s) => s.selectionGroups)
-  const groups = selectionGroups.filter((g) => g.indices.length > 0)
+  const groups = groupsOverride ?? selectionGroups.filter((g) => g.indices.length > 0)
 
   if (results.length === 0) return null
 

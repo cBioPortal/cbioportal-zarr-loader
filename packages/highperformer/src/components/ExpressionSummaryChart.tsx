@@ -6,7 +6,12 @@ import { AxisBottom, AxisLeft } from '@visx/axis'
 import { Typography } from 'antd'
 import { ExpandOutlined } from '@ant-design/icons'
 import type { SelectionGroup } from '../store/useAppStore'
+import { ALL_CELLS_GROUP_ID } from '../hooks/useAllCellsSummary'
 import ChartModal from './ChartModal'
+
+function groupLabel(id: number): string {
+  return id === ALL_CELLS_GROUP_ID ? 'All Cells' : `Group ${id}`
+}
 
 interface ExpressionStats {
   mean: number
@@ -109,7 +114,7 @@ function ExpressionStatsTable({ statsByGroup, activeGroups, fontSize = 10 }: {
           <th style={{ textAlign: 'left', padding: '2px 8px', fontWeight: 600, borderBottom: '1px solid #f0f0f0' }}></th>
           {activeGroups.map((g) => (
             <th key={g.id} style={{ textAlign: 'right', padding: '2px 8px', fontWeight: 600, color: `rgb(${g.color.join(',')})`, borderBottom: '1px solid #f0f0f0' }}>
-              G{g.id}
+              {groupLabel(g.id)}
             </th>
           ))}
         </tr>
