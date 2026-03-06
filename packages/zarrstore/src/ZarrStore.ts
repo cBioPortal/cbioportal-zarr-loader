@@ -13,6 +13,7 @@ export class ZarrStore {
   root: zarr.Group<Readable>;
   attrs: Record<string, unknown>;
   consolidatedMetadata: ConsolidatedMetadataMap | null;
+  zarrVersion: 2 | 3;
   #effectiveStore: InstrumentedStore | ConsolidatedStore;
 
   constructor(
@@ -20,16 +21,18 @@ export class ZarrStore {
     root: zarr.Group<Readable>,
     consolidatedMetadata: ConsolidatedMetadataMap | null = null,
     effectiveStore?: ConsolidatedStore,
+    zarrVersion: 2 | 3 = 2,
   ) {
     this.store = store;
     this.root = root;
     this.attrs = root.attrs;
     this.consolidatedMetadata = consolidatedMetadata;
+    this.zarrVersion = zarrVersion;
     this.#effectiveStore = effectiveStore ?? store;
   }
 
   static async open(url: string): Promise<ZarrStore> {
-    const fetchStore = new zarr.FetchStore(url);
+    const fetchStore = new zarr.FetchStore(url, { useSuffixRequest: true });
     const instrumented = new InstrumentedStore(fetchStore);
 
     let effectiveStore: ConsolidatedStore | undefined;
@@ -65,16 +68,32 @@ export class ZarrStore {
       }
     }
 
-    const root = await zarr.open(effectiveStore ?? instrumented, { kind: "group" });
-    return new ZarrStore(instrumented, root, consolidatedMetadata, effectiveStore);
+    const zarrVersion = rootBytes ? 3 : 2;
+    const openFn = zarrVersion === 3 ? zarr.open.v3 : zarr.open.v2;
+    const root = await openFn(effectiveStore ?? instrumented, { kind: "group" });
+    return new ZarrStore(instrumented, root, consolidatedMetadata, effectiveStore, zarrVersion);
+  }
+
+  #open(location: zarr.Location<Readable>, opts: { kind: "array" }): Promise<zarr.Array<zarr.DataType, Readable>>;
+  #open(location: zarr.Location<Readable>, opts: { kind: "group" }): Promise<zarr.Group<Readable>>;
+  #open(location: zarr.Location<Readable>, opts: { kind: "array" | "group" }): Promise<zarr.Array<zarr.DataType, Readable> | zarr.Group<Readable>> {
+    const openFn = this.zarrVersion === 3 ? zarr.open.v3 : zarr.open.v2;
+    return openFn(location, opts as { kind: "array" });
   }
 
   async openArray(path: string): Promise<zarr.Array<zarr.DataType, Readable>> {
-    return zarr.open(this.root.resolve(path), { kind: "array" });
+    return this.#open(this.root.resolve(path), { kind: "array" });
   }
 
   async openGroup(path: string): Promise<zarr.Group<Readable>> {
-    return zarr.open(this.root.resolve(path), { kind: "group" });
+    return this.#open(this.root.resolve(path), { kind: "group" });
+  }
+
+  /** Version-specific open function suitable for passing to decoders. */
+  get openFn(): (location: zarr.Location<Readable>, opts: { kind: "array" | "group" }) => Promise<zarr.Array<zarr.DataType, Readable> | zarr.Group<Readable>> {
+    return this.zarrVersion === 3
+      ? (loc, opts) => zarr.open.v3(loc, opts as { kind: "array" })
+      : (loc, opts) => zarr.open.v2(loc, opts as { kind: "array" });
   }
 
   snapshotFetchStats(): FetchStats {
