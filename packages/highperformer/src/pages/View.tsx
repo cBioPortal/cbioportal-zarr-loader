@@ -115,7 +115,7 @@ const WIDGETS = [new StatsWidget({ type: 'deck', framesPerUpdate: 5, placement: 
 // Fallback color when no color buffer is ready yet
 const FALLBACK_COLOR: [number, number, number, number] = [100, 150, 255, 77]
 
-const DIM_ALPHA = 25 // ~10% opacity for unselected points in dim mode
+const DIM_ALPHA = 10 // ~4% opacity for unselected points in dim mode
 
 function dimColorBuffer(colorBuffer: Uint8Array, filterBuffer: Float32Array): Uint8Array {
   const out = new Uint8Array(colorBuffer.length)
