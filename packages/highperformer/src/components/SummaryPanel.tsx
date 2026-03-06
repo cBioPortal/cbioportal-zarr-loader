@@ -2,6 +2,9 @@ import { Segmented, Typography } from 'antd'
 import { CloseOutlined } from '@ant-design/icons'
 import useAppStore from '../store/useAppStore'
 import VariablePicker from './VariablePicker'
+import { useSummaryData } from '../hooks/useSummaryData'
+import ByVariableView from './ByVariableView'
+import ByGroupView from './ByGroupView'
 
 const SOFT_CAP = 10
 
@@ -22,6 +25,8 @@ export default function SummaryPanel() {
   const unpinObsColumn = useAppStore((s) => s.unpinObsColumn)
   const pinGene = useAppStore((s) => s.pinGene)
   const unpinGene = useAppStore((s) => s.unpinGene)
+
+  const results = useSummaryData()
 
   if (!summaryPanelOpen) return null
 
@@ -88,6 +93,16 @@ export default function SummaryPanel() {
               labelMap={geneLabelMap}
               loading={new Set(pinnedGenes.filter((g) => !pinnedGeneData.has(g)))}
             />
+
+            {results.length > 0 && (
+              <div style={{ marginTop: 12, borderTop: '1px solid #f0f0f0', paddingTop: 12 }}>
+                {summaryViewMode === 'byVariable' ? (
+                  <ByVariableView results={results} />
+                ) : (
+                  <ByGroupView results={results} />
+                )}
+              </div>
+            )}
           </>
         )}
       </div>
