@@ -111,7 +111,7 @@ function useRightSidebarDrag(onDragEnd: (snapped: number) => void) {
   return { onMouseDown, setSnappedRef }
 }
 
-const WIDGETS = [new StatsWidget({ type: 'deck', framesPerUpdate: 5, placement: 'top-left' })]
+const WIDGETS = [new StatsWidget({ type: 'deck', framesPerUpdate: 5, placement: 'bottom-left' })]
 
 // Fallback color when no color buffer is ready yet
 const FALLBACK_COLOR: [number, number, number, number] = [100, 150, 255, 77]
