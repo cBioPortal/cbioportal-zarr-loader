@@ -105,6 +105,23 @@ export interface AppState {
   clearGroup: (id: number) => void
   clearAllSelections: () => void
 
+  // Summary panel
+  summaryPanelOpen: boolean
+  summaryViewMode: 'byVariable' | 'byGroup'
+  pinnedObsColumns: string[]
+  pinnedGenes: string[]
+  pinnedObsData: Map<string, { codes: Uint8Array; categoryMap: { label: string; color: RGB }[] }>
+  pinnedGeneData: Map<string, Float32Array>
+  pinnedGeneRanges: Map<string, { min: number; max: number }>
+
+  // Summary panel actions
+  setSummaryPanelOpen: (open: boolean) => void
+  setSummaryViewMode: (mode: 'byVariable' | 'byGroup') => void
+  pinObsColumn: (name: string) => void
+  unpinObsColumn: (name: string) => void
+  pinGene: (name: string) => void
+  unpinGene: (name: string) => void
+
   // Actions
   openDataset: (url: string) => Promise<void>
   setSelectedEmbedding: (key: string) => void
@@ -161,7 +178,7 @@ export function resetSelectionVersion(): void { selectionVersion = 0 }
 
 // Singleton pool — created lazily
 let pool: WorkerPool | null = null
-function getPool(): WorkerPool {
+export function getPool(): WorkerPool {
   if (!pool) pool = new WorkerPool(() => new UniversalWorker())
   return pool
 }
@@ -236,6 +253,15 @@ const useAppStore = create<AppState>((set, get) => ({
   selectionGroups: [],
   selectionFilterBuffer: null,
 
+  // Summary panel
+  summaryPanelOpen: false,
+  summaryViewMode: 'byVariable' as const,
+  pinnedObsColumns: [],
+  pinnedGenes: [],
+  pinnedObsData: new Map(),
+  pinnedGeneData: new Map(),
+  pinnedGeneRanges: new Map(),
+
   setSelectionTool: (tool) => set({ selectionTool: tool }),
   setSelectionDisplayMode: (mode) => set({ selectionDisplayMode: mode }),
 
@@ -258,6 +284,8 @@ const useAppStore = create<AppState>((set, get) => ({
     }
 
     set({ selectionGroups: [...selectionGroups, group] })
+
+    if (!get().summaryPanelOpen) set({ summaryPanelOpen: true })
 
     // Dispatch hit-testing to worker
     selectionVersion++
@@ -327,6 +355,66 @@ const useAppStore = create<AppState>((set, get) => ({
     })
   },
 
+  setSummaryPanelOpen: (open) => set({ summaryPanelOpen: open }),
+  setSummaryViewMode: (mode) => set({ summaryViewMode: mode }),
+
+  pinObsColumn: (name) => {
+    const { adata, pinnedObsColumns, pinnedObsData } = get()
+    if (!adata || pinnedObsColumns.includes(name) || pinnedObsData.has(name)) return
+    set({ pinnedObsColumns: [...pinnedObsColumns, name] })
+    adata.obsColumn(name).then((values) => {
+      const valuesArray = Array.isArray(values) ? values : Array.from(values as Iterable<number>)
+      const { codes, categoryMap } = encodeCategories(valuesArray as (string | number | null)[])
+      const next = new Map(get().pinnedObsData)
+      next.set(name, { codes, categoryMap })
+      set({ pinnedObsData: next })
+    })
+  },
+
+  unpinObsColumn: (name) => {
+    const { pinnedObsColumns, pinnedObsData } = get()
+    const next = new Map(pinnedObsData)
+    next.delete(name)
+    set({
+      pinnedObsColumns: pinnedObsColumns.filter((c) => c !== name),
+      pinnedObsData: next,
+    })
+  },
+
+  pinGene: (name) => {
+    const { adata, pinnedGenes, pinnedGeneData } = get()
+    if (!adata || pinnedGenes.includes(name) || pinnedGeneData.has(name)) return
+    set({ pinnedGenes: [...pinnedGenes, name] })
+    adata.geneExpression(name).then((expression) => {
+      const data = expression instanceof Float32Array
+        ? expression
+        : new Float32Array(expression as ArrayLike<number>)
+      let min = Infinity, max = -Infinity
+      for (let i = 0; i < data.length; i++) {
+        if (data[i] < min) min = data[i]
+        if (data[i] > max) max = data[i]
+      }
+      const nextData = new Map(get().pinnedGeneData)
+      nextData.set(name, data)
+      const nextRanges = new Map(get().pinnedGeneRanges)
+      nextRanges.set(name, { min, max })
+      set({ pinnedGeneData: nextData, pinnedGeneRanges: nextRanges })
+    })
+  },
+
+  unpinGene: (name) => {
+    const { pinnedGenes, pinnedGeneData, pinnedGeneRanges } = get()
+    const nextData = new Map(pinnedGeneData)
+    nextData.delete(name)
+    const nextRanges = new Map(pinnedGeneRanges)
+    nextRanges.delete(name)
+    set({
+      pinnedGenes: pinnedGenes.filter((g) => g !== name),
+      pinnedGeneData: nextData,
+      pinnedGeneRanges: nextRanges,
+    })
+  },
+
   // Actions
   openDataset: async (url) => {
     if (url === get().datasetUrl && get().adata) return
@@ -338,6 +426,9 @@ const useAppStore = create<AppState>((set, get) => ({
       categoryWarning: null, _categoryCodes: null, _expressionData: null,
       varColumns: [], geneLabelColumn: null, geneLabelMap: null,
       selectionGroups: [], selectionFilterBuffer: null, selectionTool: 'pan', selectionDisplayMode: 'dim',
+      summaryPanelOpen: false, summaryViewMode: 'byVariable' as const,
+      pinnedObsColumns: [], pinnedGenes: [],
+      pinnedObsData: new Map(), pinnedGeneData: new Map(), pinnedGeneRanges: new Map(),
     })
     try {
       const adata = await AnnDataStore.open(url)
