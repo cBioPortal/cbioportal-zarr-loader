@@ -4,6 +4,7 @@ import type { SelectionGroup } from '../store/useAppStore'
 import type { CategorySummaryResponse, ExpressionSummaryResponse } from '../workers/summary.schemas'
 import type { RGB } from '../utils/colors'
 
+
 export interface CategorySummaryResult {
   type: 'category'
   name: string
@@ -36,13 +37,6 @@ export function useSummaryData(): SummaryResult[] {
   const pinnedObsData = useAppStore((s) => s.pinnedObsData)
   const pinnedObsContinuousData = useAppStore((s) => s.pinnedObsContinuousData)
   const pinnedGeneData = useAppStore((s) => s.pinnedGeneData)
-
-  const colorMode = useAppStore((s) => s.colorMode)
-  const selectedObsColumn = useAppStore((s) => s.selectedObsColumn)
-  const selectedGene = useAppStore((s) => s.selectedGene)
-  const _categoryCodes = useAppStore((s) => s._categoryCodes)
-  const categoryMap = useAppStore((s) => s.categoryMap)
-  const _expressionData = useAppStore((s) => s._expressionData)
   const geneLabelMap = useAppStore((s) => s.geneLabelMap)
 
   const [results, setResults] = useState<SummaryResult[]>([])
@@ -60,23 +54,13 @@ export function useSummaryData(): SummaryResult[] {
 
     const tasks: Promise<SummaryResult>[] = []
 
-    // Active coloring summary
-    if (colorMode === 'category' && selectedObsColumn && _categoryCodes && categoryMap.length > 0) {
-      tasks.push(computeCategorySummary(selectedObsColumn, _categoryCodes, categoryMap, groupsWithIndices, version, versionRef))
-    } else if (colorMode === 'gene' && selectedGene && _expressionData) {
-      const displayName = geneLabelMap?.get(selectedGene) ?? selectedGene
-      tasks.push(computeExpressionSummary(displayName, _expressionData, groupsWithIndices, version, versionRef))
-    }
-
-    // Pinned obs columns (categorical)
+    // Pinned obs columns
     for (const name of pinnedObsColumns) {
       const catData = pinnedObsData.get(name)
       if (catData) {
-        if (colorMode === 'category' && name === selectedObsColumn) continue
         tasks.push(computeCategorySummary(name, catData.codes, catData.categoryMap, groupsWithIndices, version, versionRef))
         continue
       }
-      // Continuous obs column
       const contData = pinnedObsContinuousData.get(name)
       if (contData) {
         tasks.push(computeExpressionSummary(name, contData, groupsWithIndices, version, versionRef))
@@ -87,7 +71,6 @@ export function useSummaryData(): SummaryResult[] {
     for (const name of pinnedGenes) {
       const data = pinnedGeneData.get(name)
       if (!data) continue
-      if (colorMode === 'gene' && name === selectedGene) continue
       const displayName = geneLabelMap?.get(name) ?? name
       tasks.push(computeExpressionSummary(displayName, data, groupsWithIndices, version, versionRef))
     }
@@ -96,8 +79,7 @@ export function useSummaryData(): SummaryResult[] {
       if (versionRef.current !== version) return
       setResults(resolved)
     })
-  }, [selectionGroups, pinnedObsColumns, pinnedGenes, pinnedObsData, pinnedObsContinuousData, pinnedGeneData,
-      colorMode, selectedObsColumn, selectedGene, _categoryCodes, categoryMap, _expressionData, geneLabelMap])
+  }, [selectionGroups, pinnedObsColumns, pinnedGenes, pinnedObsData, pinnedObsContinuousData, pinnedGeneData, geneLabelMap])
 
   return results
 }

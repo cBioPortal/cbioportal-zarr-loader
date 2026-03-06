@@ -626,6 +626,15 @@ const useAppStore = create<AppState>((set, get) => ({
         _colorAbort: null,
       })
       get().rebuildColorBuffer()
+
+      // Auto-pin to summary panel
+      const { pinnedObsColumns, pinnedObsData } = get()
+      if (!pinnedObsColumns.includes(name)) {
+        const nextPinned = [...pinnedObsColumns, name]
+        const nextData = new Map(pinnedObsData)
+        nextData.set(name, { codes, categoryMap })
+        set({ pinnedObsColumns: nextPinned, pinnedObsData: nextData })
+      }
     })
   },
 
@@ -665,6 +674,15 @@ const useAppStore = create<AppState>((set, get) => ({
         _colorAbort: null,
       })
       get().rebuildColorBuffer()
+
+      // Auto-pin to summary panel
+      const { pinnedGenes, pinnedGeneData } = get()
+      if (!pinnedGenes.includes(name)) {
+        const nextPinned = [...pinnedGenes, name]
+        const nextData = new Map(pinnedGeneData)
+        nextData.set(name, data)
+        set({ pinnedGenes: nextPinned, pinnedGeneData: nextData })
+      }
     })
   },
 
