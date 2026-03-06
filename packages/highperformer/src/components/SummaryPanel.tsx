@@ -62,6 +62,7 @@ export default function SummaryPanel() {
 
             <VariablePicker
               label="Genes"
+              variant="search"
               options={varNames}
               selected={pinnedGenes}
               onAdd={pinGene}
