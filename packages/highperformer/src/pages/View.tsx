@@ -115,6 +115,20 @@ const WIDGETS = [new StatsWidget({ type: 'deck', framesPerUpdate: 5, placement: 
 // Fallback color when no color buffer is ready yet
 const FALLBACK_COLOR: [number, number, number, number] = [100, 150, 255, 77]
 
+const DIM_ALPHA = 25 // ~10% opacity for unselected points in dim mode
+
+function dimColorBuffer(colorBuffer: Uint8Array, filterBuffer: Float32Array): Uint8Array {
+  const out = new Uint8Array(colorBuffer.length)
+  out.set(colorBuffer)
+  const numPoints = filterBuffer.length
+  for (let i = 0; i < numPoints; i++) {
+    if (filterBuffer[i] === 0) {
+      out[i * 4 + 3] = DIM_ALPHA
+    }
+  }
+  return out
+}
+
 function urlLabel(url: string): string {
   return url.replace(/\/+$/, '').split('/').pop() ?? url
 }
@@ -343,16 +357,24 @@ function Visualization({ deckRef }: { deckRef: React.RefObject<DeckGL | null> })
     const attributes: Record<string, { value: Float32Array | Uint8Array; size: number }> = {
       getPosition: { value: embeddingData.positions, size: 2 },
     }
-    if (colorBuffer) {
-      attributes.getFillColor = { value: colorBuffer, size: 4 }
+
+    // Apply selection dimming by modifying color buffer alpha
+    const hasSelection = selectionFilterBuffer !== null
+    const effectiveColor = colorBuffer && hasSelection && selectionDisplayMode === 'dim'
+      ? dimColorBuffer(colorBuffer, selectionFilterBuffer)
+      : colorBuffer
+
+    if (effectiveColor) {
+      attributes.getFillColor = { value: effectiveColor, size: 4 }
     }
     return { length: embeddingData.numPoints, attributes }
-  }, [embeddingData, colorBuffer])
+  }, [embeddingData, colorBuffer, selectionFilterBuffer, selectionDisplayMode])
 
   const layers = useMemo(() => {
     if (!layerData) return []
 
     const hasSelection = selectionFilterBuffer !== null
+    const hideMode = hasSelection && selectionDisplayMode === 'hide'
 
     const scatterplot = new ScatterplotLayer({
       id: 'scatterplot',
@@ -360,22 +382,21 @@ function Visualization({ deckRef }: { deckRef: React.RefObject<DeckGL | null> })
       dataComparator: (a: unknown, b: unknown) => a === b,
       ...(!colorBuffer && { getFillColor: FALLBACK_COLOR }),
       updateTriggers: {
-        getFillColor: [colorBuffer],
+        getFillColor: [colorBuffer, selectionFilterBuffer, selectionDisplayMode],
         getFilterValue: [selectionFilterBuffer],
       },
       getRadius: pointRadius,
       radiusUnits: 'pixels' as const,
       antialiasing,
       extensions: [
-        ...(hasSelection ? [new DataFilterExtension({ filterSize: 1 })] : []),
+        new DataFilterExtension({ filterSize: 1 }),
         ...(collisionEnabled ? [new CollisionFilterExtension()] : []),
       ],
-      ...(hasSelection && {
-        getFilterValue: { value: selectionFilterBuffer, size: 1 },
-        filterRange: [1, 1] as [number, number],
-        filterSoftMargin: (selectionDisplayMode === 'dim' ? [1, 0] : [0, 0]) as [number, number],
-        filterEnabled: true,
-      }),
+      getFilterValue: hideMode
+        ? (_: unknown, { index }: { index: number }) => selectionFilterBuffer![index]
+        : 1,
+      filterEnabled: hideMode,
+      filterRange: [1, 1] as [number, number],
       ...(collisionEnabled && {
         collisionTestProps: { radiusScale: collisionRadiusScale },
       }),
