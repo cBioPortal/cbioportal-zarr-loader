@@ -354,7 +354,7 @@ function Visualization({ deckRef }: { deckRef: React.RefObject<DeckGL | null> })
   // Memoize layer data object — only recreate when position or color buffer changes
   const layerData = useMemo(() => {
     if (!embeddingData) return null
-    const attributes: Record<string, { value: Float32Array | Uint8Array; size: number }> = {
+    const attributes: Record<string, { value: Float32Array | Uint8Array; size: number; normalized?: boolean }> = {
       getPosition: { value: embeddingData.positions, size: 2 },
     }
 
@@ -365,7 +365,7 @@ function Visualization({ deckRef }: { deckRef: React.RefObject<DeckGL | null> })
       : colorBuffer
 
     if (effectiveColor) {
-      attributes.getFillColor = { value: effectiveColor, size: 4 }
+      attributes.getFillColor = { value: effectiveColor, size: 4, normalized: true }
     }
     return { length: embeddingData.numPoints, attributes }
   }, [embeddingData, colorBuffer, selectionFilterBuffer, selectionDisplayMode])
