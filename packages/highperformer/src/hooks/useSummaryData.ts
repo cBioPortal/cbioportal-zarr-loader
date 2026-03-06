@@ -32,11 +32,11 @@ const NUM_BINS = 30
 
 export function useSummaryData(): SummaryResult[] {
   const selectionGroups = useAppStore((s) => s.selectionGroups)
-  const pinnedObsColumns = useAppStore((s) => s.pinnedObsColumns)
-  const pinnedGenes = useAppStore((s) => s.pinnedGenes)
-  const pinnedObsData = useAppStore((s) => s.pinnedObsData)
-  const pinnedObsContinuousData = useAppStore((s) => s.pinnedObsContinuousData)
-  const pinnedGeneData = useAppStore((s) => s.pinnedGeneData)
+  const summaryObsColumns = useAppStore((s) => s.summaryObsColumns)
+  const summaryGenes = useAppStore((s) => s.summaryGenes)
+  const summaryObsData = useAppStore((s) => s.summaryObsData)
+  const summaryObsContinuousData = useAppStore((s) => s.summaryObsContinuousData)
+  const summaryGeneData = useAppStore((s) => s.summaryGeneData)
   const geneLabelMap = useAppStore((s) => s.geneLabelMap)
 
   const [results, setResults] = useState<SummaryResult[]>([])
@@ -55,21 +55,21 @@ export function useSummaryData(): SummaryResult[] {
     const tasks: Promise<SummaryResult>[] = []
 
     // Pinned obs columns
-    for (const name of pinnedObsColumns) {
-      const catData = pinnedObsData.get(name)
+    for (const name of summaryObsColumns) {
+      const catData = summaryObsData.get(name)
       if (catData) {
         tasks.push(computeCategorySummary(name, catData.codes, catData.categoryMap, groupsWithIndices, version, versionRef))
         continue
       }
-      const contData = pinnedObsContinuousData.get(name)
+      const contData = summaryObsContinuousData.get(name)
       if (contData) {
         tasks.push(computeExpressionSummary(name, contData, groupsWithIndices, version, versionRef))
       }
     }
 
     // Pinned genes
-    for (const name of pinnedGenes) {
-      const data = pinnedGeneData.get(name)
+    for (const name of summaryGenes) {
+      const data = summaryGeneData.get(name)
       if (!data) continue
       const displayName = geneLabelMap?.get(name) ?? name
       tasks.push(computeExpressionSummary(displayName, data, groupsWithIndices, version, versionRef))
@@ -79,7 +79,7 @@ export function useSummaryData(): SummaryResult[] {
       if (versionRef.current !== version) return
       setResults(resolved)
     })
-  }, [selectionGroups, pinnedObsColumns, pinnedGenes, pinnedObsData, pinnedObsContinuousData, pinnedGeneData, geneLabelMap])
+  }, [selectionGroups, summaryObsColumns, summaryGenes, summaryObsData, summaryObsContinuousData, summaryGeneData, geneLabelMap])
 
   return results
 }

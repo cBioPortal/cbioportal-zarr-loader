@@ -1,4 +1,4 @@
-import { Typography } from 'antd'
+import { Collapse, Typography } from 'antd'
 import { CloseOutlined } from '@ant-design/icons'
 import useAppStore from '../store/useAppStore'
 import VariablePicker from './VariablePicker'
@@ -9,24 +9,42 @@ export default function SummaryPanel() {
   const summaryPanelOpen = useAppStore((s) => s.summaryPanelOpen)
   const setSummaryPanelOpen = useAppStore((s) => s.setSummaryPanelOpen)
   const selectionGroups = useAppStore((s) => s.selectionGroups)
-  const pinnedObsColumns = useAppStore((s) => s.pinnedObsColumns)
-  const pinnedGenes = useAppStore((s) => s.pinnedGenes)
+  const summaryObsColumns = useAppStore((s) => s.summaryObsColumns)
+  const summaryGenes = useAppStore((s) => s.summaryGenes)
   const obsColumnNames = useAppStore((s) => s.obsColumnNames)
   const varNames = useAppStore((s) => s.varNames)
   const geneLabelMap = useAppStore((s) => s.geneLabelMap)
-  const pinnedObsData = useAppStore((s) => s.pinnedObsData)
-  const pinnedGeneData = useAppStore((s) => s.pinnedGeneData)
-  const pinnedObsContinuousData = useAppStore((s) => s.pinnedObsContinuousData)
-  const pinObsColumn = useAppStore((s) => s.pinObsColumn)
-  const unpinObsColumn = useAppStore((s) => s.unpinObsColumn)
-  const pinGene = useAppStore((s) => s.pinGene)
-  const unpinGene = useAppStore((s) => s.unpinGene)
+  const summaryObsData = useAppStore((s) => s.summaryObsData)
+  const summaryGeneData = useAppStore((s) => s.summaryGeneData)
+  const summaryObsContinuousData = useAppStore((s) => s.summaryObsContinuousData)
+  const addSummaryObsColumn = useAppStore((s) => s.addSummaryObsColumn)
+  const removeSummaryObsColumn = useAppStore((s) => s.removeSummaryObsColumn)
+  const addSummaryGene = useAppStore((s) => s.addSummaryGene)
+  const removeSummaryGene = useAppStore((s) => s.removeSummaryGene)
 
   const results = useSummaryData()
 
   if (!summaryPanelOpen) return null
 
   const hasGroups = selectionGroups.some((g) => g.indices.length > 0)
+  const obsResults = results.filter((r) => r.type === 'category' || summaryObsColumns.includes(r.name))
+  const geneResults = results.filter((r) => r.type === 'expression' && !summaryObsColumns.includes(r.name))
+
+  const collapseItems = []
+  if (obsResults.length > 0) {
+    collapseItems.push({
+      key: 'obs',
+      label: <Typography.Text strong style={{ fontSize: 12 }}>Obs Summaries</Typography.Text>,
+      children: <ByVariableView results={obsResults} />,
+    })
+  }
+  if (geneResults.length > 0) {
+    collapseItems.push({
+      key: 'genes',
+      label: <Typography.Text strong style={{ fontSize: 12 }}>Gene Summaries</Typography.Text>,
+      children: <ByVariableView results={geneResults} />,
+    })
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
@@ -54,27 +72,31 @@ export default function SummaryPanel() {
             <VariablePicker
               label="Obs Columns"
               options={obsColumnNames}
-              selected={pinnedObsColumns}
-              onAdd={pinObsColumn}
-              onRemove={unpinObsColumn}
-              loading={new Set(pinnedObsColumns.filter((c) => !pinnedObsData.has(c) && !pinnedObsContinuousData.has(c)))}
+              selected={summaryObsColumns}
+              onAdd={addSummaryObsColumn}
+              onRemove={removeSummaryObsColumn}
+              loading={new Set(summaryObsColumns.filter((c) => !summaryObsData.has(c) && !summaryObsContinuousData.has(c)))}
             />
 
             <VariablePicker
               label="Genes"
               variant="search"
               options={varNames}
-              selected={pinnedGenes}
-              onAdd={pinGene}
-              onRemove={unpinGene}
+              selected={summaryGenes}
+              onAdd={addSummaryGene}
+              onRemove={removeSummaryGene}
               labelMap={geneLabelMap}
-              loading={new Set(pinnedGenes.filter((g) => !pinnedGeneData.has(g)))}
+              loading={new Set(summaryGenes.filter((g) => !summaryGeneData.has(g)))}
             />
 
-            {results.length > 0 && (
-              <div style={{ marginTop: 12, borderTop: '1px solid #f0f0f0', paddingTop: 12 }}>
-                <ByVariableView results={results} />
-              </div>
+            {collapseItems.length > 0 && (
+              <Collapse
+                defaultActiveKey={['obs', 'genes']}
+                ghost
+                size="small"
+                style={{ marginTop: 12 }}
+                items={collapseItems}
+              />
             )}
           </>
         )}

@@ -134,6 +134,7 @@ function ExpressionStatsTable({ statsByGroup, activeGroups, fontSize = 10 }: {
 }
 
 export default function ExpressionSummaryChart({ name, statsByGroup, groups }: ExpressionSummaryChartProps) {
+  const [showTable, setShowTable] = useState(false)
   const [modalOpen, setModalOpen] = useState(false)
 
   const activeGroups = groups.filter((g) => statsByGroup.has(g.id))
@@ -144,14 +145,22 @@ export default function ExpressionSummaryChart({ name, statsByGroup, groups }: E
     <div style={{ marginBottom: 12 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
         <Typography.Text strong style={{ fontSize: 12 }}>{name}</Typography.Text>
-        <ExpandOutlined
-          style={{ fontSize: 11, cursor: 'pointer', color: '#1677ff' }}
-          onClick={() => setModalOpen(true)}
-        />
+        <span style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <Typography.Link style={{ fontSize: 11 }} onClick={() => setShowTable(!showTable)}>
+            {showTable ? 'Chart' : 'Table'}
+          </Typography.Link>
+          <ExpandOutlined
+            style={{ fontSize: 11, cursor: 'pointer', color: '#1677ff' }}
+            onClick={() => setModalOpen(true)}
+          />
+        </span>
       </div>
 
-      <ExpressionHistogram statsByGroup={statsByGroup} activeGroups={activeGroups} width={260} height={100} />
-      <ExpressionStatsTable statsByGroup={statsByGroup} activeGroups={activeGroups} />
+      {showTable ? (
+        <ExpressionStatsTable statsByGroup={statsByGroup} activeGroups={activeGroups} />
+      ) : (
+        <ExpressionHistogram statsByGroup={statsByGroup} activeGroups={activeGroups} width={260} height={100} />
+      )}
 
       <ChartModal
         title={name}

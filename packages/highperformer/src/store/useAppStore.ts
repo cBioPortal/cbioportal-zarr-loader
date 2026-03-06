@@ -107,19 +107,19 @@ export interface AppState {
 
   // Summary panel
   summaryPanelOpen: boolean
-  pinnedObsColumns: string[]
-  pinnedGenes: string[]
-  pinnedObsData: Map<string, { codes: Uint8Array; categoryMap: { label: string; color: RGB }[] }>
-  pinnedObsContinuousData: Map<string, Float32Array>
-  pinnedGeneData: Map<string, Float32Array>
-  pinnedGeneRanges: Map<string, { min: number; max: number }>
+  summaryObsColumns: string[]
+  summaryGenes: string[]
+  summaryObsData: Map<string, { codes: Uint8Array; categoryMap: { label: string; color: RGB }[] }>
+  summaryObsContinuousData: Map<string, Float32Array>
+  summaryGeneData: Map<string, Float32Array>
+  summaryGeneRanges: Map<string, { min: number; max: number }>
 
   // Summary panel actions
   setSummaryPanelOpen: (open: boolean) => void
-  pinObsColumn: (name: string) => void
-  unpinObsColumn: (name: string) => void
-  pinGene: (name: string) => void
-  unpinGene: (name: string) => void
+  addSummaryObsColumn: (name: string) => void
+  removeSummaryObsColumn: (name: string) => void
+  addSummaryGene: (name: string) => void
+  removeSummaryGene: (name: string) => void
 
   // Actions
   openDataset: (url: string) => Promise<void>
@@ -254,12 +254,12 @@ const useAppStore = create<AppState>((set, get) => ({
 
   // Summary panel
   summaryPanelOpen: false,
-  pinnedObsColumns: [],
-  pinnedGenes: [],
-  pinnedObsData: new Map(),
-  pinnedObsContinuousData: new Map(),
-  pinnedGeneData: new Map(),
-  pinnedGeneRanges: new Map(),
+  summaryObsColumns: [],
+  summaryGenes: [],
+  summaryObsData: new Map(),
+  summaryObsContinuousData: new Map(),
+  summaryGeneData: new Map(),
+  summaryGeneRanges: new Map(),
 
   setSelectionTool: (tool) => set({ selectionTool: tool }),
   setSelectionDisplayMode: (mode) => set({ selectionDisplayMode: mode }),
@@ -356,18 +356,18 @@ const useAppStore = create<AppState>((set, get) => ({
 
   setSummaryPanelOpen: (open) => set({ summaryPanelOpen: open }),
 
-  pinObsColumn: (name) => {
-    const { adata, pinnedObsColumns, pinnedObsData, pinnedObsContinuousData } = get()
-    if (!adata || pinnedObsColumns.includes(name) || pinnedObsData.has(name) || pinnedObsContinuousData.has(name)) return
-    set({ pinnedObsColumns: [...pinnedObsColumns, name] })
+  addSummaryObsColumn: (name) => {
+    const { adata, summaryObsColumns, summaryObsData, summaryObsContinuousData } = get()
+    if (!adata || summaryObsColumns.includes(name) || summaryObsData.has(name) || summaryObsContinuousData.has(name)) return
+    set({ summaryObsColumns: [...summaryObsColumns, name] })
     adata.obsColumn(name).then((values) => {
       // Detect continuous: TypedArray from zarr (numeric column)
       const isTypedArray = ArrayBuffer.isView(values) && !(values instanceof DataView)
       if (isTypedArray) {
         const floats = values instanceof Float32Array ? values : new Float32Array(values as ArrayLike<number>)
-        const next = new Map(get().pinnedObsContinuousData)
+        const next = new Map(get().summaryObsContinuousData)
         next.set(name, floats)
-        set({ pinnedObsContinuousData: next })
+        set({ summaryObsContinuousData: next })
         return
       }
 
@@ -381,35 +381,35 @@ const useAppStore = create<AppState>((set, get) => ({
         for (let i = 0; i < valuesArray.length; i++) {
           floats[i] = Number(valuesArray[i]) || 0
         }
-        const next = new Map(get().pinnedObsContinuousData)
+        const next = new Map(get().summaryObsContinuousData)
         next.set(name, floats)
-        set({ pinnedObsContinuousData: next })
+        set({ summaryObsContinuousData: next })
         return
       }
 
-      const next = new Map(get().pinnedObsData)
+      const next = new Map(get().summaryObsData)
       next.set(name, { codes, categoryMap })
-      set({ pinnedObsData: next })
+      set({ summaryObsData: next })
     })
   },
 
-  unpinObsColumn: (name) => {
-    const { pinnedObsColumns, pinnedObsData, pinnedObsContinuousData } = get()
-    const nextCat = new Map(pinnedObsData)
+  removeSummaryObsColumn: (name) => {
+    const { summaryObsColumns, summaryObsData, summaryObsContinuousData } = get()
+    const nextCat = new Map(summaryObsData)
     nextCat.delete(name)
-    const nextCont = new Map(pinnedObsContinuousData)
+    const nextCont = new Map(summaryObsContinuousData)
     nextCont.delete(name)
     set({
-      pinnedObsColumns: pinnedObsColumns.filter((c) => c !== name),
-      pinnedObsData: nextCat,
-      pinnedObsContinuousData: nextCont,
+      summaryObsColumns: summaryObsColumns.filter((c) => c !== name),
+      summaryObsData: nextCat,
+      summaryObsContinuousData: nextCont,
     })
   },
 
-  pinGene: (name) => {
-    const { adata, pinnedGenes, pinnedGeneData } = get()
-    if (!adata || pinnedGenes.includes(name) || pinnedGeneData.has(name)) return
-    set({ pinnedGenes: [...pinnedGenes, name] })
+  addSummaryGene: (name) => {
+    const { adata, summaryGenes, summaryGeneData } = get()
+    if (!adata || summaryGenes.includes(name) || summaryGeneData.has(name)) return
+    set({ summaryGenes: [...summaryGenes, name] })
     adata.geneExpression(name).then((expression) => {
       const data = expression instanceof Float32Array
         ? expression
@@ -419,24 +419,24 @@ const useAppStore = create<AppState>((set, get) => ({
         if (data[i] < min) min = data[i]
         if (data[i] > max) max = data[i]
       }
-      const nextData = new Map(get().pinnedGeneData)
+      const nextData = new Map(get().summaryGeneData)
       nextData.set(name, data)
-      const nextRanges = new Map(get().pinnedGeneRanges)
+      const nextRanges = new Map(get().summaryGeneRanges)
       nextRanges.set(name, { min, max })
-      set({ pinnedGeneData: nextData, pinnedGeneRanges: nextRanges })
+      set({ summaryGeneData: nextData, summaryGeneRanges: nextRanges })
     })
   },
 
-  unpinGene: (name) => {
-    const { pinnedGenes, pinnedGeneData, pinnedGeneRanges } = get()
-    const nextData = new Map(pinnedGeneData)
+  removeSummaryGene: (name) => {
+    const { summaryGenes, summaryGeneData, summaryGeneRanges } = get()
+    const nextData = new Map(summaryGeneData)
     nextData.delete(name)
-    const nextRanges = new Map(pinnedGeneRanges)
+    const nextRanges = new Map(summaryGeneRanges)
     nextRanges.delete(name)
     set({
-      pinnedGenes: pinnedGenes.filter((g) => g !== name),
-      pinnedGeneData: nextData,
-      pinnedGeneRanges: nextRanges,
+      summaryGenes: summaryGenes.filter((g) => g !== name),
+      summaryGeneData: nextData,
+      summaryGeneRanges: nextRanges,
     })
   },
 
@@ -452,9 +452,9 @@ const useAppStore = create<AppState>((set, get) => ({
       varColumns: [], geneLabelColumn: null, geneLabelMap: null,
       selectionGroups: [], selectionFilterBuffer: null, selectionTool: 'pan', selectionDisplayMode: 'dim',
       summaryPanelOpen: false,
-      pinnedObsColumns: [], pinnedGenes: [],
-      pinnedObsData: new Map(), pinnedObsContinuousData: new Map(),
-      pinnedGeneData: new Map(), pinnedGeneRanges: new Map(),
+      summaryObsColumns: [], summaryGenes: [],
+      summaryObsData: new Map(), summaryObsContinuousData: new Map(),
+      summaryGeneData: new Map(), summaryGeneRanges: new Map(),
     })
     try {
       const adata = await AnnDataStore.open(url)
@@ -628,12 +628,12 @@ const useAppStore = create<AppState>((set, get) => ({
       get().rebuildColorBuffer()
 
       // Auto-pin to summary panel
-      const { pinnedObsColumns, pinnedObsData } = get()
-      if (!pinnedObsColumns.includes(name)) {
-        const nextPinned = [...pinnedObsColumns, name]
-        const nextData = new Map(pinnedObsData)
+      const { summaryObsColumns, summaryObsData } = get()
+      if (!summaryObsColumns.includes(name)) {
+        const nextPinned = [...summaryObsColumns, name]
+        const nextData = new Map(summaryObsData)
         nextData.set(name, { codes, categoryMap })
-        set({ pinnedObsColumns: nextPinned, pinnedObsData: nextData })
+        set({ summaryObsColumns: nextPinned, summaryObsData: nextData })
       }
     })
   },
@@ -676,12 +676,12 @@ const useAppStore = create<AppState>((set, get) => ({
       get().rebuildColorBuffer()
 
       // Auto-pin to summary panel
-      const { pinnedGenes, pinnedGeneData } = get()
-      if (!pinnedGenes.includes(name)) {
-        const nextPinned = [...pinnedGenes, name]
-        const nextData = new Map(pinnedGeneData)
+      const { summaryGenes, summaryGeneData } = get()
+      if (!summaryGenes.includes(name)) {
+        const nextPinned = [...summaryGenes, name]
+        const nextData = new Map(summaryGeneData)
         nextData.set(name, data)
-        set({ pinnedGenes: nextPinned, pinnedGeneData: nextData })
+        set({ summaryGenes: nextPinned, summaryGeneData: nextData })
       }
     })
   },
