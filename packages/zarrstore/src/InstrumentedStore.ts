@@ -4,6 +4,7 @@ import type { FetchStore } from "zarrita";
 export interface FetchStats {
   requests: number;
   bytes: number;
+  cacheHits: number;
 }
 
 /**
@@ -12,7 +13,7 @@ export interface FetchStats {
  */
 export class InstrumentedStore implements AsyncReadable<RequestInit> {
   #inner: FetchStore;
-  #stats: FetchStats = { requests: 0, bytes: 0 };
+  #stats: FetchStats = { requests: 0, bytes: 0, cacheHits: 0 };
 
   constructor(inner: FetchStore) {
     this.#inner = inner;

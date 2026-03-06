@@ -33,4 +33,20 @@ describe("ZarrStore", () => {
 
     expect(obs.attrs).toBeDefined();
   });
+
+  it("exposes consolidatedMetadata when .zmetadata is present", async () => {
+    const z = await ZarrStore.open(TEST_URL);
+    expect(z.consolidatedMetadata).not.toBeNull();
+    expect(z.consolidatedMetadata!["X/.zarray"]).toBeDefined();
+  });
+
+  it("snapshotFetchStats includes cacheHits from consolidated metadata", async () => {
+    const z = await ZarrStore.open(TEST_URL);
+    // Opening the store uses consolidated cache for root metadata
+    // Then openArray/openGroup should use cached metadata
+    await z.openArray("X");
+    const stats = z.snapshotFetchStats();
+    expect(stats).toHaveProperty("cacheHits");
+    expect(stats.cacheHits).toBeGreaterThan(0);
+  });
 });

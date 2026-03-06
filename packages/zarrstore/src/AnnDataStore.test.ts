@@ -282,6 +282,37 @@ describe("AnnDataStore", () => {
     });
   });
 
+  describe("consolidated metadata caching", () => {
+    it("uses cache hits for metadata after open, reducing network fetches", async () => {
+      const adata = await AnnDataStore.open(TEST_URL);
+      const statsBefore = adata.zarrStore.snapshotFetchStats();
+
+      // These operations open groups/arrays whose metadata is in consolidated cache
+      await adata.obsColumns();
+      await adata.varNames();
+      adata.obsmKeys();
+
+      const statsAfter = adata.zarrStore.snapshotFetchStats();
+      const newCacheHits = statsAfter.cacheHits - statsBefore.cacheHits;
+
+      // Opening obs/var groups should produce cache hits, not new network requests
+      expect(newCacheHits).toBeGreaterThan(0);
+    });
+
+    it("AnnDataStore.open does not duplicate consolidated metadata fetches", async () => {
+      const adata = await AnnDataStore.open(TEST_URL);
+      const stats = adata.zarrStore.snapshotFetchStats();
+
+      // With consolidated metadata, open should need at most 2 network requests:
+      // 1. /zarr.json (miss → triggers v2 fallback)
+      // 2. /.zmetadata (the consolidated metadata itself)
+      // Then zarrita opens the root group from cache.
+      // Without our fix, AnnDataStore was re-fetching .zmetadata/zarr.json (4+ requests).
+      // Allow up to 3 for the initial zarr.json probe + .zmetadata + X shape resolution.
+      expect(stats.requests - stats.cacheHits).toBeLessThanOrEqual(3);
+    });
+  });
+
   describe("layers", () => {
     it("lists layer keys", async () => {
       const adata = await AnnDataStore.open(TEST_URL);

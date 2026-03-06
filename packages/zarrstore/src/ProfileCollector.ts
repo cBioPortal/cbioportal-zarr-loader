@@ -10,6 +10,7 @@ export interface ChunkInfo {
 export interface FetchInfo {
   requests: number;
   bytes: number;
+  cacheHits: number;
 }
 
 export interface ProfileEntry {
