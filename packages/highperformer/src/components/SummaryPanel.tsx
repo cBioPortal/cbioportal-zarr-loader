@@ -5,8 +5,6 @@ import VariablePicker from './VariablePicker'
 import { useSummaryData } from '../hooks/useSummaryData'
 import ByVariableView from './ByVariableView'
 
-const SOFT_CAP = 10
-
 export default function SummaryPanel() {
   const summaryPanelOpen = useAppStore((s) => s.summaryPanelOpen)
   const setSummaryPanelOpen = useAppStore((s) => s.setSummaryPanelOpen)
@@ -28,8 +26,6 @@ export default function SummaryPanel() {
   if (!summaryPanelOpen) return null
 
   const hasGroups = selectionGroups.some((g) => g.indices.length > 0)
-  const totalPinned = pinnedObsColumns.length + pinnedGenes.length
-  const showWarning = totalPinned >= SOFT_CAP
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
@@ -54,11 +50,6 @@ export default function SummaryPanel() {
           </Typography.Text>
         ) : (
           <>
-            {showWarning && (
-              <Typography.Text type="warning" style={{ fontSize: 11, display: 'block', marginBottom: 8 }}>
-                {totalPinned} variables pinned — this may increase memory usage.
-              </Typography.Text>
-            )}
             <VariablePicker
               label="Obs Columns"
               options={obsColumnNames}
