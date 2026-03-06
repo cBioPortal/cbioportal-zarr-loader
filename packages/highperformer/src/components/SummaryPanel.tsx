@@ -1,6 +1,7 @@
 import { Segmented, Typography } from 'antd'
 import { CloseOutlined } from '@ant-design/icons'
 import useAppStore from '../store/useAppStore'
+import VariablePicker from './VariablePicker'
 
 const SOFT_CAP = 10
 
@@ -12,6 +13,15 @@ export default function SummaryPanel() {
   const selectionGroups = useAppStore((s) => s.selectionGroups)
   const pinnedObsColumns = useAppStore((s) => s.pinnedObsColumns)
   const pinnedGenes = useAppStore((s) => s.pinnedGenes)
+  const obsColumnNames = useAppStore((s) => s.obsColumnNames)
+  const varNames = useAppStore((s) => s.varNames)
+  const geneLabelMap = useAppStore((s) => s.geneLabelMap)
+  const pinnedObsData = useAppStore((s) => s.pinnedObsData)
+  const pinnedGeneData = useAppStore((s) => s.pinnedGeneData)
+  const pinObsColumn = useAppStore((s) => s.pinObsColumn)
+  const unpinObsColumn = useAppStore((s) => s.unpinObsColumn)
+  const pinGene = useAppStore((s) => s.pinGene)
+  const unpinGene = useAppStore((s) => s.unpinGene)
 
   if (!summaryPanelOpen) return null
 
@@ -60,9 +70,24 @@ export default function SummaryPanel() {
                 {totalPinned} variables pinned — this may increase memory usage.
               </Typography.Text>
             )}
-            <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-              Variable pickers and charts coming next.
-            </Typography.Text>
+            <VariablePicker
+              label="Obs Columns"
+              options={obsColumnNames}
+              selected={pinnedObsColumns}
+              onAdd={pinObsColumn}
+              onRemove={unpinObsColumn}
+              loading={new Set(pinnedObsColumns.filter((c) => !pinnedObsData.has(c)))}
+            />
+
+            <VariablePicker
+              label="Genes"
+              options={varNames}
+              selected={pinnedGenes}
+              onAdd={pinGene}
+              onRemove={unpinGene}
+              labelMap={geneLabelMap}
+              loading={new Set(pinnedGenes.filter((g) => !pinnedGeneData.has(g)))}
+            />
           </>
         )}
       </div>
