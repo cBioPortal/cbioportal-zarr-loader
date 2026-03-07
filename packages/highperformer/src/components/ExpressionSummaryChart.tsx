@@ -346,7 +346,7 @@ function ExpressionStatsTable({ statsByGroup, activeGroups, fontSize = 10 }: {
 export default function ExpressionSummaryChart({ name, statsByGroup: rawStatsByGroup, groups, dataKey }: ExpressionSummaryChartProps) {
   const [view, setView] = useState<'chart' | 'table'>('chart')
   const [modalOpen, setModalOpen] = useState(false)
-  const [clipEnabled, setClipEnabled] = useState(false)
+  const [clipEnabled, setClipEnabled] = useState(true)
   const [clipThreshold, setClipThreshold] = useState(0)
 
   const clipMin = clipEnabled ? clipThreshold : undefined
