@@ -1,5 +1,67 @@
 import type { SummaryMessage, SummaryResponse } from './summary.schemas'
 
+const KDE_POINTS = 128
+
+function computeKDE(values: Float32Array, n: number, min: number, max: number): { kdeX: Float32Array; kdeDensity: Float32Array } {
+  if (n === 0 || min === max) {
+    return { kdeX: new Float32Array(KDE_POINTS), kdeDensity: new Float32Array(KDE_POINTS) }
+  }
+
+  // Silverman's rule: h = 1.06 * std * n^(-1/5)
+  let sum = 0
+  for (let i = 0; i < n; i++) sum += values[i]
+  const mean = sum / n
+  let sqSum = 0
+  for (let i = 0; i < n; i++) sqSum += (values[i] - mean) ** 2
+  const std = Math.sqrt(sqSum / n)
+  const h = std > 0 ? 1.06 * std * Math.pow(n, -0.2) : 1
+
+  const pad = 3 * h
+  const lo = min - pad
+  const hi = max + pad
+  const step = (hi - lo) / (KDE_POINTS - 1)
+  const coeff = 1 / (n * h * Math.sqrt(2 * Math.PI))
+
+  const kdeX = new Float32Array(KDE_POINTS)
+  const kdeDensity = new Float32Array(KDE_POINTS)
+
+  for (let i = 0; i < KDE_POINTS; i++) {
+    const xi = lo + i * step
+    kdeX[i] = xi
+    let d = 0
+    for (let j = 0; j < n; j++) {
+      const u = (xi - values[j]) / h
+      d += Math.exp(-0.5 * u * u)
+    }
+    kdeDensity[i] = d * coeff
+  }
+
+  return { kdeX, kdeDensity }
+}
+
+function quantile(sorted: Float32Array, n: number, q: number): number {
+  const pos = q * (n - 1)
+  const lo = Math.floor(pos)
+  const hi = Math.ceil(pos)
+  if (lo === hi) return sorted[lo]
+  return sorted[lo] + (pos - lo) * (sorted[hi] - sorted[lo])
+}
+
+const EMPTY_F32 = new Float32Array(0)
+
+function emptyResponse(numBins: number, clippedCount: number, version: number): SummaryResponse {
+  return {
+    type: 'expressionSummary',
+    mean: 0, median: 0, std: 0, min: 0, max: 0,
+    q1: 0, q3: 0, whiskerLow: 0, whiskerHigh: 0,
+    bins: new Uint32Array(numBins),
+    binEdges: new Float32Array(numBins + 1),
+    kdeX: EMPTY_F32, kdeDensity: EMPTY_F32,
+    clippedCount,
+    version,
+  }
+}
+
 export function handleSummaryMessage(msg: SummaryMessage): SummaryResponse {
   const { version } = msg
 
@@ -17,21 +79,10 @@ export function handleSummaryMessage(msg: SummaryMessage): SummaryResponse {
   const { expression, indices, numBins, clipMin } = msg
 
   if (indices.length === 0) {
-    return {
-      type: 'expressionSummary',
-      mean: 0,
-      median: 0,
-      std: 0,
-      min: 0,
-      max: 0,
-      bins: new Uint32Array(numBins),
-      binEdges: new Float32Array(numBins + 1),
-      clippedCount: 0,
-      version,
-    }
+    return emptyResponse(numBins, 0, version)
   }
 
-  // Collect values for selected indices, optionally clipping below threshold
+  // Collect values, optionally clipping below threshold
   let clippedCount = 0
   const raw = new Float32Array(indices.length)
   let count = 0
@@ -46,18 +97,7 @@ export function handleSummaryMessage(msg: SummaryMessage): SummaryResponse {
   const values = raw.subarray(0, count)
 
   if (count === 0) {
-    return {
-      type: 'expressionSummary',
-      mean: 0,
-      median: 0,
-      std: 0,
-      min: 0,
-      max: 0,
-      bins: new Uint32Array(numBins),
-      binEdges: new Float32Array(numBins + 1),
-      clippedCount,
-      version,
-    }
+    return emptyResponse(numBins, clippedCount, version)
   }
 
   let sum = 0
@@ -73,12 +113,18 @@ export function handleSummaryMessage(msg: SummaryMessage): SummaryResponse {
   const n = count
   const mean = sum / n
 
-  // Sort for median
+  // Sort for median + quartiles
   values.sort()
   const median =
     n % 2 === 1
       ? values[(n - 1) / 2]
       : (values[n / 2 - 1] + values[n / 2]) / 2
+
+  const q1 = quantile(values, n, 0.25)
+  const q3 = quantile(values, n, 0.75)
+  const iqr = q3 - q1
+  const whiskerLow = Math.max(min, q1 - 1.5 * iqr)
+  const whiskerHigh = Math.min(max, q3 + 1.5 * iqr)
 
   // Population standard deviation
   let sumSqDiff = 0
@@ -94,7 +140,6 @@ export function handleSummaryMessage(msg: SummaryMessage): SummaryResponse {
   const range = max - min
 
   if (range === 0) {
-    // All values are identical — put everything in the first bin
     bins[0] = n
     for (let i = 0; i <= numBins; i++) {
       binEdges[i] = min
@@ -111,15 +156,15 @@ export function handleSummaryMessage(msg: SummaryMessage): SummaryResponse {
     }
   }
 
+  // KDE
+  const { kdeX, kdeDensity } = computeKDE(values, n, min, max)
+
   return {
     type: 'expressionSummary',
-    mean,
-    median,
-    std,
-    min,
-    max,
-    bins,
-    binEdges,
+    mean, median, std, min, max,
+    q1, q3, whiskerLow, whiskerHigh,
+    bins, binEdges,
+    kdeX, kdeDensity,
     clippedCount,
     version,
   }

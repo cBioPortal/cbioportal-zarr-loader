@@ -108,7 +108,9 @@ async function computeAllCellsExpression(
 ): Promise<ExpressionSummaryResult> {
   const statsByGroup = new Map<number, {
     mean: number; median: number; std: number; min: number; max: number
-    bins: Uint32Array; binEdges: Float32Array; clippedCount: number
+    q1: number; q3: number; whiskerLow: number; whiskerHigh: number
+    bins: Uint32Array; binEdges: Float32Array
+    kdeX: Float32Array; kdeDensity: Float32Array; clippedCount: number
   }>()
 
   const response = await getPool().dispatch<ExpressionSummaryResponse>({
@@ -125,8 +127,14 @@ async function computeAllCellsExpression(
       std: response.std,
       min: response.min,
       max: response.max,
+      q1: response.q1,
+      q3: response.q3,
+      whiskerLow: response.whiskerLow,
+      whiskerHigh: response.whiskerHigh,
       bins: response.bins,
       binEdges: response.binEdges,
+      kdeX: response.kdeX,
+      kdeDensity: response.kdeDensity,
       clippedCount: response.clippedCount ?? 0,
     })
   }
