@@ -128,8 +128,10 @@ export default function SummaryPanel() {
           </Typography.Text>
         )}
 
-        {context === 'selections' && hasGroups && (
-          <GroupOverview groups={selectionGroups} totalCells={embeddingData?.numPoints ?? 0} />
+        {hasGroups && (
+          <div style={{ display: context === 'selections' ? 'block' : 'none' }}>
+            <GroupOverview groups={selectionGroups} totalCells={embeddingData?.numPoints ?? 0} />
+          </div>
         )}
 
         {collapseItems.length > 0 && (

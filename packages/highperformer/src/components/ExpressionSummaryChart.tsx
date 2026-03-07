@@ -42,9 +42,33 @@ interface ExpressionSummaryChartProps {
 
 const NUM_BINS = 30
 
+function cacheKey(groupIds: number[], clipMin: number): string {
+  return `${[...groupIds].sort().join(',')}_${clipMin}`
+}
+
+function mapResponse(response: ExpressionSummaryResponse): ExpressionStats {
+  return {
+    mean: response.mean,
+    median: response.median,
+    std: response.std,
+    min: response.min,
+    max: response.max,
+    q1: response.q1,
+    q3: response.q3,
+    whiskerLow: response.whiskerLow,
+    whiskerHigh: response.whiskerHigh,
+    bins: response.bins,
+    binEdges: response.binEdges,
+    kdeX: response.kdeX,
+    kdeDensity: response.kdeDensity,
+    clippedCount: response.clippedCount ?? 0,
+  }
+}
+
 /**
  * Recomputes expression stats on a worker with clipMin threshold when set.
- * Falls back to the original stats when clipMin is undefined.
+ * Returns originalStats immediately, then swaps in clipped results when ready.
+ * Caches results per {groupIds, clipMin} so context toggling is instant.
  */
 function useClipMin(
   originalStats: Map<number, ExpressionStats>,
@@ -54,14 +78,27 @@ function useClipMin(
 ): Map<number, ExpressionStats> {
   const [clippedStats, setClippedStats] = useState<Map<number, ExpressionStats> | null>(null)
   const versionRef = useRef(0)
+  const cacheRef = useRef(new Map<string, Map<number, ExpressionStats>>())
 
   const summaryGeneData = useAppStore((s) => s.summaryGeneData)
   const summaryObsContinuousData = useAppStore((s) => s.summaryObsContinuousData)
   const embeddingData = useAppStore((s) => s.embeddingData)
   const selectionGroups = useAppStore((s) => s.selectionGroups)
 
+  // Invalidate cache when underlying data changes (new selections, new expression data)
+  useEffect(() => {
+    cacheRef.current.clear()
+  }, [selectionGroups, summaryGeneData, summaryObsContinuousData])
+
   useEffect(() => {
     if (clipMin === undefined || !dataKey) {
+      setClippedStats(null)
+      return
+    }
+
+    // If clipMin is at or below every group's min, nothing would be clipped
+    const wouldClip = Array.from(originalStats.values()).some((s) => s.min < clipMin)
+    if (!wouldClip) {
       setClippedStats(null)
       return
     }
@@ -71,6 +108,19 @@ function useClipMin(
       setClippedStats(null)
       return
     }
+
+    const groupIds = groups.map((g) => g.id)
+    const key = cacheKey(groupIds, clipMin)
+
+    // Cache hit — use immediately, no worker dispatch
+    const cached = cacheRef.current.get(key)
+    if (cached) {
+      setClippedStats(cached)
+      return
+    }
+
+    // Cache miss — show original immediately, compute in background
+    setClippedStats(null)
 
     versionRef.current++
     const version = versionRef.current
@@ -106,26 +156,12 @@ function useClipMin(
       if (versionRef.current !== version) return
       const map = new Map<number, ExpressionStats>()
       for (const { id, response } of results) {
-        map.set(id, {
-          mean: response.mean,
-          median: response.median,
-          std: response.std,
-          min: response.min,
-          max: response.max,
-          q1: response.q1,
-          q3: response.q3,
-          whiskerLow: response.whiskerLow,
-          whiskerHigh: response.whiskerHigh,
-          bins: response.bins,
-          binEdges: response.binEdges,
-          kdeX: response.kdeX,
-          kdeDensity: response.kdeDensity,
-          clippedCount: response.clippedCount ?? 0,
-        })
+        map.set(id, mapResponse(response))
       }
+      cacheRef.current.set(key, map)
       setClippedStats(map)
     })
-  }, [clipMin, dataKey, groups, summaryGeneData, summaryObsContinuousData, embeddingData, selectionGroups])
+  }, [clipMin, dataKey, groups, originalStats, summaryGeneData, summaryObsContinuousData, embeddingData, selectionGroups])
 
   if (clipMin !== undefined && clippedStats) return clippedStats
   return originalStats
@@ -310,7 +346,7 @@ function ExpressionStatsTable({ statsByGroup, activeGroups, fontSize = 10 }: {
 export default function ExpressionSummaryChart({ name, statsByGroup: rawStatsByGroup, groups, dataKey }: ExpressionSummaryChartProps) {
   const [view, setView] = useState<'chart' | 'table'>('chart')
   const [modalOpen, setModalOpen] = useState(false)
-  const [clipEnabled, setClipEnabled] = useState(true)
+  const [clipEnabled, setClipEnabled] = useState(false)
   const [clipThreshold, setClipThreshold] = useState(0)
 
   const clipMin = clipEnabled ? clipThreshold : undefined

@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import useAppStore from '../store/useAppStore'
 import type { SelectionGroup } from '../store/useAppStore'
 import CategorySummaryChart from './CategorySummaryChart'
@@ -11,7 +12,10 @@ interface ByVariableViewProps {
 
 export default function ByVariableView({ results, groups: groupsOverride }: ByVariableViewProps) {
   const selectionGroups = useAppStore((s) => s.selectionGroups)
-  const groups = groupsOverride ?? selectionGroups.filter((g) => g.indices.length > 0)
+  const groups = useMemo(
+    () => groupsOverride ?? selectionGroups.filter((g) => g.indices.length > 0),
+    [groupsOverride, selectionGroups],
+  )
 
   if (results.length === 0) return null
 

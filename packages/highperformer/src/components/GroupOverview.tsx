@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import { Typography } from 'antd'
 import type { SelectionGroup } from '../store/useAppStore'
 import { ALL_CELLS_GROUP_ID } from '../hooks/useAllCellsSummary'
@@ -244,10 +245,17 @@ function VennDiagram({ groups, stats, totalCells }: {
 }
 
 export default function GroupOverview({ groups, totalCells }: GroupOverviewProps) {
-  const activeGroups = groups.filter((g) => g.indices.length > 0)
-  if (activeGroups.length === 0) return null
+  const activeGroups = useMemo(
+    () => groups.filter((g) => g.indices.length > 0),
+    [groups],
+  )
 
-  const stats = computeOverlap(activeGroups)
+  const stats = useMemo(
+    () => computeOverlap(activeGroups),
+    [activeGroups],
+  )
+
+  if (activeGroups.length === 0) return null
 
   return (
     <div style={{ marginBottom: 12 }}>
