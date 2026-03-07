@@ -4,7 +4,7 @@ import { Pie } from '@visx/shape'
 import { scaleBand, scaleLinear } from '@visx/scale'
 import { AxisBottom, AxisLeft } from '@visx/axis'
 import { Popover, Segmented, Typography } from 'antd'
-import { ExpandOutlined } from '@ant-design/icons'
+import { SettingOutlined } from '@ant-design/icons'
 import type { SelectionGroup } from '../store/useAppStore'
 import type { RGB } from '../utils/colors'
 import { ALL_CELLS_GROUP_ID } from '../hooks/useAllCellsSummary'
@@ -85,14 +85,18 @@ function StackedBarChart({ data, activeGroups, width, margin, mode }: {
 }) {
   const [hoverKey, setHoverKey] = useState<string | null>(null)
   const [popover, setPopover] = useState<{ key: string; data: PopoverData } | null>(null)
-  const rowHeight = BAR_HEIGHT + 4
+  const isGrouped = mode === 'percent' && activeGroups.length > 1
+  const numGroups = activeGroups.length
+  const rowHeight = isGrouped ? (BAR_HEIGHT * numGroups + 8) : (BAR_HEIGHT + 4)
   const height = data.length * rowHeight + margin.top + margin.bottom
   const innerWidth = width - margin.left - margin.right
 
-  // Grand total across all categories and groups (for % of whole)
-  let grandTotal = 0
-  for (const d of data) {
-    for (const g of activeGroups) grandTotal += d.counts[g.id] ?? 0
+  // Per-group totals (sum of all categories for each group)
+  const groupTotals = new Map<number, number>()
+  for (const g of activeGroups) {
+    let total = 0
+    for (const d of data) total += d.counts[g.id] ?? 0
+    groupTotals.set(g.id, total)
   }
 
   let maxValue = 1
@@ -102,12 +106,8 @@ function StackedBarChart({ data, activeGroups, width, margin, mode }: {
       if (sum > maxValue) maxValue = sum
     }
   } else {
-    // Find the largest category % to scale the axis
-    for (const d of data) {
-      const sum = activeGroups.reduce((acc, g) => acc + (d.counts[g.id] ?? 0), 0)
-      const pct = grandTotal > 0 ? (sum / grandTotal) * 100 : 0
-      if (pct > maxValue) maxValue = pct
-    }
+    // Scale to 100% for per-group proportions
+    maxValue = 100
   }
 
   const yScale = scaleBand({
@@ -121,6 +121,18 @@ function StackedBarChart({ data, activeGroups, width, margin, mode }: {
     range: [0, innerWidth],
   })
 
+  const buildPopoverData = (d: CategoryRow, highlightGroupId: number): PopoverData => {
+    const groups: GroupInfo[] = activeGroups.map((ag) => {
+      const c = d.counts[ag.id] ?? 0
+      const gt = groupTotals.get(ag.id) ?? 1
+      const p = mode === 'percent'
+        ? (gt > 0 ? ((c / gt) * 100).toFixed(1) : '0.0')
+        : (gt > 0 ? ((c / gt) * 100).toFixed(1) : '0.0')
+      return { groupId: ag.id, color: `rgb(${ag.color.join(',')})`, count: c, pct: p }
+    })
+    return { label: d.label, highlightGroupId, groups }
+  }
+
   return (
     <svg
       width={width}
@@ -129,15 +141,81 @@ function StackedBarChart({ data, activeGroups, width, margin, mode }: {
     >
       <Group left={margin.left}>
         {data.map((d) => {
-          const y = yScale(d.label) ?? 0
-          const barH = yScale.bandwidth()
-          let xOffset = 0
+          const bandY = yScale(d.label) ?? 0
+          const bandH = yScale.bandwidth()
 
+          if (isGrouped) {
+            // Grouped bars: one bar per group, side by side
+            const barH = Math.min(bandH / numGroups, BAR_HEIGHT)
+            return activeGroups.map((g, gi) => {
+              const count = d.counts[g.id] ?? 0
+              const gt = groupTotals.get(g.id) ?? 1
+              const pct = gt > 0 ? (count / gt) * 100 : 0
+              const barWidth = xScale(pct)
+              const y = bandY + gi * barH
+              const key = `${d.label}-${g.id}`
+              const rowKey = d.label
+              const isHovered = hoverKey === key
+              const isPopoverOpen = popover?.key === rowKey && popover.data.highlightGroupId === g.id
+              const color = `rgb(${g.color.join(',')})`
+
+              const handleClick = () => {
+                if (isPopoverOpen) {
+                  setPopover(null)
+                } else {
+                  setPopover({ key: rowKey, data: buildPopoverData(d, g.id) })
+                }
+              }
+
+              const rectEl = (
+                <rect
+                  key={key}
+                  fill={color}
+                  stroke={isHovered || isPopoverOpen ? '#333' : 'none'}
+                  strokeWidth={isHovered || isPopoverOpen ? 1.5 : 0}
+                  x={0}
+                  y={y}
+                  width={barWidth}
+                  height={barH - 1}
+                  style={{ cursor: 'pointer', transition: 'width 300ms ease' }}
+                  onMouseEnter={() => setHoverKey(key)}
+                  onMouseLeave={() => setHoverKey(null)}
+                  onClick={handleClick}
+                />
+              )
+
+              if (isPopoverOpen) {
+                return (
+                  <Popover
+                    key={key}
+                    open
+                    placement="left"
+                    onOpenChange={(open) => { if (!open) setPopover(null) }}
+                    content={
+                      <div style={{ fontSize: 12 }}>
+                        <div style={{ fontWeight: 600, marginBottom: 4 }}>{popover.data.label}</div>
+                        {popover.data.groups.map((info) => (
+                          <div key={info.groupId} style={{ fontWeight: info.groupId === g.id ? 600 : 400 }}>
+                            <span style={{ color: info.color }}>{groupLabel(info.groupId)}</span>: {info.count.toLocaleString()} ({info.pct}% of group)
+                          </div>
+                        ))}
+                      </div>
+                    }
+                  >
+                    {rectEl}
+                  </Popover>
+                )
+              }
+
+              return rectEl
+            })
+          }
+
+          // Stacked bars (count mode or single group)
+          let xOffset = 0
           return activeGroups.map((g) => {
             const count = d.counts[g.id] ?? 0
-            const value = mode === 'percent'
-              ? (grandTotal > 0 ? (count / grandTotal) * 100 : 0)
-              : count
+            const value = count
             const barWidth = xScale(value)
             const x = xScale(xOffset)
             xOffset += value
@@ -148,15 +226,10 @@ function StackedBarChart({ data, activeGroups, width, margin, mode }: {
             const color = `rgb(${g.color.join(',')})`
 
             const handleClick = () => {
-              if (popover?.key === rowKey && popover.data.highlightGroupId === g.id) {
+              if (isPopoverOpen) {
                 setPopover(null)
               } else {
-                const groups: GroupInfo[] = activeGroups.map((ag) => {
-                  const c = d.counts[ag.id] ?? 0
-                  const p = grandTotal > 0 ? ((c / grandTotal) * 100).toFixed(1) : '0.0'
-                  return { groupId: ag.id, color: `rgb(${ag.color.join(',')})`, count: c, pct: p }
-                })
-                setPopover({ key: rowKey, data: { label: d.label, highlightGroupId: g.id, groups } })
+                setPopover({ key: rowKey, data: buildPopoverData(d, g.id) })
               }
             }
 
@@ -167,7 +240,7 @@ function StackedBarChart({ data, activeGroups, width, margin, mode }: {
                 stroke={isHovered || isPopoverOpen ? '#333' : 'none'}
                 strokeWidth={isHovered || isPopoverOpen ? 1.5 : 0}
                 style={{
-                  x, y, width: barWidth, height: barH,
+                  x, y: bandY, width: barWidth, height: bandH,
                   transition: 'x 300ms ease, width 300ms ease',
                   cursor: 'pointer',
                 }}
@@ -187,9 +260,9 @@ function StackedBarChart({ data, activeGroups, width, margin, mode }: {
                   content={
                     <div style={{ fontSize: 12 }}>
                       <div style={{ fontWeight: 600, marginBottom: 4 }}>{popover.data.label}</div>
-                      {popover.data.groups.map((gi) => (
-                        <div key={gi.groupId} style={{ fontWeight: gi.groupId === g.id ? 600 : 400 }}>
-                          <span style={{ color: gi.color }}>{groupLabel(gi.groupId)}</span>: {gi.count.toLocaleString()} ({gi.pct}%)
+                      {popover.data.groups.map((info) => (
+                        <div key={info.groupId} style={{ fontWeight: info.groupId === g.id ? 600 : 400 }}>
+                          <span style={{ color: info.color }}>{groupLabel(info.groupId)}</span>: {info.count.toLocaleString()} ({info.pct}% of group)
                         </div>
                       ))}
                     </div>
@@ -236,24 +309,28 @@ function VerticalStackedBarChart({ data, activeGroups, mode }: {
 }) {
   const [hoverKey, setHoverKey] = useState<string | null>(null)
   const [popover, setPopover] = useState<{ key: string; data: PopoverData } | null>(null)
+  const isGrouped = mode === 'percent' && activeGroups.length > 1
+  const numGroups = activeGroups.length
   const maxLabelLen = Math.min(
     data.reduce((max, d) => Math.max(max, d.label.length), 0),
     LABEL_MAX_CHARS,
   )
-  // fontSize 10, ~6px per char. Rotated 45° with textAnchor 'end':
-  // vertical extent = len * 6 * sin(45°), horizontal extent = len * 6 * cos(45°)
   const COS45 = 0.707
   const charPx = 6
   const bottomMargin = Math.max(48, maxLabelLen * charPx * COS45 + 30)
   const leftMargin = Math.max(VERTICAL_MARGIN_BASE.left, maxLabelLen * charPx * COS45 + 8)
   const margin = { ...VERTICAL_MARGIN_BASE, bottom: bottomMargin, left: leftMargin }
-  const innerWidth = Math.max(data.length * BAND_WIDTH, MIN_CHART_WIDTH)
+  const bandWidth = isGrouped ? BAND_WIDTH * numGroups + 8 : BAND_WIDTH
+  const innerWidth = Math.max(data.length * bandWidth, MIN_CHART_WIDTH)
   const width = innerWidth + margin.left + margin.right
   const innerHeight = 300
 
-  let grandTotal = 0
-  for (const d of data) {
-    for (const g of activeGroups) grandTotal += d.counts[g.id] ?? 0
+  // Per-group totals
+  const groupTotals = new Map<number, number>()
+  for (const g of activeGroups) {
+    let total = 0
+    for (const d of data) total += d.counts[g.id] ?? 0
+    groupTotals.set(g.id, total)
   }
 
   let maxValue = 1
@@ -263,11 +340,7 @@ function VerticalStackedBarChart({ data, activeGroups, mode }: {
       if (sum > maxValue) maxValue = sum
     }
   } else {
-    for (const d of data) {
-      const sum = activeGroups.reduce((acc, g) => acc + (d.counts[g.id] ?? 0), 0)
-      const pct = grandTotal > 0 ? (sum / grandTotal) * 100 : 0
-      if (pct > maxValue) maxValue = pct
-    }
+    maxValue = 100
   }
 
   const xScale = scaleBand({
@@ -282,6 +355,16 @@ function VerticalStackedBarChart({ data, activeGroups, mode }: {
     nice: true,
   })
 
+  const buildPopoverData = (d: CategoryRow, highlightGroupId: number): PopoverData => {
+    const groups: GroupInfo[] = activeGroups.map((ag) => {
+      const c = d.counts[ag.id] ?? 0
+      const gt = groupTotals.get(ag.id) ?? 1
+      const p = gt > 0 ? ((c / gt) * 100).toFixed(1) : '0.0'
+      return { groupId: ag.id, color: `rgb(${ag.color.join(',')})`, count: c, pct: p }
+    })
+    return { label: d.label, highlightGroupId, groups }
+  }
+
   return (
     <svg
       width={width}
@@ -290,19 +373,85 @@ function VerticalStackedBarChart({ data, activeGroups, mode }: {
     >
       <Group left={margin.left} top={margin.top}>
         {data.map((d) => {
-          const x = xScale(d.label) ?? 0
-          const barW = Math.min(xScale.bandwidth(), BAND_WIDTH)
-          const barOffset = (xScale.bandwidth() - barW) / 2
-          let yOffset = 0
+          const bandX = xScale(d.label) ?? 0
+          const bandW = xScale.bandwidth()
 
+          if (isGrouped) {
+            const barW = Math.min(bandW / numGroups, BAND_WIDTH)
+            return activeGroups.map((g, gi) => {
+              const count = d.counts[g.id] ?? 0
+              const gt = groupTotals.get(g.id) ?? 1
+              const pct = gt > 0 ? (count / gt) * 100 : 0
+              const barHeight = innerHeight - yScale(pct)
+              const barY = yScale(pct)
+              const x = bandX + gi * barW
+              const key = `${d.label}-${g.id}`
+              const rowKey = d.label
+              const isHovered = hoverKey === key
+              const isPopoverOpen = popover?.key === rowKey && popover.data.highlightGroupId === g.id
+              const color = `rgb(${g.color.join(',')})`
+
+              const handleClick = () => {
+                if (isPopoverOpen) {
+                  setPopover(null)
+                } else {
+                  setPopover({ key: rowKey, data: buildPopoverData(d, g.id) })
+                }
+              }
+
+              const rectEl = (
+                <rect
+                  key={key}
+                  fill={color}
+                  stroke={isHovered || isPopoverOpen ? '#333' : 'none'}
+                  strokeWidth={isHovered || isPopoverOpen ? 1.5 : 0}
+                  x={x}
+                  y={barY}
+                  width={barW - 1}
+                  height={barHeight}
+                  style={{ cursor: 'pointer', transition: 'height 300ms ease, y 300ms ease' }}
+                  onMouseEnter={() => setHoverKey(key)}
+                  onMouseLeave={() => setHoverKey(null)}
+                  onClick={handleClick}
+                />
+              )
+
+              if (isPopoverOpen) {
+                return (
+                  <Popover
+                    key={key}
+                    open
+                    placement="top"
+                    onOpenChange={(open) => { if (!open) setPopover(null) }}
+                    content={
+                      <div style={{ fontSize: 12 }}>
+                        <div style={{ fontWeight: 600, marginBottom: 4 }}>{popover.data.label}</div>
+                        {popover.data.groups.map((info) => (
+                          <div key={info.groupId} style={{ fontWeight: info.groupId === g.id ? 600 : 400 }}>
+                            <span style={{ color: info.color }}>{groupLabel(info.groupId)}</span>: {info.count.toLocaleString()} ({info.pct}% of group)
+                          </div>
+                        ))}
+                      </div>
+                    }
+                  >
+                    {rectEl}
+                  </Popover>
+                )
+              }
+
+              return rectEl
+            })
+          }
+
+          // Stacked bars (count mode or single group)
+          const barW = Math.min(bandW, BAND_WIDTH)
+          const barOffset = (bandW - barW) / 2
+          let yOffset = 0
           return activeGroups.map((g) => {
             const count = d.counts[g.id] ?? 0
-            const value = mode === 'percent'
-              ? (grandTotal > 0 ? (count / grandTotal) * 100 : 0)
-              : count
-            const barHeight = innerHeight - yScale(value)
-            const barY = yScale(yOffset + value)
-            yOffset += value
+            const barHeight = innerHeight - yScale(count)
+            const barY = yScale(yOffset + count)
+            yOffset += count
             const key = `${d.label}-${g.id}`
             const rowKey = d.label
             const isHovered = hoverKey === key
@@ -310,15 +459,10 @@ function VerticalStackedBarChart({ data, activeGroups, mode }: {
             const color = `rgb(${g.color.join(',')})`
 
             const handleClick = () => {
-              if (popover?.key === rowKey && popover.data.highlightGroupId === g.id) {
+              if (isPopoverOpen) {
                 setPopover(null)
               } else {
-                const groups: GroupInfo[] = activeGroups.map((ag) => {
-                  const c = d.counts[ag.id] ?? 0
-                  const p = grandTotal > 0 ? ((c / grandTotal) * 100).toFixed(1) : '0.0'
-                  return { groupId: ag.id, color: `rgb(${ag.color.join(',')})`, count: c, pct: p }
-                })
-                setPopover({ key: rowKey, data: { label: d.label, highlightGroupId: g.id, groups } })
+                setPopover({ key: rowKey, data: buildPopoverData(d, g.id) })
               }
             }
 
@@ -328,7 +472,7 @@ function VerticalStackedBarChart({ data, activeGroups, mode }: {
                 fill={color}
                 stroke={isHovered || isPopoverOpen ? '#333' : 'none'}
                 strokeWidth={isHovered || isPopoverOpen ? 1.5 : 0}
-                x={x + barOffset}
+                x={bandX + barOffset}
                 y={barY}
                 width={barW}
                 height={barHeight}
@@ -349,9 +493,9 @@ function VerticalStackedBarChart({ data, activeGroups, mode }: {
                   content={
                     <div style={{ fontSize: 12 }}>
                       <div style={{ fontWeight: 600, marginBottom: 4 }}>{popover.data.label}</div>
-                      {popover.data.groups.map((gi) => (
-                        <div key={gi.groupId} style={{ fontWeight: gi.groupId === g.id ? 600 : 400 }}>
-                          <span style={{ color: gi.color }}>{groupLabel(gi.groupId)}</span>: {gi.count.toLocaleString()} ({gi.pct}%)
+                      {popover.data.groups.map((info) => (
+                        <div key={info.groupId} style={{ fontWeight: info.groupId === g.id ? 600 : 400 }}>
+                          <span style={{ color: info.color }}>{groupLabel(info.groupId)}</span>: {info.count.toLocaleString()} ({info.pct}% of group)
                         </div>
                       ))}
                     </div>
@@ -639,20 +783,26 @@ export default function CategorySummaryChart({ name, categoryMap, countsByGroup,
   return (
     <div style={{ marginBottom: 12 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-        <Typography.Text strong style={{ fontSize: 12 }}>{name}</Typography.Text>
-        <span style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          <Segmented
-            size="small"
-            value={inlineView}
-            onChange={(v) => setInlineView(v as InlineView)}
-            options={toggleOptions}
-            style={{ fontSize: 11 }}
-          />
-          <ExpandOutlined
+        <Typography.Link strong style={{ fontSize: 12 }} onClick={() => { setModalTab('chart'); setModalOpen(true) }}>{name}</Typography.Link>
+        <Popover
+          trigger="click"
+          placement="bottomRight"
+          content={
+            <div style={{ minWidth: 160 }}>
+              <Segmented
+                block
+                size="small"
+                value={inlineView}
+                onChange={(v) => setInlineView(v as InlineView)}
+                options={toggleOptions}
+              />
+            </div>
+          }
+        >
+          <SettingOutlined
             style={{ fontSize: 11, cursor: 'pointer', color: '#1677ff' }}
-            onClick={() => { setModalTab('chart'); setModalOpen(true) }}
           />
-        </span>
+        </Popover>
       </div>
 
       {inlineView === 'table' ? (
