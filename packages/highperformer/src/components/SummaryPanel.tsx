@@ -67,7 +67,7 @@ export default function SummaryPanel() {
   if (geneResults.length > 0) {
     collapseItems.push({
       key: 'genes',
-      label: <Typography.Text strong style={{ fontSize: 12 }}>Gene Summaries</Typography.Text>,
+      label: <Typography.Text strong style={{ fontSize: 12 }}>Genes</Typography.Text>,
       children: <ByVariableView results={geneResults} groups={activeGroups} />,
     })
   }
@@ -121,6 +121,12 @@ export default function SummaryPanel() {
             style={{ fontSize: 11 }}
           />
         </div>
+
+        {context === 'all' && (
+          <Typography.Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>
+            Showing summaries for all {(embeddingData?.numPoints ?? 0).toLocaleString()} cells
+          </Typography.Text>
+        )}
 
         {context === 'selections' && hasGroups && (
           <GroupOverview groups={selectionGroups} totalCells={embeddingData?.numPoints ?? 0} />

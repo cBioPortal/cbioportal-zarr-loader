@@ -3,8 +3,8 @@ import { Group } from '@visx/group'
 import { scaleLinear } from '@visx/scale'
 import { Bar } from '@visx/shape'
 import { AxisBottom, AxisLeft } from '@visx/axis'
-import { Checkbox, InputNumber, Typography } from 'antd'
-import { ExpandOutlined } from '@ant-design/icons'
+import { Checkbox, InputNumber, Popover, Segmented, Typography } from 'antd'
+import { SettingOutlined } from '@ant-design/icons'
 import useAppStore, { getPool } from '../store/useAppStore'
 import type { SelectionGroup } from '../store/useAppStore'
 import type { ExpressionSummaryResponse } from '../workers/summary.schemas'
@@ -21,8 +21,14 @@ interface ExpressionStats {
   std: number
   min: number
   max: number
+  q1: number
+  q3: number
+  whiskerLow: number
+  whiskerHigh: number
   bins: Uint32Array
   binEdges: Float32Array
+  kdeX: Float32Array
+  kdeDensity: Float32Array
   clippedCount: number
 }
 
@@ -106,8 +112,14 @@ function useClipMin(
           std: response.std,
           min: response.min,
           max: response.max,
+          q1: response.q1,
+          q3: response.q3,
+          whiskerLow: response.whiskerLow,
+          whiskerHigh: response.whiskerHigh,
           bins: response.bins,
           binEdges: response.binEdges,
+          kdeX: response.kdeX,
+          kdeDensity: response.kdeDensity,
           clippedCount: response.clippedCount ?? 0,
         })
       }
@@ -133,6 +145,10 @@ function ExpressionHistogram({ statsByGroup, activeGroups, width, height }: {
   const innerWidth = width - margin.left - margin.right
   const innerHeight = height - margin.top - margin.bottom
 
+  const [hoverBin, setHoverBin] = useState<number | null>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
+  const [tooltipPos, setTooltipPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 })
+
   let globalMin = Infinity
   let globalMax = -Infinity
   let maxBinCount = 0
@@ -153,42 +169,105 @@ function ExpressionHistogram({ statsByGroup, activeGroups, width, height }: {
   const numBins = firstStats?.bins.length ?? 30
   const binWidth = innerWidth / numBins
 
+  // Compute total per group for percentages
+  const groupTotals = new Map<number, number>()
+  for (const g of activeGroups) {
+    const stats = statsByGroup.get(g.id)
+    if (!stats) continue
+    let total = 0
+    for (let i = 0; i < stats.bins.length; i++) total += stats.bins[i]
+    groupTotals.set(g.id, total)
+  }
+
   return (
-    <svg width={width} height={height}>
-      <Group left={margin.left} top={margin.top}>
-        {activeGroups.map((g) => {
-          const stats = statsByGroup.get(g.id)
-          if (!stats) return null
-          const opacity = activeGroups.length > 1 ? 0.5 : 0.8
-          return Array.from(stats.bins).map((count, bi) => (
-            <Bar
-              key={`${g.id}-${bi}`}
-              x={bi * binWidth}
-              y={yScale(count)}
-              width={Math.max(binWidth - 1, 1)}
-              height={innerHeight - yScale(count)}
-              fill={`rgba(${g.color.join(',')}, ${opacity})`}
-            />
-          ))
-        })}
-        <AxisLeft
-          scale={yScale}
-          numTicks={3}
-          stroke="#e8e8e8"
-          tickStroke="#e8e8e8"
-          tickLabelProps={{ fill: '#999', fontSize: 9 }}
-        />
-        <AxisBottom
-          scale={xScale}
-          top={innerHeight}
-          numTicks={4}
-          stroke="#e8e8e8"
-          tickStroke="#e8e8e8"
-          tickLabelProps={{ fill: '#999', fontSize: 9 }}
-          tickFormat={(v) => formatNum(v as number)}
-        />
-      </Group>
-    </svg>
+    <div ref={containerRef} style={{ position: 'relative' }}>
+      <svg width={width} height={height}>
+        <Group left={margin.left} top={margin.top}>
+          {activeGroups.map((g) => {
+            const stats = statsByGroup.get(g.id)
+            if (!stats) return null
+            const baseOpacity = activeGroups.length > 1 ? 0.5 : 0.8
+            return Array.from(stats.bins).map((count, bi) => (
+              <Bar
+                key={`${g.id}-${bi}`}
+                x={bi * binWidth}
+                y={yScale(count)}
+                width={Math.max(binWidth - 1, 1)}
+                height={innerHeight - yScale(count)}
+                fill={`rgba(${g.color.join(',')}, ${hoverBin === bi ? 1 : baseOpacity})`}
+                onMouseEnter={(e) => {
+                  setHoverBin(bi)
+                  const rect = containerRef.current?.getBoundingClientRect()
+                  if (rect) {
+                    setTooltipPos({ x: e.clientX - rect.left, y: e.clientY - rect.top })
+                  }
+                }}
+                onMouseMove={(e) => {
+                  const rect = containerRef.current?.getBoundingClientRect()
+                  if (rect) {
+                    setTooltipPos({ x: e.clientX - rect.left, y: e.clientY - rect.top })
+                  }
+                }}
+                onMouseLeave={() => setHoverBin(null)}
+              />
+            ))
+          })}
+          <AxisLeft
+            scale={yScale}
+            numTicks={3}
+            stroke="#e8e8e8"
+            tickStroke="#e8e8e8"
+            tickLabelProps={{ fill: '#999', fontSize: 9 }}
+          />
+          <AxisBottom
+            scale={xScale}
+            top={innerHeight}
+            numTicks={4}
+            stroke="#e8e8e8"
+            tickStroke="#e8e8e8"
+            tickLabelProps={{ fill: '#999', fontSize: 9 }}
+            tickFormat={(v) => formatNum(v as number)}
+          />
+        </Group>
+      </svg>
+
+      {hoverBin !== null && firstStats && (
+        <div style={{
+          position: 'absolute',
+          left: tooltipPos.x + 12,
+          top: tooltipPos.y - 8,
+          background: 'rgba(0,0,0,0.85)',
+          color: '#fff',
+          padding: '6px 10px',
+          borderRadius: 4,
+          fontSize: 11,
+          lineHeight: 1.5,
+          pointerEvents: 'none',
+          whiteSpace: 'nowrap',
+          zIndex: 10,
+        }}>
+          <div style={{ fontWeight: 600, marginBottom: 2 }}>
+            {formatNum(firstStats.binEdges[hoverBin])} – {formatNum(firstStats.binEdges[hoverBin + 1])}
+          </div>
+          {activeGroups.map((g) => {
+            const stats = statsByGroup.get(g.id)
+            if (!stats) return null
+            const count = stats.bins[hoverBin]
+            const total = groupTotals.get(g.id) ?? 1
+            const pct = ((count / total) * 100).toFixed(1)
+            return (
+              <div key={g.id} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <span style={{
+                  width: 8, height: 8, borderRadius: '50%', display: 'inline-block',
+                  backgroundColor: `rgb(${g.color.join(',')})`,
+                }} />
+                <span>{groupLabel(g.id)}: {count.toLocaleString()} ({pct}%)</span>
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -229,7 +308,7 @@ function ExpressionStatsTable({ statsByGroup, activeGroups, fontSize = 10 }: {
 }
 
 export default function ExpressionSummaryChart({ name, statsByGroup: rawStatsByGroup, groups, dataKey }: ExpressionSummaryChartProps) {
-  const [showTable, setShowTable] = useState(false)
+  const [view, setView] = useState<'chart' | 'table'>('chart')
   const [modalOpen, setModalOpen] = useState(false)
   const [clipEnabled, setClipEnabled] = useState(true)
   const [clipThreshold, setClipThreshold] = useState(0)
@@ -243,41 +322,52 @@ export default function ExpressionSummaryChart({ name, statsByGroup: rawStatsByG
   return (
     <div style={{ marginBottom: 12 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-        <Typography.Text strong style={{ fontSize: 12 }}>{name}</Typography.Text>
-        <span style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          <Typography.Link style={{ fontSize: 11 }} onClick={() => setShowTable(!showTable)}>
-            {showTable ? 'Chart' : 'Table'}
-          </Typography.Link>
-          <ExpandOutlined
-            style={{ fontSize: 11, cursor: 'pointer', color: '#1677ff' }}
-            onClick={() => setModalOpen(true)}
-          />
-        </span>
+        <Typography.Link strong style={{ fontSize: 12 }} onClick={() => setModalOpen(true)}>{name}</Typography.Link>
+        <Popover
+            trigger="click"
+            placement="bottomRight"
+            content={
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, minWidth: 180 }}>
+                <Segmented
+                  block
+                  size="small"
+                  value={view}
+                  onChange={(v) => setView(v as 'chart' | 'table')}
+                  options={[
+                    { label: 'Chart', value: 'chart' },
+                    { label: 'Table', value: 'table' },
+                  ]}
+                />
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <Checkbox
+                    checked={clipEnabled}
+                    onChange={(e) => setClipEnabled(e.target.checked)}
+                  >
+                    <span style={{ fontSize: 12 }}>Clip below</span>
+                  </Checkbox>
+                  <InputNumber
+                    size="small"
+                    value={clipThreshold}
+                    onChange={(v) => v !== null && setClipThreshold(v)}
+                    disabled={!clipEnabled}
+                    step={0.1}
+                    style={{ width: 72 }}
+                  />
+                </div>
+                {clipEnabled && statsByGroup !== rawStatsByGroup && (() => {
+                  const total = Array.from(statsByGroup.values()).reduce((s, v) => s + (v.clippedCount ?? 0), 0)
+                  return total > 0 ? <div style={{ fontSize: 11, color: '#999', marginTop: 4 }}>{total.toLocaleString()} values clipped</div> : null
+                })()}
+              </div>
+            }
+          >
+            <SettingOutlined
+              style={{ fontSize: 11, cursor: 'pointer', color: '#1677ff' }}
+            />
+          </Popover>
       </div>
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 4 }}>
-        <Checkbox
-          checked={clipEnabled}
-          onChange={(e) => setClipEnabled(e.target.checked)}
-          style={{ fontSize: 10 }}
-        >
-          <span style={{ fontSize: 10, color: '#999' }}>Clip below</span>
-        </Checkbox>
-        <InputNumber
-          size="small"
-          value={clipThreshold}
-          onChange={(v) => v !== null && setClipThreshold(v)}
-          disabled={!clipEnabled}
-          step={0.1}
-          style={{ width: 64, fontSize: 10 }}
-        />
-        {clipEnabled && statsByGroup !== rawStatsByGroup && (() => {
-          const total = Array.from(statsByGroup.values()).reduce((s, v) => s + (v.clippedCount ?? 0), 0)
-          return total > 0 ? <span style={{ fontSize: 10, color: '#999' }}>({total.toLocaleString()} clipped)</span> : null
-        })()}
-      </div>
-
-      {showTable ? (
+      {view === 'table' ? (
         <ExpressionStatsTable statsByGroup={statsByGroup} activeGroups={activeGroups} />
       ) : (
         <ExpressionHistogram statsByGroup={statsByGroup} activeGroups={activeGroups} width={260} height={100} />
