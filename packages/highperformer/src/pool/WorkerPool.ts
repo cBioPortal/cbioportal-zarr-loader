@@ -37,16 +37,34 @@ export class WorkerPool {
     })
   }
 
-  dispatch<T = unknown>(message: Record<string, unknown>): Promise<T> {
+  /**
+   * Dispatch a message to a worker. If `transferables` is provided, those
+   * ArrayBuffers are transferred (zero-copy) instead of cloned. The caller
+   * must not reuse transferred buffers after dispatch.
+   */
+  dispatch<T = unknown>(message: Record<string, unknown>, transferables?: Transferable[]): Promise<T> {
     const taskId = this.nextTaskId++
     return new Promise<T>((resolve, reject) => {
       const idle = this.workers.find((w) => !w.busy)
       if (idle) {
-        this.send(idle, { ...message, _poolTaskId: taskId }, resolve as (v: unknown) => void, taskId)
+        this.send(idle, { ...message, _poolTaskId: taskId }, resolve as (v: unknown) => void, taskId, transferables)
       } else {
         this.queue.push({ message, resolve: resolve as (v: unknown) => void, reject, taskId })
       }
     })
+  }
+
+  /**
+   * Drop all queued (not yet sent) tasks. In-flight tasks on workers continue
+   * but their results should be discarded by the caller's version check.
+   * This prevents expensive structured-cloning `postMessage` calls for stale work.
+   * Resolves with empty objects so Promise.all callers don't get unhandled rejections.
+   */
+  clearQueue(): void {
+    for (const task of this.queue) {
+      task.resolve({})
+    }
+    this.queue = []
   }
 
   dispose(): void {
@@ -58,10 +76,14 @@ export class WorkerPool {
     this.pending.clear()
   }
 
-  private send(pw: PoolWorker, message: Record<string, unknown>, resolve: (v: unknown) => void, taskId: number): void {
+  private send(pw: PoolWorker, message: Record<string, unknown>, resolve: (v: unknown) => void, taskId: number, transferables?: Transferable[]): void {
     pw.busy = true
     this.pending.set(taskId, resolve)
-    pw.worker.postMessage(message)
+    if (transferables && transferables.length > 0) {
+      pw.worker.postMessage(message, transferables)
+    } else {
+      pw.worker.postMessage(message)
+    }
   }
 
   private dequeue(): void {
