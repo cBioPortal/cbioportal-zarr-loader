@@ -1,16 +1,18 @@
 import { startTransition, useMemo, useState } from 'react'
 import { Collapse, Segmented, Tooltip, Typography } from 'antd'
-import { BarChartOutlined, CloseOutlined, PieChartOutlined, SearchOutlined } from '@ant-design/icons'
+import { BarChartOutlined, CloseOutlined, InfoCircleOutlined, PieChartOutlined, SearchOutlined } from '@ant-design/icons'
 import useAppStore from '../store/useAppStore'
 import type { SelectionGroup } from '../store/useAppStore'
 import GroupOverview from './GroupOverview'
 import VariablePicker from './VariablePicker'
 import ByVariableView from './ByVariableView'
+import CategoryDotPlot from './CategoryDotPlot'
+import ExpressionDotPlot from './ExpressionDotPlot'
 import { ALL_CELLS_GROUP_ID } from '../constants'
 
 const ALL_CELLS_COLOR: [number, number, number] = [120, 120, 120]
 
-type SummaryContext = 'all' | 'selections'
+type SummaryContext = 'all' | 'selections' | 'compare'
 
 const collapsedIconStyle: React.CSSProperties = {
   fontSize: 16,
@@ -89,12 +91,12 @@ export default function SummaryPanel({ collapsed, onExpand }: SummaryPanelProps)
           <div style={collapsedIconStyle}><SearchOutlined /></div>
         </Tooltip>
         {hasObs && (
-          <Tooltip title="Obs Summaries" placement="left">
+          <Tooltip title="Category Distributions" placement="left">
             <div style={collapsedIconStyle}><PieChartOutlined /></div>
           </Tooltip>
         )}
         {hasGenes && (
-          <Tooltip title="Gene Summaries" placement="left">
+          <Tooltip title="Expression Distributions" placement="left">
             <div style={collapsedIconStyle}><BarChartOutlined /></div>
           </Tooltip>
         )}
@@ -103,6 +105,7 @@ export default function SummaryPanel({ collapsed, onExpand }: SummaryPanelProps)
   }
 
   const hasGroups = selectionGroups.some((g) => g.indices.length > 0)
+  const hasMultipleGroups = activeSelectionGroups.length >= 2
   const hasVariables = summaryObsColumns.length > 0 || summaryGenes.length > 0
 
   // Both contexts are always mounted — components are pure store readers,
@@ -113,22 +116,45 @@ export default function SummaryPanel({ collapsed, onExpand }: SummaryPanelProps)
     if (summaryObsColumns.length > 0) {
       collapseItems.push({
         key: 'obs',
-        label: <Typography.Text strong style={{ fontSize: 12 }}>Obs Summaries</Typography.Text>,
+        label: <Typography.Text strong style={{ fontSize: 12 }}>Category Distributions</Typography.Text>,
         children: <ByVariableView type="obs" groups={groups} onRemove={removeSummaryObsColumn} />,
       })
     }
     if (summaryGenes.length > 0) {
       collapseItems.push({
         key: 'genes',
-        label: <Typography.Text strong style={{ fontSize: 12 }}>Genes</Typography.Text>,
+        label: <Typography.Text strong style={{ fontSize: 12 }}>Expression Distributions</Typography.Text>,
         children: <ByVariableView type="genes" groups={groups} onRemove={removeSummaryGene} />,
       })
     }
+    // Show expression dot plot when both categorical obs and genes are selected
+    const hasCategoricalObs = summaryObsColumns.some((c) => summaryObsData.has(c))
+    if (hasCategoricalObs && summaryGenes.length > 0) {
+      collapseItems.push({
+        key: 'exprcat',
+        label: <Typography.Text strong style={{ fontSize: 12 }}>Gene Expression by Category</Typography.Text>,
+        children: groups.length === 1
+          ? <ExpressionDotPlot groups={groups} />
+          : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {groups.map((g) => (
+                <div key={g.id}>
+                  <Typography.Text style={{ fontSize: 11, color: `rgb(${g.color.join(',')})`, fontWeight: 600, display: 'block', marginBottom: 4 }}>
+                    Group {g.id}
+                  </Typography.Text>
+                  <ExpressionDotPlot groups={[g]} />
+                </div>
+              ))}
+            </div>
+          ),
+      })
+    }
+
     if (collapseItems.length === 0) return null
     return (
       <div style={style}>
         <Collapse
-          defaultActiveKey={['obs', 'genes']}
+          defaultActiveKey={['obs', 'genes', 'exprcat']}
           ghost
           size="small"
           style={{ marginTop: 4 }}
@@ -183,6 +209,7 @@ export default function SummaryPanel({ collapsed, onExpand }: SummaryPanelProps)
             options={[
               { label: 'All Cells', value: 'all' },
               { label: `Selections${hasGroups ? '' : ' (none)'}`, value: 'selections', disabled: !hasGroups },
+              { label: 'Compare', value: 'compare', disabled: !hasMultipleGroups },
             ]}
             style={{ fontSize: 11 }}
           />
@@ -202,6 +229,36 @@ export default function SummaryPanel({ collapsed, onExpand }: SummaryPanelProps)
 
         {renderCharts(allCellsGroups, context === 'all')}
         {hasGroups && renderCharts(activeSelectionGroups, context === 'selections')}
+
+        {hasMultipleGroups && (
+          <div style={{ display: context === 'compare' ? 'block' : 'none' }}>
+            <GroupOverview groups={selectionGroups} totalCells={numPoints} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+              <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                Comparing category distributions across groups
+              </Typography.Text>
+              <Tooltip
+                title="Each row is a category. Dots show the percentage of that category within each group. Lines connect the dots — longer lines mean bigger differences between groups."
+                placement="bottom"
+              >
+                <InfoCircleOutlined style={{ fontSize: 11, color: '#999', cursor: 'help' }} />
+              </Tooltip>
+            </div>
+            {summaryObsColumns.map((col) => {
+              const catData = summaryObsData.get(col)
+              if (!catData) return null
+              return (
+                <CategoryDotPlot
+                  key={col}
+                  name={col}
+                  categoryMap={catData.categoryMap}
+                  groups={activeSelectionGroups}
+                  onRemove={() => removeSummaryObsColumn(col)}
+                />
+              )
+            })}
+          </div>
+        )}
 
         {!hasVariables && (
           <Typography.Text type="secondary" style={{ fontSize: 12 }}>
