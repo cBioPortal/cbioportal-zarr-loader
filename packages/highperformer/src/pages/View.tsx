@@ -111,7 +111,12 @@ function useRightSidebarDrag(onDragEnd: (snapped: number) => void) {
   return { onMouseDown, setSnappedRef }
 }
 
-const WIDGETS = [new StatsWidget({ type: 'deck', framesPerUpdate: 5, placement: 'bottom-left' })]
+const ENABLE_STATS_WIDGET = import.meta.env.VITE_ENABLE_STATS_WIDGET !== 'false'
+const ENABLE_PROFILER = import.meta.env.VITE_ENABLE_PROFILER !== 'false'
+
+const WIDGETS = ENABLE_STATS_WIDGET
+  ? [new StatsWidget({ type: 'deck', framesPerUpdate: 5, placement: 'bottom-left' })]
+  : []
 
 // Fallback color when no color buffer is ready yet
 const FALLBACK_COLOR: [number, number, number, number] = [100, 150, 255, 77]
@@ -534,7 +539,7 @@ function View() {
 
   return (
     <Layout style={{ height: '100vh', background: '#fff' }}>
-      <Layout style={{ flex: 1, overflow: 'hidden', paddingBottom: PROFILE_BAR_HEIGHT }}>
+      <Layout style={{ flex: 1, overflow: 'hidden', paddingBottom: ENABLE_PROFILER ? PROFILE_BAR_HEIGHT : 0 }}>
         <Sider
           width={LEFT_SIDEBAR_WIDTH}
           collapsible
@@ -584,7 +589,7 @@ function View() {
           <SummaryPanel collapsed={rightWidth <= SIDEBAR_COLLAPSED_WIDTH} onExpand={() => setRightWidth(RIGHT_SIDEBAR_WIDTH)} />
         </Sider>
       </Layout>
-      <ProfileBarWrapper />
+      {ENABLE_PROFILER && <ProfileBarWrapper />}
     </Layout>
   )
 }
