@@ -80,17 +80,30 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter @cbioportal-zarr-loader/app build
+
+      # Build highperformer (deployed to GitHub Pages)
+      - run: pnpm --filter @cbioportal-zarr-loader/highperformer build
         env:
           VITE_BASE_URL: /cbioportal-zarr-loader/
-          DOCS_BASE_URL: /cbioportal-zarr-loader/docs/
-          VITE_POSTMESSAGE_ORIGIN: "https://www.cbioportal.org, https://deploy-preview-*--cbioportalfrontend.netlify.app"
           VITE_DEFAULT_URL: "https://cbioportal-public-imaging.assets.cbioportal.org/msk_spectrum_tme_2022/zarr/spectrum_all_cells.zarr"
-          VITE_FEATURE_FLAGS_URL: "https://raw.githubusercontent.com/cBioPortal/cbioportal-zarr-loader/feature/feature-flags/packages/app/feature-flags.json"
+          VITE_ENABLE_STATS_WIDGET: "false"
+          VITE_ENABLE_PROFILER: "false"
+
+      # Build app (kept for reference, not deployed)
+      # To switch back: uncomment this block, comment out highperformer build above,
+      # and change upload-pages-artifact path to packages/app/dist
+      # - run: pnpm --filter @cbioportal-zarr-loader/app build
+      #   env:
+      #     VITE_BASE_URL: /cbioportal-zarr-loader/
+      #     DOCS_BASE_URL: /cbioportal-zarr-loader/docs/
+      #     VITE_POSTMESSAGE_ORIGIN: "https://www.cbioportal.org, https://deploy-preview-*--cbioportalfrontend.netlify.app"
+      #     VITE_DEFAULT_URL: "https://cbioportal-public-imaging.assets.cbioportal.org/msk_spectrum_tme_2022/zarr/spectrum_all_cells.zarr"
+      #     VITE_FEATURE_FLAGS_URL: "https://raw.githubusercontent.com/cBioPortal/cbioportal-zarr-loader/feature/feature-flags/packages/app/feature-flags.json"
+
       - uses: actions/upload-pages-artifact@v4
         if: github.ref == 'refs/heads/main'
         with:
-          path: packages/app/dist
+          path: packages/highperformer/dist
 
   deploy:
     if: github.ref == 'refs/heads/main'
