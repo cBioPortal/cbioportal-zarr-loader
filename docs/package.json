@@ -1,5 +1,5 @@
 {
-  "name": "@cbioportal-zarr-loader/docs",
+  "name": "@cbioportal-cell-explorer/docs",
   "version": "1.0.0",
   "private": true,
   "scripts": {

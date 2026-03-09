@@ -1,5 +1,5 @@
 {
-  "name": "@cbioportal-zarr-loader/highperformer",
+  "name": "@cbioportal-cell-explorer/highperformer",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -16,8 +16,8 @@
     "@atlaskit/pragmatic-drag-and-drop": "^1.7.9",
     "@atlaskit/pragmatic-drag-and-drop-hitbox": "^1.1.0",
     "@atlaskit/pragmatic-drag-and-drop-react-drop-indicator": "^3.2.12",
-    "@cbioportal-zarr-loader/profiler": "workspace:^",
-    "@cbioportal-zarr-loader/zarrstore": "workspace:^",
+    "@cbioportal-cell-explorer/profiler": "workspace:^",
+    "@cbioportal-cell-explorer/zarrstore": "workspace:^",
     "@visx/axis": "^3.12.0",
     "@visx/group": "^3.12.0",
     "@visx/scale": "^3.12.0",

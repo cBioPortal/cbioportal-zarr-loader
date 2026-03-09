@@ -1,5 +1,5 @@
 {
-  "name": "@cbioportal-zarr-loader/zarrstore",
+  "name": "@cbioportal-cell-explorer/zarrstore",
   "version": "1.0.0",
   "type": "module",
   "exports": "./src/index.ts",

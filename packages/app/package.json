@@ -1,12 +1,12 @@
 {
-  "name": "@cbioportal-zarr-loader/app",
+  "name": "@cbioportal-cell-explorer/app",
   "private": true,
   "version": "0.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "build:with-docs": "pnpm --filter @cbioportal-zarr-loader/docs build && cp -r ../../docs/build public/docs && vite build",
+    "build:with-docs": "pnpm --filter @cbioportal-cell-explorer/docs build && cp -r ../../docs/build public/docs && vite build",
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -14,8 +14,8 @@
   },
   "dependencies": {
     "@ant-design/icons": "^6.1.0",
-    "@cbioportal-zarr-loader/profiler": "workspace:*",
-    "@cbioportal-zarr-loader/zarrstore": "workspace:*",
+    "@cbioportal-cell-explorer/profiler": "workspace:*",
+    "@cbioportal-cell-explorer/zarrstore": "workspace:*",
     "@deck.gl/core": "^9.2.10",
     "@deck.gl/layers": "^9.2.10",
     "@deck.gl/react": "^9.2.10",
