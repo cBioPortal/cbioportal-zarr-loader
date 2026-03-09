@@ -85,7 +85,6 @@ jobs:
       - run: pnpm --filter @cbioportal-zarr-loader/highperformer build
         env:
           VITE_BASE_URL: /cbioportal-zarr-loader/
-          VITE_DEFAULT_URL: "https://cbioportal-public-imaging.assets.cbioportal.org/msk_spectrum_tme_2022/zarr/spectrum_all_cells.zarr"
 
       # Build app (kept for reference, not deployed)
       # To switch back: uncomment this block, comment out highperformer build above,
