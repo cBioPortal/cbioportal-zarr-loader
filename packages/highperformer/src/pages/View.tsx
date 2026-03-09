@@ -111,7 +111,12 @@ function useRightSidebarDrag(onDragEnd: (snapped: number) => void) {
   return { onMouseDown, setSnappedRef }
 }
 
-const WIDGETS = [new StatsWidget({ type: 'deck', framesPerUpdate: 5, placement: 'bottom-left' })]
+const ENABLE_STATS_WIDGET = import.meta.env.VITE_ENABLE_STATS_WIDGET === 'true'
+const ENABLE_PROFILER = import.meta.env.VITE_ENABLE_PROFILER === 'true'
+
+const WIDGETS = ENABLE_STATS_WIDGET
+  ? [new StatsWidget({ type: 'deck', framesPerUpdate: 5, placement: 'bottom-left' })]
+  : []
 
 // Fallback color when no color buffer is ready yet
 const FALLBACK_COLOR: [number, number, number, number] = [100, 150, 255, 77]
@@ -149,7 +154,7 @@ function CollapsedSidebar({ onExpand }: { onExpand: () => void }) {
   return (
     <div onClick={onExpand} style={{ cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', height: '100%', paddingTop: 12 }}>
       <Link to="/" style={{ textDecoration: 'none', marginBottom: 8 }} onClick={(e) => e.stopPropagation()}>
-        <Typography.Text strong style={{ fontSize: 14 }}>hp</Typography.Text>
+        <Typography.Text strong style={{ fontSize: 11 }}>CCE</Typography.Text>
       </Link>
       <div style={collapsedIconStyle}><DatabaseOutlined /></div>
       <div style={collapsedIconStyle}><DotChartOutlined /></div>
@@ -164,7 +169,7 @@ function BrandingHeader() {
   return (
     <div style={{ padding: '12px 16px', borderBottom: '1px solid #f0f0f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
       <Link to="/" style={{ textDecoration: 'none' }}>
-        <Typography.Title level={5} style={{ margin: 0 }}>highperformer</Typography.Title>
+        <Typography.Title level={5} style={{ margin: 0 }}>cBioPortal Cell Explorer</Typography.Title>
       </Link>
     </div>
   )
@@ -534,7 +539,7 @@ function View() {
 
   return (
     <Layout style={{ height: '100vh', background: '#fff' }}>
-      <Layout style={{ flex: 1, overflow: 'hidden', paddingBottom: PROFILE_BAR_HEIGHT }}>
+      <Layout style={{ flex: 1, overflow: 'hidden', paddingBottom: ENABLE_PROFILER ? PROFILE_BAR_HEIGHT : 0 }}>
         <Sider
           width={LEFT_SIDEBAR_WIDTH}
           collapsible
@@ -584,7 +589,7 @@ function View() {
           <SummaryPanel collapsed={rightWidth <= SIDEBAR_COLLAPSED_WIDTH} onExpand={() => setRightWidth(RIGHT_SIDEBAR_WIDTH)} />
         </Sider>
       </Layout>
-      <ProfileBarWrapper />
+      {ENABLE_PROFILER && <ProfileBarWrapper />}
     </Layout>
   )
 }
