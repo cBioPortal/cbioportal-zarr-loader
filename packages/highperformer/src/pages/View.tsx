@@ -209,7 +209,7 @@ function LeftSidebarContent() {
                   <LinkOutlined
                     style={{ fontSize: 11, marginLeft: 6, cursor: 'pointer', color: '#999' }}
                     onClick={() => {
-                      const link = `${window.location.origin}/view?url=${datasetUrl}`
+                      const link = `${window.location.origin}${import.meta.env.BASE_URL}view?url=${datasetUrl}`
                       navigator.clipboard.writeText(link)
                     }}
                   />
