@@ -154,7 +154,7 @@ function CollapsedSidebar({ onExpand }: { onExpand: () => void }) {
   return (
     <div onClick={onExpand} style={{ cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', height: '100%', paddingTop: 12 }}>
       <Link to="/" style={{ textDecoration: 'none', marginBottom: 8 }} onClick={(e) => e.stopPropagation()}>
-        <Typography.Text strong style={{ fontSize: 14 }}>hp</Typography.Text>
+        <Typography.Text strong style={{ fontSize: 11 }}>CCE</Typography.Text>
       </Link>
       <div style={collapsedIconStyle}><DatabaseOutlined /></div>
       <div style={collapsedIconStyle}><DotChartOutlined /></div>
@@ -169,7 +169,7 @@ function BrandingHeader() {
   return (
     <div style={{ padding: '12px 16px', borderBottom: '1px solid #f0f0f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
       <Link to="/" style={{ textDecoration: 'none' }}>
-        <Typography.Title level={5} style={{ margin: 0 }}>highperformer</Typography.Title>
+        <Typography.Title level={5} style={{ margin: 0 }}>cBioPortal Cell Explorer</Typography.Title>
       </Link>
     </div>
   )
