@@ -1,6 +1,6 @@
 import { create } from 'zustand'
-import { AnnDataStore, GENE_SYMBOL_COLUMNS } from '@cbioportal-zarr-loader/zarrstore'
-import type { ArrayResult } from '@cbioportal-zarr-loader/zarrstore'
+import { AnnDataStore, GENE_SYMBOL_COLUMNS } from '@cbioportal-cell-explorer/zarrstore'
+import type { ArrayResult } from '@cbioportal-cell-explorer/zarrstore'
 import { WorkerPool } from '../pool/WorkerPool'
 import { flushSummaryQueue } from '../hooks/summaryScheduler'
 import UniversalWorker from '../workers/universal.worker.ts?worker'

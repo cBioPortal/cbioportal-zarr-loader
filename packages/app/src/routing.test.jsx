@@ -27,7 +27,7 @@ vi.mock("./store/useAppStore", () => {
   store.subscribe = vi.fn(() => vi.fn());
   return { default: store };
 });
-vi.mock("@cbioportal-zarr-loader/profiler", () => ({
+vi.mock("@cbioportal-cell-explorer/profiler", () => ({
   ProfilePage: () => <div data-testid="profile-page">Profile Page</div>,
   ProfileBar: ({ renderLink }) => renderLink ? renderLink("Profile History") : null,
   PROFILE_BAR_HEIGHT: 0,
@@ -65,7 +65,7 @@ function renderWithRouter(initialPath = "/") {
 
 // Pull mocked components into scope for the route definitions
 import LoadPage from "./pages/LoadPage";
-import { ProfilePage } from "@cbioportal-zarr-loader/profiler";
+import { ProfilePage } from "@cbioportal-cell-explorer/profiler";
 
 describe("Routing", () => {
   it("renders ViewerTabs at the root path", async () => {

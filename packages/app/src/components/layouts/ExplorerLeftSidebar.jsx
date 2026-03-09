@@ -45,7 +45,7 @@ export default function ExplorerLeftSidebar() {
             </Link>
           )}
           <a
-            href="https://github.com/cbioportal/cbioportal-zarr-loader"
+            href="https://github.com/cbioportal/cbioportal-cell-explorer"
             target="_blank"
             rel="noopener noreferrer"
           >

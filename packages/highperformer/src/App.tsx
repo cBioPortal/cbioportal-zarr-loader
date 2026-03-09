@@ -1,6 +1,6 @@
 import { Layout } from 'antd'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
-import { ProfilePage } from '@cbioportal-zarr-loader/profiler'
+import { ProfilePage } from '@cbioportal-cell-explorer/profiler'
 import Home from './pages/Home'
 import View from './pages/View'
 

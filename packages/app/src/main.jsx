@@ -3,7 +3,7 @@ import ReactDOM from "react-dom/client";
 import { createBrowserRouter, RouterProvider } from "react-router";
 import App, { ViewerLayout, ViewerContent } from "./App.jsx";
 import LoadPage from "./pages/LoadPage";
-import { ProfilePage } from "@cbioportal-zarr-loader/profiler";
+import { ProfilePage } from "@cbioportal-cell-explorer/profiler";
 
 const router = createBrowserRouter([
   {

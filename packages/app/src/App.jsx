@@ -14,7 +14,7 @@ import ObsmTab from "./components/views/ObsmTab";
 import PlotsTab from "./components/views/PlotsTab";
 import DotplotTab from "./components/views/DotplotTab";
 import ExplorerLayout from "./components/layouts/ExplorerLayout";
-import { ProfileBar, PROFILE_BAR_HEIGHT, saveProfileSession } from "@cbioportal-zarr-loader/profiler";
+import { ProfileBar, PROFILE_BAR_HEIGHT, saveProfileSession } from "@cbioportal-cell-explorer/profiler";
 
 import { useShallow } from "zustand/react/shallow";
 import useAppStore from "./store/useAppStore";
@@ -204,7 +204,7 @@ export default function App() {
               </Link>
             )}
             <a
-              href="https://github.com/cbioportal/cbioportal-zarr-loader"
+              href="https://github.com/cbioportal/cbioportal-cell-explorer"
               target="_blank"
               rel="noopener noreferrer"
             >

@@ -5,7 +5,7 @@ declare module '*?worker' {
   export default WorkerConstructor
 }
 
-declare module '@cbioportal-zarr-loader/profiler' {
+declare module '@cbioportal-cell-explorer/profiler' {
   import type { FC } from 'react'
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

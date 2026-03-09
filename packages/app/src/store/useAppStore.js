@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { AnnDataStore } from "@cbioportal-zarr-loader/zarrstore";
+import { AnnDataStore } from "@cbioportal-cell-explorer/zarrstore";
 import { fetchFeatureFlags } from "../utils/featureFlags";
 
 import { createColumnsSlice } from "./slices/columnsSlice";
