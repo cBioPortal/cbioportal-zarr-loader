@@ -1,4 +1,4 @@
-# cbioportal-zarr-loader
+# cbioportal-cell-explorer
 
 A monorepo for loading and visualizing data using backed by Zarr.
 
@@ -6,9 +6,9 @@ Everything is changing, do not import. Unstable.
 
 ## Packages
 
-- `@cbioportal-zarr-loader/app` — Web application
-- `@cbioportal-zarr-loader/zarrstore` — Zarr store library
-- `@cbioportal-zarr-loader/docs` — Documentation site
+- `@cbioportal-cell-explorer/app` — Web application
+- `@cbioportal-cell-explorer/zarrstore` — Zarr store library
+- `@cbioportal-cell-explorer/docs` — Documentation site
 
 ## Setup
 
@@ -19,5 +19,5 @@ pnpm install
 ## Development
 
 ```sh
-pnpm --filter @cbioportal-zarr-loader/app dev
+pnpm --filter @cbioportal-cell-explorer/app dev
 ```

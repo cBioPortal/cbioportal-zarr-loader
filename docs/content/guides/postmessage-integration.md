@@ -7,7 +7,7 @@ sidebar_position: 0
 
 ## Overview
 
-The cbioportal-zarr-loader app can be embedded in an iframe and controlled by a parent application using the standard [`window.postMessage`](https://developer.mozilla.org/en-US/docs/Web/API/Window/postMessage) API. This allows external applications to programmatically configure the viewer's state, including:
+The cbioportal-cell-explorer app can be embedded in an iframe and controlled by a parent application using the standard [`window.postMessage`](https://developer.mozilla.org/en-US/docs/Web/API/Window/postMessage) API. This allows external applications to programmatically configure the viewer's state, including:
 
 - Loading specific embeddings (e.g., UMAP, t-SNE)
 - Selecting subsets of data points (by category, rectangle, or lasso)

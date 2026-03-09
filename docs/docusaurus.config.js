@@ -2,7 +2,7 @@ import { themes as prismThemes } from 'prism-react-renderer';
 
 /** @type {import('@docusaurus/types').Config} */
 const config = {
-  title: 'cbioportal-zarr-loader',
+  title: 'cbioportal-cell-explorer',
   tagline: 'AnnData ↔ Zarr bridge',
   favicon: 'img/favicon.ico',
 
@@ -44,7 +44,7 @@ const config = {
     /** @type {import('@docusaurus/preset-classic').ThemeConfig} */
     ({
       navbar: {
-        title: 'cbioportal-zarr-loader',
+        title: 'cbioportal-cell-explorer',
         items: [
           {
             type: 'docSidebar',
@@ -65,7 +65,7 @@ const config = {
             label: 'Progress',
           },
           {
-            href: 'https://github.com/cBioPortal/cbioportal-zarr-loader',
+            href: 'https://github.com/cBioPortal/cbioportal-cell-explorer',
             label: 'GitHub',
             position: 'right',
           },
