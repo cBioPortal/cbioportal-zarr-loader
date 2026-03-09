@@ -1,7 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams, useNavigate, Link } from 'react-router-dom'
-import { Collapse, InputNumber, Layout, Switch, Typography, Select, Spin } from 'antd'
-import { BgColorsOutlined, DatabaseOutlined, DotChartOutlined, HolderOutlined, LeftOutlined, RightOutlined, SettingOutlined } from '@ant-design/icons'
+import { Collapse, InputNumber, Layout, Switch, Tooltip, Typography, Select, Spin } from 'antd'
+import { BgColorsOutlined, DatabaseOutlined, DotChartOutlined, HolderOutlined, LeftOutlined, LinkOutlined, RightOutlined, SettingOutlined } from '@ant-design/icons'
 import { DeckGL } from '@deck.gl/react'
 import { OrthographicView } from '@deck.gl/core'
 import { PolygonLayer, ScatterplotLayer } from '@deck.gl/layers'
@@ -197,7 +197,20 @@ function LeftSidebarContent() {
 
         <div style={sectionStyle}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', ...labelStyle }}>
-            <span>Dataset</span>
+            <span>
+              Dataset
+              {datasetUrl && (
+                <Tooltip title="Copy shareable link">
+                  <LinkOutlined
+                    style={{ fontSize: 11, marginLeft: 6, cursor: 'pointer', color: '#999' }}
+                    onClick={() => {
+                      const link = `${window.location.origin}/view?url=${datasetUrl}`
+                      navigator.clipboard.writeText(link)
+                    }}
+                  />
+                </Tooltip>
+              )}
+            </span>
             {nObs != null && (
               <Typography.Text type="secondary" style={{ fontSize: 11, fontWeight: 400, textTransform: 'none' }}>
                 {nObs.toLocaleString()} cells &middot; {(nVar ?? 0).toLocaleString()} genes
