@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams, Link } from 'react-router-dom'
 import { Layout, Tree, Typography, Spin, Alert, Tag } from 'antd'
-import { FolderOutlined, FileOutlined } from '@ant-design/icons'
+import { FolderOutlined, FileOutlined, InfoCircleOutlined, CopyOutlined } from '@ant-design/icons'
 import { ZarrStore } from '@cbioportal-cell-explorer/zarrstore'
+import ChunkShapeViz from '../components/ChunkShapeViz'
+import { fetchShardIndex, type ShardIndex } from '../utils/shardIndex'
 
 const { Content } = Layout
 
@@ -23,6 +25,7 @@ interface NodeMeta {
   dtype?: string
   shape?: number[]
   chunks?: number[]
+  innerChunks?: number[]
 }
 
 /**
@@ -44,6 +47,9 @@ function parseConsolidated(
       const nodeType = meta.node_type as string | undefined
       const isArray = nodeType === 'array'
       const chunkGrid = meta.chunk_grid as { configuration?: { chunk_shape?: number[] } } | undefined
+      const codecs = meta.codecs as { name: string; configuration?: { chunk_shape?: number[] } }[] | undefined
+      const shardingCodec = codecs?.find(c => c.name === 'sharding_indexed')
+      const innerChunks = shardingCodec?.configuration?.chunk_shape
 
       nodeMap.set(key, {
         type: isArray ? 'array' : 'group',
@@ -52,6 +58,7 @@ function parseConsolidated(
           dtype: meta.data_type != null ? String(meta.data_type) : undefined,
           shape: meta.shape as number[] | undefined,
           chunks: chunkGrid?.configuration?.chunk_shape,
+          ...(innerChunks && { innerChunks }),
         }),
       })
     }
@@ -117,20 +124,8 @@ function buildTree(nodeMap: Map<string, NodeMeta>): TreeNode[] {
     const parts = path.split('/')
     const name = parts[parts.length - 1]
 
-    let title: React.ReactNode = name
-    if (isArray) {
-      title = (
-        <span>
-          {name}
-          {meta.dtype && <Tag color="blue" style={{ marginLeft: 6, fontSize: 11 }}>{meta.dtype}</Tag>}
-          {meta.shape && <Tag color="green" style={{ marginLeft: 2, fontSize: 11 }}>{JSON.stringify(meta.shape)}</Tag>}
-          {meta.chunks && <Tag color="orange" style={{ marginLeft: 2, fontSize: 11 }}>chunks: {JSON.stringify(meta.chunks)}</Tag>}
-        </span>
-      )
-    }
-
     const treeNode: TreeNode = {
-      title,
+      title: name,
       key: path,
       icon: isArray ? <FileOutlined /> : <FolderOutlined />,
       children: [],
@@ -184,6 +179,7 @@ function ZarrView() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [selectedKey, setSelectedKey] = useState<string | null>(null)
+  const [metadataKey, setMetadataKey] = useState<string | null>(null)
 
   useEffect(() => {
     if (!url) return
@@ -211,15 +207,144 @@ function ZarrView() {
     return () => { cancelled = true }
   }, [url])
 
-  const treeData = useMemo(() => {
-    if (!store?.consolidatedMetadata) return []
+  const { treeData, nodeMetaMap } = useMemo(() => {
+    if (!store?.consolidatedMetadata) return { treeData: [] as TreeNode[], nodeMetaMap: new Map<string, NodeMeta>() }
     const nodeMap = parseConsolidated(store.consolidatedMetadata, store.zarrVersion)
-    return buildTree(nodeMap)
+    return { treeData: buildTree(nodeMap), nodeMetaMap: nodeMap }
   }, [store])
 
   const metadataMap = useMemo(() => buildMetadataMap(treeData), [treeData])
 
   const selectedMetadata = selectedKey ? metadataMap.get(selectedKey) ?? null : null
+  const selectedNodeMeta = selectedKey ? nodeMetaMap.get(selectedKey) ?? null : null
+
+  // Shard selection and index fetching
+  const [selectedShard, setSelectedShard] = useState<number | null>(null)
+  const [shardIndex, setShardIndex] = useState<ShardIndex | null>(null)
+  const [shardIndexLoading, setShardIndexLoading] = useState(false)
+
+  // Heatmap: all shard indexes (opt-in via button)
+  const [allShardIndexes, setAllShardIndexes] = useState<Map<number, ShardIndex>>(new Map())
+  const [heatmapLoading, setHeatmapLoading] = useState(false)
+  const [heatmapAbort, setHeatmapAbort] = useState<AbortController | null>(null)
+
+  // Reset when array selection changes
+  useEffect(() => {
+    if (selectedNodeMeta?.innerChunks) {
+      setSelectedShard(0)
+    } else {
+      setSelectedShard(null)
+    }
+    setShardIndex(null)
+    setAllShardIndexes(new Map())
+    heatmapAbort?.abort()
+    setHeatmapAbort(null)
+    setHeatmapLoading(false)
+  }, [selectedKey, selectedNodeMeta])
+
+  // Fetch shard index for the selected shard only
+  useEffect(() => {
+    setShardIndex(null)
+    if (!url || !selectedNodeMeta?.innerChunks || !selectedNodeMeta.chunks || !selectedKey || selectedShard == null) return
+
+    // If we already have it from the heatmap scan, reuse it
+    const cached = allShardIndexes.get(selectedShard)
+    if (cached) {
+      setShardIndex(cached)
+      return
+    }
+
+    const chunks = selectedNodeMeta.chunks
+    const innerChunks = selectedNodeMeta.innerChunks
+    const ndim = chunks.length
+    const shardsAlongCols = ndim > 1 ? Math.ceil(selectedNodeMeta.shape![1] / chunks[1]) : 1
+    const row = Math.floor(selectedShard / shardsAlongCols)
+    const col = selectedShard % shardsAlongCols
+    const coords = ndim > 1 ? [row, col] : [row]
+
+    let cancelled = false
+    setShardIndexLoading(true)
+
+    fetchShardIndex(url, selectedKey, chunks, innerChunks, coords)
+      .then((idx) => {
+        if (!cancelled) {
+          setShardIndex(idx)
+          setShardIndexLoading(false)
+          // Add to heatmap map so it colors progressively
+          setAllShardIndexes((prev) => new Map(prev).set(selectedShard!, idx))
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setShardIndexLoading(false)
+      })
+
+    return () => { cancelled = true }
+  }, [url, selectedKey, selectedNodeMeta, selectedShard, allShardIndexes])
+
+  // Scan all shard indexes (triggered by button)
+  const scanAllShards = () => {
+    if (!url || !selectedNodeMeta?.innerChunks || !selectedNodeMeta.chunks || !selectedNodeMeta.shape || !selectedKey) return
+
+    const chunks = selectedNodeMeta.chunks
+    const innerChunks = selectedNodeMeta.innerChunks
+    const shape = selectedNodeMeta.shape
+    const ndim = shape.length > 1 ? 2 : 1
+    const shardsAlongRows = Math.ceil(shape[0] / chunks[0])
+    const shardsAlongCols = ndim > 1 ? Math.ceil(shape[1] / chunks[1]) : 1
+    const totalShards = shardsAlongRows * shardsAlongCols
+
+    const controller = new AbortController()
+    setHeatmapAbort(controller)
+    setHeatmapLoading(true)
+
+    const CONCURRENCY = 4
+    const results = new Map<number, ShardIndex>()
+
+    async function run() {
+      let nextIdx = 0
+
+      async function worker() {
+        while (nextIdx < totalShards) {
+          if (controller.signal.aborted) return
+          const idx = nextIdx++
+          const row = Math.floor(idx / shardsAlongCols)
+          const col = idx % shardsAlongCols
+          const coords = ndim > 1 ? [row, col] : [row]
+          try {
+            const si = await fetchShardIndex(url!, selectedKey!, chunks, innerChunks, coords)
+            if (!controller.signal.aborted) {
+              results.set(idx, si)
+              if (results.size % CONCURRENCY === 0 || results.size === totalShards) {
+                setAllShardIndexes(new Map(results))
+              }
+            }
+          } catch {
+            // Skip failed shards (e.g. 404 for sparse/empty shards)
+          }
+        }
+      }
+
+      await Promise.all(Array.from({ length: Math.min(CONCURRENCY, totalShards) }, () => worker()))
+
+      if (!controller.signal.aborted) {
+        setAllShardIndexes(new Map(results))
+        setHeatmapLoading(false)
+      }
+    }
+
+    run()
+  }
+
+  // Compute per-shard total compressed bytes for the tiling heatmap
+  const shardBytesMap = useMemo(() => {
+    if (allShardIndexes.size === 0) return undefined
+    const map = new Map<number, number>()
+    for (const [idx, si] of allShardIndexes) {
+      const total = si.entries.reduce((sum, e) => sum + (e.nbytes > 0n ? Number(e.nbytes) : 0), 0)
+      map.set(idx, total)
+    }
+    return map
+  }, [allShardIndexes])
 
   if (!url) {
     return (
@@ -233,7 +358,7 @@ function ZarrView() {
 
   return (
     <Layout style={{ minHeight: '100vh', background: '#fff' }}>
-      <Content style={{ maxWidth: 1400, margin: '0 auto', padding: '32px 24px', overflow: 'auto' }}>
+      <Content style={{ padding: '32px 24px', overflow: 'auto' }}>
         <div style={{ marginBottom: 24 }}>
           <Link to="/" style={{ fontSize: 14 }}>&larr; Home</Link>
           <Typography.Title level={4} style={{ margin: '12px 0 4px' }}>
@@ -283,28 +408,119 @@ function ZarrView() {
         )}
 
         {treeData.length > 0 && (
-          <div style={{ display: 'flex', gap: 24, alignItems: 'flex-start' }}>
-            <div style={{ flex: '0 0 50%', overflow: 'auto', maxHeight: 'calc(100vh - 200px)' }}>
-              <Typography.Title level={5} style={{ marginBottom: 8 }}>
-                Structure
-              </Typography.Title>
-              <Tree
-                showIcon
-                defaultExpandAll={false}
-                treeData={treeData}
-                selectedKeys={selectedKey ? [selectedKey] : []}
-                onSelect={(keys) => {
-                  setSelectedKey(keys.length > 0 ? String(keys[0]) : null)
-                }}
-              />
-            </div>
+          <Layout style={{ background: '#fff' }}>
+            <Layout.Sider
+              width={360}
+              style={{
+                background: '#fff',
+                borderRight: '1px solid #f0f0f0',
+                overflow: 'auto',
+                height: 'calc(100vh - 200px)',
+                position: 'sticky',
+                top: 32,
+              }}
+            >
+              <div style={{ padding: '0 12px 12px 0' }}>
+                <Typography.Title level={5} style={{ marginBottom: 8 }}>
+                  Structure
+                </Typography.Title>
+                <Tree
+                  showIcon
+                  defaultExpandAll={false}
+                  treeData={treeData}
+                  selectedKeys={selectedKey ? [selectedKey] : []}
+                  onSelect={(keys) => {
+                    setSelectedKey(keys.length > 0 ? String(keys[0]) : null)
+                  }}
+                  titleRender={(node) => {
+                    const key = node.key as string
+                    const meta = nodeMetaMap.get(key)
+                    const isArray = meta?.type === 'array'
+                    return (
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                        <span>{String(node.title)}</span>
+                        {isArray && meta?.dtype && <Tag color="blue" style={{ fontSize: 11, margin: 0 }}>{meta.dtype}</Tag>}
+                        {isArray && meta?.shape && <Tag color="green" style={{ fontSize: 11, margin: 0 }}>{JSON.stringify(meta.shape)}</Tag>}
+                        {isArray && meta?.chunks && (
+                          <Tag color="orange" style={{ fontSize: 11, margin: 0 }}>
+                            {meta.innerChunks ? 'shard' : 'chunks'}: {JSON.stringify(meta.chunks)}
+                          </Tag>
+                        )}
+                        {isArray && meta?.innerChunks && (
+                          <Tag color="volcano" style={{ fontSize: 11, margin: 0 }}>
+                            inner chunks: {JSON.stringify(meta.innerChunks)}
+                          </Tag>
+                        )}
+                        <InfoCircleOutlined
+                          style={{
+                            fontSize: 12,
+                            color: metadataKey === key ? '#1890ff' : '#bbb',
+                            marginLeft: 4,
+                            cursor: 'pointer',
+                          }}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setMetadataKey(metadataKey === key ? null : key)
+                          }}
+                        />
+                      </span>
+                    )
+                  }}
+                />
+              </div>
+            </Layout.Sider>
 
-            <div style={{ flex: 1, minWidth: 0, position: 'sticky', top: 32 }}>
+            <Content style={{ padding: '0 0 0 24px', minWidth: 0 }}>
               {selectedMetadata ? (
                 <>
                   <Typography.Title level={5} style={{ marginBottom: 8 }}>
                     {selectedKey}
                   </Typography.Title>
+                  {selectedNodeMeta?.shape && selectedNodeMeta?.chunks && (
+                    <>
+                      <ChunkShapeViz
+                        shape={selectedNodeMeta.shape}
+                        chunks={selectedNodeMeta.chunks}
+                        innerChunks={selectedNodeMeta.innerChunks}
+                        dtype={selectedNodeMeta.dtype}
+                        shardIndex={shardIndex}
+                        selectedShard={selectedShard}
+                        onShardSelect={(idx) => {
+                          setSelectedShard(idx)
+                        }}
+                        shardBytesMap={shardBytesMap}
+                        onScanAll={scanAllShards}
+                        heatmapLoading={heatmapLoading}
+                        heatmapFetched={allShardIndexes.size}
+                        onCancelScan={() => {
+                          heatmapAbort?.abort()
+                          setHeatmapLoading(false)
+                        }}
+                      />
+                      {shardIndexLoading && (
+                        <div style={{ color: '#999', fontSize: 12, marginTop: 4 }}>
+                          <Spin size="small" /> Loading shard index...
+                        </div>
+                      )}
+                    </>
+                  )}
+                </>
+              ) : (
+                <Typography.Text type="secondary">Select a node to view chunk visualization</Typography.Text>
+              )}
+
+              {/* Metadata JSON — toggled separately via info icon */}
+              {metadataKey && metadataMap.get(metadataKey) && (
+                <>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 16, marginBottom: 8 }}>
+                    <Typography.Title level={5} style={{ margin: 0 }}>
+                      Metadata — {metadataKey}
+                    </Typography.Title>
+                    <CopyOutlined
+                      style={{ fontSize: 14, color: '#888', cursor: 'pointer' }}
+                      onClick={() => navigator.clipboard.writeText(JSON.stringify(metadataMap.get(metadataKey!), null, 2))}
+                    />
+                  </div>
                   <pre style={{
                     background: '#fafafa',
                     border: '1px solid #f0f0f0',
@@ -312,16 +528,14 @@ function ZarrView() {
                     padding: 16,
                     fontSize: 13,
                     overflow: 'auto',
-                    maxHeight: 'calc(100vh - 250px)',
+                    maxHeight: 400,
                   }}>
-                    {JSON.stringify(selectedMetadata, null, 2)}
+                    {JSON.stringify(metadataMap.get(metadataKey), null, 2)}
                   </pre>
                 </>
-              ) : (
-                <Typography.Text type="secondary">Select a node to view its metadata</Typography.Text>
               )}
-            </div>
-          </div>
+            </Content>
+          </Layout>
         )}
       </Content>
     </Layout>
