@@ -476,7 +476,7 @@ function ZarrView() {
                   <Typography.Title level={5} style={{ marginBottom: 8 }}>
                     {selectedKey}
                   </Typography.Title>
-                  {selectedNodeMeta?.shape && selectedNodeMeta?.chunks && (
+                  {selectedNodeMeta?.shape?.length && selectedNodeMeta?.chunks?.length && (
                     <>
                       <ChunkShapeViz
                         shape={selectedNodeMeta.shape}
