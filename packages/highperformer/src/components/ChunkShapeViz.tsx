@@ -1,4 +1,6 @@
 import { Popover, Button, Spin, Modal } from 'antd'
+import { Zoom } from '@visx/zoom'
+import type { TransformMatrix } from '@visx/zoom/lib/types'
 import type { ShardIndex } from '../utils/shardIndex'
 import { formatBytes } from '../utils/shardIndex'
 
@@ -43,6 +45,15 @@ const COLOR_CHUNK_DATA = '#73d13d'
 
 function fmt(n: number): string {
   return n.toLocaleString()
+}
+
+const sectionHeaderStyle: React.CSSProperties = {
+  fontSize: 13,
+  fontWeight: 600,
+  color: '#333',
+  borderBottom: '1px solid #f0f0f0',
+  paddingBottom: 6,
+  marginBottom: 8,
 }
 
 // ─── Shard-level grid ───────────────────────────────────────────────
@@ -194,8 +205,9 @@ function ShardGrid({ nRows, nCols, shardRows, shardCols, nShards, isSharded, sha
 
   return (
     <div>
+      <div style={sectionHeaderStyle}>{label} Tiling</div>
       <div style={{ fontSize: 12, color: '#888', marginBottom: 4 }}>
-        {label} tiling — {fmt(nShards)} {labelLower}s, each = one file ({fmt(shardRows)} × {fmt(shardCols)})
+        {fmt(nShards)} {labelLower}s, each = one file ({fmt(shardRows)} × {fmt(shardCols)})
         {wrapRows && <span> · wrapped {fmt(shardsAlongCols)} cols into {fmt(displayRows)} visual rows</span>}
       </div>
       <Popover content={popoverContent} title={`${fmt(nShards)} ${labelLower}s`} trigger="hover" placement="right">
@@ -251,6 +263,139 @@ function ShardGrid({ nRows, nCols, shardRows, shardCols, nShards, isSharded, sha
           )}
         </div>
       )}
+    </div>
+  )
+}
+
+// ─── Shard size sparkline (zoomable) ─────────────────────────────────
+
+interface ShardSparklineProps {
+  shardBytesMap: Map<number, number>
+  nShards: number
+  selectedShard?: number | null
+  onShardSelect?: (linearIndex: number, coords: number[]) => void
+  shardsAlongCols: number
+}
+
+const SPARK_BAR_WIDTH = 4
+const SPARK_HEIGHT = 48
+const SPARK_MARGIN = { top: 16, right: 8, bottom: 20, left: 48 }
+const SPARK_VIEW_WIDTH = 600
+
+function ShardSparkline({ shardBytesMap, nShards, selectedShard, onShardSelect, shardsAlongCols }: ShardSparklineProps) {
+  // Build ordered values
+  const values: number[] = []
+  for (let i = 0; i < nShards; i++) {
+    values.push(shardBytesMap.get(i) ?? 0)
+  }
+  const maxVal = Math.max(...values)
+  if (maxVal === 0) return null
+
+  // Logical width of all bars (this is the pannable content)
+  const contentWidth = nShards * SPARK_BAR_WIDTH
+  const chartWidth = SPARK_VIEW_WIDTH - SPARK_MARGIN.left - SPARK_MARGIN.right
+  const svgH = SPARK_MARGIN.top + SPARK_HEIGHT + SPARK_MARGIN.bottom
+
+  // Constrain zoom: x-only, no vertical zoom/pan
+  const constrainZoom = (transform: TransformMatrix, _prev: TransformMatrix): TransformMatrix => {
+    // Lock Y axis
+    const next = { ...transform, scaleY: 1, translateY: 0, skewX: 0, skewY: 0 }
+    // Clamp horizontal pan so content doesn't drift off-screen
+    const scaledWidth = contentWidth * next.scaleX
+    const minTx = Math.min(0, chartWidth - scaledWidth)
+    next.translateX = Math.max(minTx, Math.min(0, next.translateX))
+    return next
+  }
+
+  return (
+    <div>
+      <div style={sectionHeaderStyle}>Shard Size Distribution</div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 2 }}>
+        <span style={{ fontSize: 10, color: '#bbb' }}>scroll to zoom · drag to pan · double-click to reset</span>
+      </div>
+      <Zoom<SVGSVGElement>
+        width={SPARK_VIEW_WIDTH}
+        height={svgH}
+        scaleXMin={1}
+        scaleXMax={Math.max(1, contentWidth / chartWidth * 4)}
+        scaleYMin={1}
+        scaleYMax={1}
+        constrain={constrainZoom}
+      >
+        {(zoom) => (
+          <svg
+            width={SPARK_VIEW_WIDTH}
+            height={svgH}
+            style={{ display: 'block', cursor: zoom.isDragging ? 'grabbing' : 'grab', userSelect: 'none' }}
+            ref={zoom.containerRef}
+            onDoubleClick={() => zoom.reset()}
+          >
+            <defs>
+              <clipPath id="sparkline-clip">
+                <rect x={SPARK_MARGIN.left} y={SPARK_MARGIN.top} width={chartWidth} height={SPARK_HEIGHT} />
+              </clipPath>
+            </defs>
+
+            {/* Y-axis labels (fixed, outside clip) */}
+            <text x={SPARK_MARGIN.left - 4} y={SPARK_MARGIN.top + 4} textAnchor="end" fontSize={9} fill="#999">
+              {formatBytes(maxVal)}
+            </text>
+            <text x={SPARK_MARGIN.left - 4} y={SPARK_MARGIN.top + SPARK_HEIGHT} textAnchor="end" fontSize={9} fill="#999">
+              0
+            </text>
+
+            {/* Baseline (fixed) */}
+            <line
+              x1={SPARK_MARGIN.left}
+              y1={SPARK_MARGIN.top + SPARK_HEIGHT}
+              x2={SPARK_MARGIN.left + chartWidth}
+              y2={SPARK_MARGIN.top + SPARK_HEIGHT}
+              stroke="#e0e0e0"
+              strokeWidth={0.5}
+            />
+
+            {/* Zoomable bars */}
+            <g clipPath="url(#sparkline-clip)">
+              <g transform={`translate(${SPARK_MARGIN.left + zoom.transformMatrix.translateX}, 0) scale(${zoom.transformMatrix.scaleX}, 1)`}>
+                {values.map((v, i) => {
+                  const h = v === 0 ? 0 : Math.max(1, (v / maxVal) * SPARK_HEIGHT)
+                  const x = i * SPARK_BAR_WIDTH
+                  const y = SPARK_MARGIN.top + SPARK_HEIGHT - h
+                  const isSelected = selectedShard === i
+                  const bw = Math.max(SPARK_BAR_WIDTH - 0.5, 0.5)
+                  return (
+                    <rect
+                      key={i}
+                      x={x}
+                      y={y}
+                      width={bw}
+                      height={h}
+                      fill={isSelected ? '#1890ff' : '#73d13d'}
+                      opacity={v === 0 ? 0.2 : isSelected ? 1 : 0.7}
+                      style={{ cursor: onShardSelect ? 'pointer' : 'grab' }}
+                      onClick={(e) => {
+                        if (zoom.isDragging) return
+                        if (onShardSelect) {
+                          e.stopPropagation()
+                          const row = Math.floor(i / shardsAlongCols)
+                          const col = i % shardsAlongCols
+                          onShardSelect(i, [row, col])
+                        }
+                      }}
+                    />
+                  )
+                })}
+              </g>
+            </g>
+
+            {/* X-axis label (fixed) */}
+            <text x={SPARK_MARGIN.left + chartWidth / 2} y={svgH - 4} textAnchor="middle" fontSize={9} fill="#999">
+              Shard index (0–{fmt(nShards - 1)})
+            </text>
+
+          </svg>
+        )}
+      </Zoom>
     </div>
   )
 }
@@ -385,8 +530,9 @@ function InnerChunkGrid({ shardRows, shardCols, chunkRows, chunkCols, dtype, sha
 
   return (
     <div>
+      <div style={sectionHeaderStyle}>Inner Chunks</div>
       <div style={{ fontSize: 12, color: '#888', marginBottom: 4 }}>
-        Inner chunks in shard {selectedShard != null ? selectedShard + 1 : 1} — each cell = one inner chunk ({fmt(chunkRows)} rows × {fmt(chunkCols)} cols)
+        Shard {selectedShard != null ? selectedShard + 1 : 1} — each cell = one inner chunk ({fmt(chunkRows)} × {fmt(chunkCols)})
         {shardIndex && <span> · {fmt(nonEmpty)} / {fmt(totalChunks)} populated</span>}
       </div>
       <svg width={svgW} height={svgH} style={{ display: 'block' }}>
@@ -526,16 +672,12 @@ function InnerChunkGrid({ shardRows, shardCols, chunkRows, chunkCols, dtype, sha
 
       {/* Shard index table */}
       {shardIndex && shardIndex.entries.length > 0 && (
-        <div style={{ marginTop: 16 }}>
-          <div style={{ marginBottom: 8, fontSize: 13 }}>
-            <strong>Shard index</strong>
-            <span style={{ color: '#888', marginLeft: 8 }}>
-              {fmt(nonEmpty)} populated / {fmt(shardIndex.entries.length)} total
-            </span>
+        <div>
+          <div style={sectionHeaderStyle}>Shard Index</div>
+          <div style={{ fontSize: 12, color: '#888', marginBottom: 8 }}>
+            {fmt(nonEmpty)} populated / {fmt(shardIndex.entries.length)} total
             {shardIndex.shardSize > 0 && (
-              <span style={{ color: '#888', marginLeft: 8 }}>
-                · shard file: {formatBytes(shardIndex.shardSize)}
-              </span>
+              <span> · shard file: {formatBytes(shardIndex.shardSize)}</span>
             )}
           </div>
           <div style={{ maxHeight: 300, overflow: 'auto' }}>
@@ -609,11 +751,12 @@ export default function ChunkShapeViz({ shape, chunks, innerChunks, dtype, shard
   const chunkRows = hasInnerChunks ? innerChunks![0] : shardRows
   const chunkCols = hasInnerChunks && innerChunks!.length > 1 ? innerChunks![1] : 1
 
-  const nShards = Math.ceil(nRows / shardRows) * Math.ceil(nCols / shardCols)
+  const shardsAlongCols = Math.ceil(nCols / shardCols)
+  const nShards = Math.ceil(nRows / shardRows) * shardsAlongCols
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-      {/* Level 1: Chunk/shard tiling across the array */}
+      {/* Section 1: Shard/chunk tiling across the array */}
       <ShardGrid
         nRows={nRows}
         nCols={nCols}
@@ -632,7 +775,18 @@ export default function ChunkShapeViz({ shape, chunks, innerChunks, dtype, shard
         onCancelScan={onCancelScan}
       />
 
-      {/* Level 2: Inner chunks within the first shard */}
+      {/* Section 2: Shard size distribution sparkline */}
+      {shardBytesMap && shardBytesMap.size > 0 && (
+        <ShardSparkline
+          shardBytesMap={shardBytesMap}
+          nShards={nShards}
+          selectedShard={selectedShard}
+          onShardSelect={onShardSelect}
+          shardsAlongCols={shardsAlongCols}
+        />
+      )}
+
+      {/* Section 3: Inner chunks within the selected shard */}
       {hasInnerChunks && (
         <InnerChunkGrid
           shardRows={shardRows}
