@@ -140,9 +140,6 @@ importers:
       '@visx/shape':
         specifier: ^3.12.0
         version: 3.12.0(react@19.2.4)
-      '@visx/tooltip':
-        specifier: ^3.12.0
-        version: 3.12.0(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       '@visx/zoom':
         specifier: ^3.12.0
         version: 3.12.0(react@19.2.4)
@@ -3416,12 +3413,6 @@ packages:
     peerDependencies:
       react: ^16.14.0 || ^17.0.0-0 || ^18.0.0-0 || ^19.0.0-0
 
-  '@visx/bounds@3.12.0':
-    resolution: {integrity: sha512-peAlNCUbYaaZ0IO6c1lDdEAnZv2iGPDiLIM8a6gu7CaMhtXZJkqrTh+AjidNcIqITktrICpGxJE/Qo9D099dvQ==}
-    peerDependencies:
-      react: ^16.0.0-0 || ^17.0.0-0 || ^18.0.0-0
-      react-dom: ^16.0.0-0 || ^17.0.0-0 || ^18.0.0-0
-
   '@visx/bounds@4.0.1-alpha.0':
     resolution: {integrity: sha512-YcFN3lAZfqocPaOVUmeGebinqfBUo+YPcBHzsQt1jaEvkcVBUhDRS6mai4tm6jUGvwW9nEAzqTQ1L343lqitYw==}
     peerDependencies:
@@ -3575,12 +3566,6 @@ packages:
     resolution: {integrity: sha512-5CvS/BJuhmSlay+HrhR8wW3cWBaSjFhVoMkxvy0iKqWRKFtI8bkPrJAdBvPB1/k+4f5FiYwGupo07nbcQoXceA==}
     peerDependencies:
       react: ^16.14.0 || ^17.0.0-0 || ^18.0.0-0 || ^19.0.0-0
-
-  '@visx/tooltip@3.12.0':
-    resolution: {integrity: sha512-pWhsYhgl0Shbeqf80qy4QCB6zpq6tQtMQQxKlh3UiKxzkkfl+Metaf9p0/S0HexNi4vewOPOo89xWx93hBeh3A==}
-    peerDependencies:
-      react: ^16.8.0-0 || ^17.0.0-0 || ^18.0.0-0
-      react-dom: ^16.8.0-0 || ^17.0.0-0 || ^18.0.0-0
 
   '@visx/tooltip@4.0.1-alpha.0':
     resolution: {integrity: sha512-N7SAGDHyxFonpsRMTTSbN6O5bh2CAjrX0TpAtpAuLVP6Q2pN3Y0jSGGhs6rZsyPYP6AnveeoV9jjXZAayTjsbA==}
@@ -12704,14 +12689,6 @@ snapshots:
       classnames: 2.5.1
       react: 19.2.4
 
-  '@visx/bounds@3.12.0(react-dom@19.2.4(react@19.2.4))(react@19.2.4)':
-    dependencies:
-      '@types/react': 19.2.14
-      '@types/react-dom': 19.2.3(@types/react@19.2.14)
-      prop-types: 15.8.1
-      react: 19.2.4
-      react-dom: 19.2.4(react@19.2.4)
-
   '@visx/bounds@4.0.1-alpha.0(react-dom@19.2.4(react@19.2.4))(react@19.2.4)':
     dependencies:
       '@types/react': 19.2.14
@@ -12957,16 +12934,6 @@ snapshots:
       '@visx/shape': 4.0.1-alpha.0(react@19.2.4)
       classnames: 2.5.1
       react: 19.2.4
-
-  '@visx/tooltip@3.12.0(react-dom@19.2.4(react@19.2.4))(react@19.2.4)':
-    dependencies:
-      '@types/react': 19.2.14
-      '@visx/bounds': 3.12.0(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
-      classnames: 2.5.1
-      prop-types: 15.8.1
-      react: 19.2.4
-      react-dom: 19.2.4(react@19.2.4)
-      react-use-measure: 2.1.7(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
 
   '@visx/tooltip@4.0.1-alpha.0(react-dom@19.2.4(react@19.2.4))(react@19.2.4)':
     dependencies:

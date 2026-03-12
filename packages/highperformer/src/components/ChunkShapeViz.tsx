@@ -1,7 +1,6 @@
 import { Popover, Button, Spin, Modal } from 'antd'
 import { Zoom } from '@visx/zoom'
 import type { TransformMatrix } from '@visx/zoom/lib/types'
-import { useTooltip, TooltipWithBounds } from '@visx/tooltip'
 import type { ShardIndex } from '../utils/shardIndex'
 import { formatBytes } from '../utils/shardIndex'
 
@@ -235,16 +234,7 @@ const SPARK_HEIGHT = 48
 const SPARK_MARGIN = { top: 16, right: 8, bottom: 20, left: 48 }
 const SPARK_VIEW_WIDTH = 600
 
-interface SparklineTooltipData {
-  index: number
-  bytes: number
-  row: number
-  col: number
-}
-
 function ShardSparkline({ shardBytesMap, nShards, selectedShard, onShardSelect, shardsAlongCols }: ShardSparklineProps) {
-  const { tooltipOpen, tooltipLeft, tooltipTop, tooltipData, showTooltip, hideTooltip } =
-    useTooltip<SparklineTooltipData>()
 
   // Build ordered values
   const values: number[] = []
@@ -271,7 +261,7 @@ function ShardSparkline({ shardBytesMap, nShards, selectedShard, onShardSelect, 
   }
 
   return (
-    <div style={{ position: 'relative' }}>
+    <div>
       <div style={sectionHeaderStyle}>Shard Size Distribution</div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 2 }}>
         <span style={{ fontSize: 10, color: '#bbb' }}>scroll to zoom · drag to pan · double-click to reset</span>
@@ -292,7 +282,6 @@ function ShardSparkline({ shardBytesMap, nShards, selectedShard, onShardSelect, 
             style={{ display: 'block', cursor: zoom.isDragging ? 'grabbing' : 'grab', userSelect: 'none' }}
             ref={zoom.containerRef}
             onDoubleClick={() => zoom.reset()}
-            onMouseLeave={() => hideTooltip()}
           >
             <defs>
               <clipPath id="sparkline-clip">
@@ -329,7 +318,7 @@ function ShardSparkline({ shardBytesMap, nShards, selectedShard, onShardSelect, 
                   const bw = Math.max(SPARK_BAR_WIDTH - 0.5, 0.5)
                   const row = Math.floor(i / shardsAlongCols)
                   const col = i % shardsAlongCols
-                  return (
+                  const bar = (
                     <rect
                       key={i}
                       x={x}
@@ -339,17 +328,6 @@ function ShardSparkline({ shardBytesMap, nShards, selectedShard, onShardSelect, 
                       fill={isSelected ? '#1890ff' : '#73d13d'}
                       opacity={v === 0 ? 0.2 : isSelected ? 1 : 0.7}
                       style={{ cursor: onShardSelect ? 'pointer' : 'grab' }}
-                      onMouseMove={(e) => {
-                        const svgRect = e.currentTarget.ownerSVGElement?.getBoundingClientRect()
-                        if (svgRect) {
-                          showTooltip({
-                            tooltipLeft: e.clientX - svgRect.left,
-                            tooltipTop: e.clientY - svgRect.top - 10,
-                            tooltipData: { index: i, bytes: v, row, col },
-                          })
-                        }
-                      }}
-                      onMouseLeave={() => hideTooltip()}
                       onClick={(e) => {
                         if (zoom.isDragging) return
                         if (onShardSelect) {
@@ -358,6 +336,23 @@ function ShardSparkline({ shardBytesMap, nShards, selectedShard, onShardSelect, 
                         }
                       }}
                     />
+                  )
+                  if (v === 0) return bar
+                  return (
+                    <Popover
+                      key={i}
+                      trigger="hover"
+                      placement="top"
+                      content={
+                        <div style={{ fontSize: 13 }}>
+                          <div><strong>Shard {i}</strong></div>
+                          <div>Coords: [{row}, {col}]</div>
+                          <div>Size: {formatBytes(v)}</div>
+                        </div>
+                      }
+                    >
+                      {bar}
+                    </Popover>
                   )
                 })}
               </g>
@@ -371,25 +366,6 @@ function ShardSparkline({ shardBytesMap, nShards, selectedShard, onShardSelect, 
           </svg>
         )}
       </Zoom>
-      {tooltipOpen && tooltipData && (
-        <TooltipWithBounds
-          left={tooltipLeft}
-          top={tooltipTop}
-          style={{
-            backgroundColor: 'rgba(0, 0, 0, 0.85)',
-            color: '#fff',
-            padding: '6px 10px',
-            borderRadius: 4,
-            fontSize: 12,
-            lineHeight: 1.4,
-            pointerEvents: 'none',
-          }}
-        >
-          <div><strong>Shard {tooltipData.index}</strong></div>
-          <div>Coords: [{tooltipData.row}, {tooltipData.col}]</div>
-          <div>Size: {formatBytes(tooltipData.bytes)}</div>
-        </TooltipWithBounds>
-      )}
     </div>
   )
 }
