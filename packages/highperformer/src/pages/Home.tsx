@@ -1,9 +1,11 @@
 import { useMemo, useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { Input, Button, List, Tag, Tooltip, Typography } from 'antd'
-import { CheckCircleOutlined, CopyOutlined, DeleteOutlined, ExclamationCircleOutlined, LinkOutlined, LoadingOutlined } from '@ant-design/icons'
+import { ApartmentOutlined, CheckCircleOutlined, CopyOutlined, DeleteOutlined, ExclamationCircleOutlined, LinkOutlined, LoadingOutlined } from '@ant-design/icons'
 import { loadDatasets, saveDatasets } from '../utils/datasets'
 import { probeStore, isLocalUrl } from '../utils/datasetProbe'
+
+const ENABLE_ZARR_VIEW = import.meta.env.VITE_ENABLE_ZARR_VIEW === 'true'
 
 interface ProbeResult {
   status: 'pending' | 'ok' | 'error'
@@ -53,6 +55,13 @@ function DatasetList({ title, datasets, probeResults, onRemove }: DatasetListPro
           return (
             <List.Item
               actions={[
+                ...(ENABLE_ZARR_VIEW ? [
+                  <Tooltip key="inspect" title="Inspect Zarr structure">
+                    <Link to={`/zarr_view?url=${encodeURIComponent(item)}`}>
+                      <Button type="text" icon={<ApartmentOutlined />} />
+                    </Link>
+                  </Tooltip>,
+                ] : []),
                 <Tooltip key="copy" title="Copy zarr URL">
                   <Button
                     type="text"

@@ -140,9 +140,9 @@ importers:
       '@visx/shape':
         specifier: ^3.12.0
         version: 3.12.0(react@19.2.4)
-      '@visx/tooltip':
+      '@visx/zoom':
         specifier: ^3.12.0
-        version: 3.12.0(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+        version: 3.12.0(react@19.2.4)
       antd:
         specifier: ^6.3.1
         version: 6.3.1(luxon@3.7.2)(moment@2.30.1)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
@@ -3413,12 +3413,6 @@ packages:
     peerDependencies:
       react: ^16.14.0 || ^17.0.0-0 || ^18.0.0-0 || ^19.0.0-0
 
-  '@visx/bounds@3.12.0':
-    resolution: {integrity: sha512-peAlNCUbYaaZ0IO6c1lDdEAnZv2iGPDiLIM8a6gu7CaMhtXZJkqrTh+AjidNcIqITktrICpGxJE/Qo9D099dvQ==}
-    peerDependencies:
-      react: ^16.0.0-0 || ^17.0.0-0 || ^18.0.0-0
-      react-dom: ^16.0.0-0 || ^17.0.0-0 || ^18.0.0-0
-
   '@visx/bounds@4.0.1-alpha.0':
     resolution: {integrity: sha512-YcFN3lAZfqocPaOVUmeGebinqfBUo+YPcBHzsQt1jaEvkcVBUhDRS6mai4tm6jUGvwW9nEAzqTQ1L343lqitYw==}
     peerDependencies:
@@ -3450,6 +3444,9 @@ packages:
     resolution: {integrity: sha512-nEs1YfMlnB8O1Yt/u406HzclkqAy3K3HF6gmjI2hIp7S5Jw8UVNQE5c30EIWKpLLgN5oOBjSz9XeFJRdb0cNZA==}
     peerDependencies:
       react: ^16.14.0 || ^17.0.0-0 || ^18.0.0-0 || ^19.0.0-0
+
+  '@visx/event@3.12.0':
+    resolution: {integrity: sha512-9Lvw6qJ0Fi+y1vsC1WspfdIKCxHTb7oy59Uql1uBdPGT8zChP0vuxW0jQNQRDbKgoefj4pCXAFi8+MF1mEtVTw==}
 
   '@visx/event@4.0.1-alpha.0':
     resolution: {integrity: sha512-EQqCMSv/s8NbFjo+hz3FKsvvYfP+2QslsFJ/24/O5l/W+7UC6J6aAvO0ujVwrTwdYbuQ+vhxKi1xdPdKR/qj1g==}
@@ -3570,12 +3567,6 @@ packages:
     peerDependencies:
       react: ^16.14.0 || ^17.0.0-0 || ^18.0.0-0 || ^19.0.0-0
 
-  '@visx/tooltip@3.12.0':
-    resolution: {integrity: sha512-pWhsYhgl0Shbeqf80qy4QCB6zpq6tQtMQQxKlh3UiKxzkkfl+Metaf9p0/S0HexNi4vewOPOo89xWx93hBeh3A==}
-    peerDependencies:
-      react: ^16.8.0-0 || ^17.0.0-0 || ^18.0.0-0
-      react-dom: ^16.8.0-0 || ^17.0.0-0 || ^18.0.0-0
-
   '@visx/tooltip@4.0.1-alpha.0':
     resolution: {integrity: sha512-N7SAGDHyxFonpsRMTTSbN6O5bh2CAjrX0TpAtpAuLVP6Q2pN3Y0jSGGhs6rZsyPYP6AnveeoV9jjXZAayTjsbA==}
     peerDependencies:
@@ -3608,6 +3599,11 @@ packages:
     peerDependencies:
       '@react-spring/web': ^9.7.5 || ^10.0.0
       react: ^16.14.0 || ^17.0.0-0 || ^18.0.0-0 || ^19.0.0-0
+
+  '@visx/zoom@3.12.0':
+    resolution: {integrity: sha512-JmxkOROPkjnMEdFGnnSKLo5BkFHgOkLe/N5KkWR02cA5bE+bmEkfAh7DJfrtVsPkqSPvwGH1TrMWWthJwoivPA==}
+    peerDependencies:
+      react: ^16.0.0-0 || ^17.0.0-0 || ^18.0.0-0
 
   '@visx/zoom@4.0.1-alpha.0':
     resolution: {integrity: sha512-f+Y3rI3Lhpn4wbkSQw3IPsqtcRbh/TcF4M4N5ETrciMXtkJVQNrYzzC6mgxN1fZcw2228oKZzNaMI7hpOLoPkw==}
@@ -12693,14 +12689,6 @@ snapshots:
       classnames: 2.5.1
       react: 19.2.4
 
-  '@visx/bounds@3.12.0(react-dom@19.2.4(react@19.2.4))(react@19.2.4)':
-    dependencies:
-      '@types/react': 19.2.14
-      '@types/react-dom': 19.2.3(@types/react@19.2.14)
-      prop-types: 15.8.1
-      react: 19.2.4
-      react-dom: 19.2.4(react@19.2.4)
-
   '@visx/bounds@4.0.1-alpha.0(react-dom@19.2.4(react@19.2.4))(react@19.2.4)':
     dependencies:
       '@types/react': 19.2.14
@@ -12745,6 +12733,11 @@ snapshots:
       '@visx/event': 4.0.1-alpha.0
       '@visx/point': 4.0.1-alpha.0
       react: 19.2.4
+
+  '@visx/event@3.12.0':
+    dependencies:
+      '@types/react': 19.2.14
+      '@visx/point': 3.12.0
 
   '@visx/event@4.0.1-alpha.0':
     dependencies:
@@ -12942,16 +12935,6 @@ snapshots:
       classnames: 2.5.1
       react: 19.2.4
 
-  '@visx/tooltip@3.12.0(react-dom@19.2.4(react@19.2.4))(react@19.2.4)':
-    dependencies:
-      '@types/react': 19.2.14
-      '@visx/bounds': 3.12.0(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
-      classnames: 2.5.1
-      prop-types: 15.8.1
-      react: 19.2.4
-      react-dom: 19.2.4(react@19.2.4)
-      react-use-measure: 2.1.7(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
-
   '@visx/tooltip@4.0.1-alpha.0(react-dom@19.2.4(react@19.2.4))(react@19.2.4)':
     dependencies:
       '@types/react': 19.2.14
@@ -13088,6 +13071,14 @@ snapshots:
       react: 19.2.4
     transitivePeerDependencies:
       - react-dom
+
+  '@visx/zoom@3.12.0(react@19.2.4)':
+    dependencies:
+      '@types/react': 19.2.14
+      '@use-gesture/react': 10.3.1(react@19.2.4)
+      '@visx/event': 3.12.0
+      prop-types: 15.8.1
+      react: 19.2.4
 
   '@visx/zoom@4.0.1-alpha.0(react@19.2.4)':
     dependencies:
