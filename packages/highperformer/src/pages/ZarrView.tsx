@@ -507,7 +507,14 @@ function ZarrView() {
                   <Typography.Title level={5} style={{ marginBottom: 8 }}>
                     {selectedKey}
                   </Typography.Title>
-                  {selectedNodeMeta?.shape?.length && selectedNodeMeta?.chunks?.length && (
+                  {selectedNodeMeta && (!selectedNodeMeta.shape?.length || !selectedNodeMeta.chunks?.length) && (
+                    <Typography.Text type="secondary">
+                      {selectedNodeMeta.type === 'group'
+                        ? 'This is a group node. Select a child array to view chunk visualization.'
+                        : 'This array has a scalar shape — no chunk layout to visualize.'}
+                    </Typography.Text>
+                  )}
+                  {selectedNodeMeta && selectedNodeMeta.shape && selectedNodeMeta.shape.length > 0 && selectedNodeMeta.chunks && selectedNodeMeta.chunks.length > 0 && (
                     <>
                       <ChunkShapeViz
                         shape={selectedNodeMeta.shape}
