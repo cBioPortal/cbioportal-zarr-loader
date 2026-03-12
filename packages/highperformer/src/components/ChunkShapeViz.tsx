@@ -1,4 +1,4 @@
-import { Popover, Button, Spin } from 'antd'
+import { Popover, Button, Spin, Modal } from 'antd'
 import type { ShardIndex } from '../utils/shardIndex'
 import { formatBytes } from '../utils/shardIndex'
 
@@ -26,6 +26,8 @@ interface ChunkShapeVizProps {
   heatmapLoading?: boolean
   /** Number of shard indexes fetched so far */
   heatmapFetched?: number
+  /** Number of shard index fetches that failed (404 empty shards) */
+  heatmapFailed?: number
   /** Callback to cancel the heatmap scan */
   onCancelScan?: () => void
 }
@@ -59,10 +61,11 @@ interface ShardGridProps {
   onScanAll?: () => void
   heatmapLoading?: boolean
   heatmapFetched?: number
+  heatmapFailed?: number
   onCancelScan?: () => void
 }
 
-function ShardGrid({ nRows, nCols, shardRows, shardCols, nShards, isSharded, shardIndex, selectedShard, onShardSelect, shardBytesMap, onScanAll, heatmapLoading, heatmapFetched, onCancelScan }: ShardGridProps) {
+function ShardGrid({ nRows, nCols, shardRows, shardCols, nShards, isSharded, shardIndex, selectedShard, onShardSelect, shardBytesMap, onScanAll, heatmapLoading, heatmapFetched, heatmapFailed, onCancelScan }: ShardGridProps) {
   const shardsAlongRows = Math.ceil(nRows / shardRows)
   const shardsAlongCols = Math.ceil(nCols / shardCols)
 
@@ -207,7 +210,23 @@ function ShardGrid({ nRows, nCols, shardRows, shardCols, nShards, isSharded, sha
         </svg>
       </Popover>
       {isSharded && onScanAll && !heatmapLoading && (
-        <Button size="small" style={{ marginTop: 8 }} onClick={onScanAll}>
+        <Button
+          size="small"
+          style={{ marginTop: 8 }}
+          onClick={() => {
+            Modal.confirm({
+              title: 'Scan all shards?',
+              content: (
+                <div>
+                  <p>This will fetch the index from each of the {fmt(nShards)} shard files to build a data heatmap.</p>
+                  <p>Empty shards (no data on disk) will appear as <strong>404 errors</strong> in the browser DevTools network tab. This is expected and harmless.</p>
+                </div>
+              ),
+              okText: 'Scan',
+              onOk: onScanAll,
+            })
+          }}
+        >
           Scan all shards
         </Button>
       )}
@@ -218,6 +237,17 @@ function ShardGrid({ nRows, nCols, shardRows, shardCols, nShards, isSharded, sha
             <Button type="text" size="small" danger style={{ marginLeft: 8 }} onClick={onCancelScan}>
               Cancel
             </Button>
+          )}
+        </div>
+      )}
+      {!heatmapLoading && heatmapFetched != null && heatmapFetched > 0 && (
+        <div style={{ fontSize: 12, color: '#888', marginTop: 8 }}>
+          <strong>{fmt(heatmapFetched)}</strong> shards fetched
+          {(heatmapFailed ?? 0) > 0 && (
+            <span> · <strong>{fmt(heatmapFailed!)}</strong> empty (no file on disk — 404)</span>
+          )}
+          {heatmapFetched + (heatmapFailed ?? 0) < nShards && (
+            <span> · {fmt(nShards - heatmapFetched - (heatmapFailed ?? 0))} remaining</span>
           )}
         </div>
       )}
@@ -569,7 +599,7 @@ function InnerChunkGrid({ shardRows, shardCols, chunkRows, chunkCols, dtype, sha
 
 // ─── Main component ─────────────────────────────────────────────────
 
-export default function ChunkShapeViz({ shape, chunks, innerChunks, dtype, shardIndex, selectedShard, onShardSelect, shardBytesMap, onScanAll, heatmapLoading, heatmapFetched, onCancelScan }: ChunkShapeVizProps) {
+export default function ChunkShapeViz({ shape, chunks, innerChunks, dtype, shardIndex, selectedShard, onShardSelect, shardBytesMap, onScanAll, heatmapLoading, heatmapFetched, heatmapFailed, onCancelScan }: ChunkShapeVizProps) {
   // Normalize to 2D — treat 1D arrays as (N, 1)
   const nRows = shape[0]
   const nCols = shape.length > 1 ? shape[1] : 1
@@ -598,6 +628,7 @@ export default function ChunkShapeViz({ shape, chunks, innerChunks, dtype, shard
         onScanAll={onScanAll}
         heatmapLoading={heatmapLoading}
         heatmapFetched={heatmapFetched}
+        heatmapFailed={heatmapFailed}
         onCancelScan={onCancelScan}
       />
 

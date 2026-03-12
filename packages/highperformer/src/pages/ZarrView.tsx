@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams, Link } from 'react-router-dom'
 import { Layout, Tree, Typography, Spin, Alert, Tag } from 'antd'
 import { FolderOutlined, FileOutlined, InfoCircleOutlined, CopyOutlined } from '@ant-design/icons'
@@ -225,7 +225,10 @@ function ZarrView() {
 
   // Heatmap: all shard indexes (opt-in via button)
   const [allShardIndexes, setAllShardIndexes] = useState<Map<number, ShardIndex>>(new Map())
+  const allShardIndexesRef = useRef(allShardIndexes)
+  allShardIndexesRef.current = allShardIndexes
   const [heatmapLoading, setHeatmapLoading] = useState(false)
+  const [heatmapFailed, setHeatmapFailed] = useState(0)
   const [heatmapAbort, setHeatmapAbort] = useState<AbortController | null>(null)
 
   // Reset when array selection changes
@@ -237,6 +240,7 @@ function ZarrView() {
     }
     setShardIndex(null)
     setAllShardIndexes(new Map())
+    setHeatmapFailed(0)
     heatmapAbort?.abort()
     setHeatmapAbort(null)
     setHeatmapLoading(false)
@@ -248,7 +252,7 @@ function ZarrView() {
     if (!url || !selectedNodeMeta?.innerChunks || !selectedNodeMeta.chunks || !selectedKey || selectedShard == null) return
 
     // If we already have it from the heatmap scan, reuse it
-    const cached = allShardIndexes.get(selectedShard)
+    const cached = allShardIndexesRef.current.get(selectedShard)
     if (cached) {
       setShardIndex(cached)
       return
@@ -279,7 +283,7 @@ function ZarrView() {
       })
 
     return () => { cancelled = true }
-  }, [url, selectedKey, selectedNodeMeta, selectedShard, allShardIndexes])
+  }, [url, selectedKey, selectedNodeMeta, selectedShard])
 
   // Scan all shard indexes (triggered by button)
   const scanAllShards = () => {
@@ -298,36 +302,52 @@ function ZarrView() {
     setHeatmapLoading(true)
 
     const CONCURRENCY = 4
+    // Small arrays: no batching. Large arrays: ~20 UI updates total, clamped 50–200.
+    const BATCH_SIZE = totalShards <= 50 ? totalShards : Math.min(200, Math.max(50, Math.ceil(totalShards / 20)))
     const results = new Map<number, ShardIndex>()
+    let failedCount = 0
+
+    setHeatmapFailed(0)
 
     async function run() {
-      let nextIdx = 0
+      for (let batchStart = 0; batchStart < totalShards; batchStart += BATCH_SIZE) {
+        if (controller.signal.aborted) return
 
-      async function worker() {
-        while (nextIdx < totalShards) {
-          if (controller.signal.aborted) return
-          const idx = nextIdx++
-          const row = Math.floor(idx / shardsAlongCols)
-          const col = idx % shardsAlongCols
-          const coords = ndim > 1 ? [row, col] : [row]
-          try {
-            const si = await fetchShardIndex(url!, selectedKey!, chunks, innerChunks, coords)
-            if (!controller.signal.aborted) {
-              results.set(idx, si)
-              if (results.size % CONCURRENCY === 0 || results.size === totalShards) {
-                setAllShardIndexes(new Map(results))
+        const batchEnd = Math.min(batchStart + BATCH_SIZE, totalShards)
+        let nextIdx = batchStart
+
+        async function worker() {
+          while (nextIdx < batchEnd) {
+            if (controller.signal.aborted) return
+            const idx = nextIdx++
+            const row = Math.floor(idx / shardsAlongCols)
+            const col = idx % shardsAlongCols
+            const coords = ndim > 1 ? [row, col] : [row]
+            try {
+              const si = await fetchShardIndex(url!, selectedKey!, chunks, innerChunks, coords)
+              if (!controller.signal.aborted) {
+                results.set(idx, si)
               }
+            } catch {
+              failedCount++
             }
-          } catch {
-            // Skip failed shards (e.g. 404 for sparse/empty shards)
           }
+        }
+
+        const batchWorkers = Math.min(CONCURRENCY, batchEnd - batchStart)
+        await Promise.all(Array.from({ length: batchWorkers }, () => worker()))
+
+        // Update UI and yield between batches
+        if (!controller.signal.aborted) {
+          setAllShardIndexes(new Map(results))
+          setHeatmapFailed(failedCount)
+          await new Promise((r) => requestAnimationFrame(r))
         }
       }
 
-      await Promise.all(Array.from({ length: Math.min(CONCURRENCY, totalShards) }, () => worker()))
-
       if (!controller.signal.aborted) {
         setAllShardIndexes(new Map(results))
+        setHeatmapFailed(failedCount)
         setHeatmapLoading(false)
       }
     }
@@ -492,12 +512,13 @@ function ZarrView() {
                         onScanAll={scanAllShards}
                         heatmapLoading={heatmapLoading}
                         heatmapFetched={allShardIndexes.size}
+                        heatmapFailed={heatmapFailed}
                         onCancelScan={() => {
                           heatmapAbort?.abort()
                           setHeatmapLoading(false)
                         }}
                       />
-                      {shardIndexLoading && (
+                      {shardIndexLoading && !heatmapLoading && (
                         <div style={{ color: '#999', fontSize: 12, marginTop: 4 }}>
                           <Spin size="small" /> Loading shard index...
                         </div>
