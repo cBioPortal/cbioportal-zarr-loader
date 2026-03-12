@@ -198,12 +198,37 @@ function ShardGrid({ nRows, nCols, shardRows, shardCols, nShards, isSharded, sha
     }
   }
 
+  // Aspect-ratio thumbnail: fit shardRows × shardCols into a small bounding box
+  const THUMB_BOX = 60
+  const aspect = shardRows / shardCols
+  let thumbW: number, thumbH: number
+  if (aspect >= 1) {
+    // Tall or square
+    thumbH = THUMB_BOX
+    thumbW = Math.max(4, Math.round(THUMB_BOX / aspect))
+  } else {
+    // Wide
+    thumbW = THUMB_BOX
+    thumbH = Math.max(4, Math.round(THUMB_BOX * aspect))
+  }
+
   return (
     <div>
       <div style={sectionHeaderStyle}>{label} Tiling</div>
-      <div style={{ fontSize: 12, color: '#888', marginBottom: 4 }}>
-        {fmt(nShards)} {labelLower}s, each = one file ({fmt(shardRows)} × {fmt(shardCols)})
-        {wrapRows && <span> · wrapped {fmt(shardsAlongCols)} cols into {fmt(displayRows)} visual rows</span>}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 4 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0 }}>
+          <svg width={thumbW + 2} height={thumbH + 2} style={{ display: 'block' }}>
+            <rect
+              x={1} y={1} width={thumbW} height={thumbH}
+              fill="#e6f7e6" stroke="#52c41a" strokeWidth={1} rx={2}
+            />
+          </svg>
+          <span style={{ fontSize: 9, color: '#999', marginTop: 2 }}>{fmt(shardRows)}×{fmt(shardCols)}</span>
+        </div>
+        <div style={{ fontSize: 12, color: '#888' }}>
+          {fmt(nShards)} {labelLower}s, each = one file ({fmt(shardRows)} × {fmt(shardCols)})
+          {wrapRows && <span> · wrapped {fmt(shardsAlongCols)} cols into {fmt(displayRows)} visual rows</span>}
+        </div>
       </div>
       <Popover content={popoverContent} title={`${fmt(nShards)} ${labelLower}s`} trigger="hover" placement="right">
         <svg width={svgW} height={svgH} style={{ display: 'block', cursor: 'pointer' }}>
