@@ -64,8 +64,12 @@ workerSelf.onmessage = (e: MessageEvent) => {
 
   // Color buffer messages
   const response = handleColorBufferMessage(msg)
+  const transferables: Transferable[] = [response.buffer.buffer]
+  if (response.radiusBuffer) {
+    transferables.push(response.radiusBuffer.buffer)
+  }
   workerSelf.postMessage(
     { ...response, _poolTaskId },
-    [response.buffer.buffer] as Transferable[],
+    transferables,
   )
 }

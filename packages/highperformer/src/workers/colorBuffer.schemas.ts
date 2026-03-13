@@ -26,6 +26,7 @@ const BuildFromCategoriesMsgSchema = z.object({
   numPoints: z.number(),
   categories: z.custom<Uint8Array>((v) => v instanceof Uint8Array),
   alpha: z.number(),
+  highlightedCodes: z.array(z.number()).nullable(),
   version: z.number(),
 })
 
@@ -40,6 +41,7 @@ export const WorkerMessageSchema = z.union([
 export const ColorBufferResponseSchema = z.object({
   type: z.literal('colorBuffer'),
   buffer: z.custom<Uint8Array>((v) => v instanceof Uint8Array),
+  radiusBuffer: z.custom<Float32Array>((v) => v instanceof Float32Array).nullable(),
   version: z.number(),
 })
 
