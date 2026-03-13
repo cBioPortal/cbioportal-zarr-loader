@@ -109,6 +109,9 @@ export default function ColorBySection() {
 
       {colorMode === 'category' && (
         <div style={{ marginBottom: 8 }}>
+          <div style={{ fontSize: 11, fontWeight: 600, color: '#888', textTransform: 'uppercase', marginBottom: 4 }}>
+            Category {selectedObsColumn && <span style={{ fontWeight: 400, textTransform: 'none' }}>(max 1)</span>}
+          </div>
           <Select
             mode="multiple"
             maxCount={1}
@@ -146,6 +149,9 @@ export default function ColorBySection() {
 
       {colorMode === 'gene' && (
         <div style={{ marginBottom: 8 }}>
+          <div style={{ fontSize: 11, fontWeight: 600, color: '#888', textTransform: 'uppercase', marginBottom: 4 }}>
+            Gene {selectedGene && <span style={{ fontWeight: 400, textTransform: 'none' }}>(max 1)</span>}
+          </div>
           <Space.Compact style={{ width: '100%' }}>
             <Select
               mode="multiple"
