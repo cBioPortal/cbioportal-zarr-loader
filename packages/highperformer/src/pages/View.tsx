@@ -332,6 +332,7 @@ function CanvasLoadingOverlay() {
 function Visualization({ deckRef }: { deckRef: React.RefObject<DeckGL | null> }) {
   const embeddingData = useAppStore((s) => s.embeddingData)
   const colorBuffer = useAppStore((s) => s.colorBuffer)
+  const radiusBuffer = useAppStore((s) => s.radiusBuffer)
   const pointRadius = useAppStore((s) => s.pointRadius)
   const antialiasing = useAppStore((s) => s.antialiasing)
   const collisionEnabled = useAppStore((s) => s.collisionEnabled)
@@ -386,8 +387,11 @@ function Visualization({ deckRef }: { deckRef: React.RefObject<DeckGL | null> })
     if (effectiveColor) {
       attributes.getFillColor = { value: effectiveColor, size: 4, normalized: true }
     }
+    if (radiusBuffer) {
+      attributes.getRadius = { value: radiusBuffer, size: 1 }
+    }
     return { length: embeddingData.numPoints, attributes }
-  }, [embeddingData, colorBuffer, selectionFilterBuffer, selectionDisplayMode])
+  }, [embeddingData, colorBuffer, radiusBuffer, selectionFilterBuffer, selectionDisplayMode])
 
   const layers = useMemo(() => {
     if (!layerData) return []
@@ -402,9 +406,10 @@ function Visualization({ deckRef }: { deckRef: React.RefObject<DeckGL | null> })
       ...(!colorBuffer && { getFillColor: FALLBACK_COLOR }),
       updateTriggers: {
         getFillColor: [colorBuffer, selectionFilterBuffer, selectionDisplayMode],
+        getRadius: [radiusBuffer],
         getFilterValue: [selectionFilterBuffer],
       },
-      getRadius: pointRadius,
+      getRadius: radiusBuffer ? 1 : pointRadius,
       radiusUnits: 'pixels' as const,
       antialiasing,
       extensions: [
@@ -436,7 +441,7 @@ function Visualization({ deckRef }: { deckRef: React.RefObject<DeckGL | null> })
       : null
 
     return polygonLayer ? [scatterplot, polygonLayer] : [scatterplot]
-  }, [layerData, colorBuffer, pointRadius, antialiasing, collisionEnabled, collisionRadiusScale, selectionFilterBuffer, selectionDisplayMode, selectionGroups])
+  }, [layerData, colorBuffer, radiusBuffer, pointRadius, antialiasing, collisionEnabled, collisionRadiusScale, selectionFilterBuffer, selectionDisplayMode, selectionGroups])
 
   // Key forces deck.gl to re-initialize when view state changes (new embedding)
   const deckKey = useMemo(
