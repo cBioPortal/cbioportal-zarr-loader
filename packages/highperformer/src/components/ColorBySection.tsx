@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Segmented, Select, AutoComplete, Alert, Button, Popover, Space } from 'antd'
+import { Segmented, Select, Tag, Alert, Button, Popover, Space } from 'antd'
 import { SettingOutlined } from '@ant-design/icons'
 import useAppStore from '../store/useAppStore'
 import type { ColorMode } from '../store/useAppStore'
@@ -71,26 +71,30 @@ export default function ColorBySection() {
   const categoryWarning = useAppStore((s) => s.categoryWarning)
   const geneLabelMap = useAppStore((s) => s.geneLabelMap)
 
-  const [searchText, setSearchText] = useState('')
+  const [categoryOpen, setCategoryOpen] = useState(false)
+  const [geneSearchText, setGeneSearchText] = useState('')
 
   const columnOptions = obsColumnNames.map((name) => ({ value: name, label: name }))
 
-  const geneOptions = varNames
-    .map((varIndex) => {
-      const symbol = geneLabelMap?.get(varIndex)
-      return {
-        value: varIndex,
-        label: symbol ?? varIndex,
-      }
-    })
-    .filter((opt) =>
-      !searchText || opt.label.toLowerCase().includes(searchText.toLowerCase()),
-    )
+  const geneAvailable = geneSearchText
+    ? varNames.filter((varIndex) => {
+        if (varIndex === selectedGene) return false
+        const display = geneLabelMap?.get(varIndex) ?? varIndex
+        const lower = geneSearchText.toLowerCase()
+        return display.toLowerCase().includes(lower) || varIndex.toLowerCase().includes(lower)
+      }).slice(0, 50)
+    : []
 
-  // Show the display label for the selected gene
-  const selectedGeneDisplay = selectedGene
-    ? (geneLabelMap?.get(selectedGene) ?? selectedGene)
-    : undefined
+  const pillTagRender = ({ value, closable, onClose }: { label?: React.ReactNode; value: string | number; closable: boolean; onClose: () => void }) => (
+    <Tag
+      color="blue"
+      closable={closable}
+      onClose={onClose}
+      style={{ marginRight: 4, fontSize: 11 }}
+    >
+      {value as string}
+    </Tag>
+  )
 
   return (
     <div style={{ padding: '12px 16px', borderBottom: '1px solid #f0f0f0' }}>
@@ -106,12 +110,32 @@ export default function ColorBySection() {
 
       {colorMode === 'category' && (
         <div style={{ marginBottom: 8 }}>
+          <div style={{ fontSize: 11, fontWeight: 600, color: '#888', textTransform: 'uppercase', marginBottom: 4 }}>
+            Category {selectedObsColumn && <span style={{ fontWeight: 400, textTransform: 'none' }}>(max 1)</span>}
+          </div>
           <Select
-            showSearch={{ optionFilterProp: 'label' }}
+            mode="multiple"
+            showSearch
             allowClear
             placeholder="Select column..."
-            value={selectedObsColumn}
-            onChange={(v) => v ? selectObsColumn(v) : clearObsColumn()}
+            open={categoryOpen}
+            onDropdownVisibleChange={setCategoryOpen}
+            value={selectedObsColumn ? [selectedObsColumn] : []}
+            onChange={(values: string[]) => {
+              if (values.length === 0) {
+                clearObsColumn()
+              } else {
+                // Always take the most recently added value (replaces previous)
+                const added = values.find((v) => v !== selectedObsColumn)
+                selectObsColumn(added ?? values[0])
+              }
+              setCategoryOpen(false)
+            }}
+            tagRender={pillTagRender}
+            filterOption={(input, option) => {
+              const label = (option?.label as string ?? '').toLowerCase()
+              return label.includes(input.toLowerCase())
+            }}
             options={columnOptions}
             style={{ width: '100%' }}
             size="small"
@@ -129,15 +153,48 @@ export default function ColorBySection() {
 
       {colorMode === 'gene' && (
         <div style={{ marginBottom: 8 }}>
+          <div style={{ fontSize: 11, fontWeight: 600, color: '#888', textTransform: 'uppercase', marginBottom: 4 }}>
+            Gene {selectedGene && <span style={{ fontWeight: 400, textTransform: 'none' }}>(max 1)</span>}
+          </div>
           <Space.Compact style={{ width: '100%' }}>
-            <AutoComplete
-              options={geneOptions}
+            <Select
+              mode="multiple"
+              showSearch
               allowClear
+              suffixIcon={null}
               placeholder="Search gene..."
-              value={searchText || selectedGeneDisplay}
-              showSearch={{ onSearch: setSearchText }}
-              onSelect={(value: string) => { selectGene(value); setSearchText('') }}
-              onClear={() => { clearGene(); setSearchText('') }}
+              value={selectedGene ? [selectedGene] : []}
+              searchValue={geneSearchText}
+              onSearch={setGeneSearchText}
+              open={geneSearchText.length > 0 && geneAvailable.length > 0}
+              onChange={(values: string[]) => {
+                if (values.length === 0) {
+                  clearGene()
+                } else {
+                  const added = values.find((v) => v !== selectedGene)
+                  if (added) selectGene(added)
+                }
+                setGeneSearchText('')
+              }}
+              tagRender={({ value, closable, onClose }) => {
+                const raw = value as string
+                const display = geneLabelMap?.get(raw) ?? raw
+                return (
+                  <Tag
+                    color="blue"
+                    closable={closable}
+                    onClose={onClose}
+                    style={{ marginRight: 4, fontSize: 11 }}
+                  >
+                    {display}
+                  </Tag>
+                )
+              }}
+              filterOption={false}
+              options={geneAvailable.map((varIndex) => ({
+                label: geneLabelMap?.get(varIndex) ?? varIndex,
+                value: varIndex,
+              }))}
               style={{ flex: 1 }}
               size="small"
             />

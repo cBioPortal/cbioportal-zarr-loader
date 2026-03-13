@@ -37,8 +37,8 @@ describe('useAppStore', () => {
   describe('initial state', () => {
     it('has correct default values', () => {
       const state = useAppStore.getState()
-      expect(state.pointRadius).toBe(1)
-      expect(state.opacity).toBe(1.0)
+      expect(state.pointRadius).toBe(0.5)
+      expect(state.opacity).toBe(0.5)
       expect(state.antialiasing).toBe(true)
       expect(state.collisionEnabled).toBe(false)
       expect(state.collisionRadiusScale).toBe(0)
@@ -130,7 +130,7 @@ describe('useAppStore', () => {
       expect(mockDispatch).toHaveBeenCalledWith({
         type: 'buildDefault',
         numPoints: 2,
-        rgb: [100, 150, 255],
+        rgb: [200, 200, 200],
         alpha: 0.5,
         version: expect.any(Number),
       })
@@ -156,7 +156,7 @@ describe('useAppStore', () => {
       expect(mockDispatch).toHaveBeenCalledWith({
         type: 'buildDefault',
         numPoints: 2,
-        rgb: [100, 150, 255],
+        rgb: [200, 200, 200],
         alpha: 0.8,
         version: expect.any(Number),
       })
@@ -186,7 +186,7 @@ describe('useAppStore', () => {
       expect(mockDispatch).toHaveBeenCalledWith({
         type: 'buildDefault',
         numPoints: 3,
-        rgb: [100, 150, 255],
+        rgb: [200, 200, 200],
         alpha: 0.7,
         version: 1,
       })
@@ -212,6 +212,7 @@ describe('useAppStore', () => {
         numPoints: 3,
         categories: codes,
         alpha: 0.7,
+        highlightedCodes: null,
         version: 1,
       })
     })
@@ -296,6 +297,174 @@ describe('useAppStore', () => {
       await vi.waitFor(() => {
         expect(useAppStore.getState().colorBuffer).toBe(currentBuffer)
       })
+    })
+  })
+
+  describe('toggleCategoryHighlight', () => {
+    it('adds a code to highlightedCategories', () => {
+      useAppStore.setState({
+        embeddingData: {
+          positions: new Float32Array([0, 0, 1, 1, 2, 2]),
+          numPoints: 3,
+          bounds: { minX: 0, maxX: 2, minY: 0, maxY: 2 },
+        },
+        colorMode: 'category',
+        _categoryCodes: new Uint8Array([0, 1, 2]),
+      })
+      mockDispatch.mockClear()
+
+      useAppStore.getState().toggleCategoryHighlight(1)
+
+      expect(useAppStore.getState().highlightedCategories).toEqual(new Set([1]))
+      expect(mockDispatch).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: 'buildFromCategories',
+          highlightedCodes: [1],
+        }),
+      )
+    })
+
+    it('removes a code when toggled again', () => {
+      useAppStore.setState({
+        embeddingData: {
+          positions: new Float32Array([0, 0, 1, 1]),
+          numPoints: 2,
+          bounds: { minX: 0, maxX: 1, minY: 0, maxY: 1 },
+        },
+        colorMode: 'category',
+        _categoryCodes: new Uint8Array([0, 1]),
+        highlightedCategories: new Set([1]),
+      })
+      mockDispatch.mockClear()
+
+      useAppStore.getState().toggleCategoryHighlight(1)
+
+      expect(useAppStore.getState().highlightedCategories).toEqual(new Set())
+      expect(mockDispatch).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: 'buildFromCategories',
+          highlightedCodes: null,
+        }),
+      )
+    })
+
+    it('supports multiple highlighted codes', () => {
+      useAppStore.setState({
+        embeddingData: {
+          positions: new Float32Array([0, 0, 1, 1, 2, 2]),
+          numPoints: 3,
+          bounds: { minX: 0, maxX: 2, minY: 0, maxY: 2 },
+        },
+        colorMode: 'category',
+        _categoryCodes: new Uint8Array([0, 1, 2]),
+        highlightedCategories: new Set([0]),
+      })
+      mockDispatch.mockClear()
+
+      useAppStore.getState().toggleCategoryHighlight(2)
+
+      const highlighted = useAppStore.getState().highlightedCategories
+      expect(highlighted.has(0)).toBe(true)
+      expect(highlighted.has(2)).toBe(true)
+      expect(highlighted.size).toBe(2)
+    })
+  })
+
+  describe('clearCategoryHighlights', () => {
+    it('clears all highlights and rebuilds', () => {
+      useAppStore.setState({
+        embeddingData: {
+          positions: new Float32Array([0, 0, 1, 1]),
+          numPoints: 2,
+          bounds: { minX: 0, maxX: 1, minY: 0, maxY: 1 },
+        },
+        colorMode: 'category',
+        _categoryCodes: new Uint8Array([0, 1]),
+        highlightedCategories: new Set([0, 1]),
+      })
+      mockDispatch.mockClear()
+
+      useAppStore.getState().clearCategoryHighlights()
+
+      expect(useAppStore.getState().highlightedCategories.size).toBe(0)
+      expect(mockDispatch).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: 'buildFromCategories',
+          highlightedCodes: null,
+        }),
+      )
+    })
+
+    it('does nothing when already empty', () => {
+      useAppStore.setState({
+        embeddingData: {
+          positions: new Float32Array([0, 0]),
+          numPoints: 1,
+          bounds: { minX: 0, maxX: 0, minY: 0, maxY: 0 },
+        },
+        highlightedCategories: new Set(),
+      })
+      mockDispatch.mockClear()
+
+      useAppStore.getState().clearCategoryHighlights()
+
+      expect(mockDispatch).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('highlight clears on state changes', () => {
+    it('selectObsColumn clears highlights', async () => {
+      const mockAdata = {
+        obsColumn: vi.fn().mockResolvedValue(['A', 'B']),
+      }
+      useAppStore.setState({
+        adata: mockAdata as any,
+        embeddingData: {
+          positions: new Float32Array([0, 0, 1, 1]),
+          numPoints: 2,
+          bounds: { minX: 0, maxX: 1, minY: 0, maxY: 1 },
+        },
+        colorMode: 'category',
+        highlightedCategories: new Set([0, 1]),
+      })
+
+      useAppStore.getState().selectObsColumn('cluster')
+
+      expect(useAppStore.getState().highlightedCategories.size).toBe(0)
+    })
+
+    it('clearObsColumn clears highlights and radiusBuffer', () => {
+      useAppStore.setState({
+        embeddingData: {
+          positions: new Float32Array([0, 0]),
+          numPoints: 1,
+          bounds: { minX: 0, maxX: 0, minY: 0, maxY: 0 },
+        },
+        highlightedCategories: new Set([0]),
+        radiusBuffer: new Float32Array([1.0]),
+      })
+
+      useAppStore.getState().clearObsColumn()
+
+      expect(useAppStore.getState().highlightedCategories.size).toBe(0)
+      expect(useAppStore.getState().radiusBuffer).toBeNull()
+    })
+
+    it('setColorMode clears highlights and radiusBuffer', () => {
+      useAppStore.setState({
+        embeddingData: {
+          positions: new Float32Array([0, 0]),
+          numPoints: 1,
+          bounds: { minX: 0, maxX: 0, minY: 0, maxY: 0 },
+        },
+        highlightedCategories: new Set([0]),
+        radiusBuffer: new Float32Array([1.0]),
+      })
+
+      useAppStore.getState().setColorMode('gene')
+
+      expect(useAppStore.getState().highlightedCategories.size).toBe(0)
+      expect(useAppStore.getState().radiusBuffer).toBeNull()
     })
   })
 

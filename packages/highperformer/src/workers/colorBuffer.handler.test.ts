@@ -112,6 +112,7 @@ describe('colorBuffer handler', () => {
         numPoints: 3,
         categories,
         alpha: 0.8,
+        highlightedCodes: null,
         version: 1,
       })
 
@@ -134,6 +135,7 @@ describe('colorBuffer handler', () => {
         numPoints: 1,
         categories: new Uint8Array([15]),
         alpha: 1.0,
+        highlightedCodes: null,
         version: 1,
       })
 
@@ -149,9 +151,102 @@ describe('colorBuffer handler', () => {
         numPoints: 1,
         categories: new Uint8Array([0]),
         alpha: 1.0,
+        highlightedCodes: null,
         version: 99,
       })
       expect(result.version).toBe(99)
+    })
+
+    it('returns null radiusBuffer when no highlights', () => {
+      const result = handleColorBufferMessage({
+        type: 'buildFromCategories',
+        numPoints: 2,
+        categories: new Uint8Array([0, 1]),
+        alpha: 0.5,
+        highlightedCodes: null,
+        version: 1,
+      })
+      expect(result.radiusBuffer).toBeNull()
+    })
+
+    it('grays out non-highlighted points and produces radiusBuffer', () => {
+      const result = handleColorBufferMessage({
+        type: 'buildFromCategories',
+        numPoints: 3,
+        categories: new Uint8Array([0, 1, 2]),
+        alpha: 0.5,
+        highlightedCodes: [1],
+        version: 1,
+      })
+
+      const { buffer, radiusBuffer } = result
+      expect(radiusBuffer).toBeInstanceOf(Float32Array)
+      expect(radiusBuffer!.length).toBe(3)
+
+      // Point 0: code 0, NOT highlighted → gray, radius 0.5
+      expect(buffer[0]).toBe(200)
+      expect(buffer[1]).toBe(200)
+      expect(buffer[2]).toBe(200)
+      expect(buffer[3]).toBe(Math.round(0.5 * 255))
+      expect(radiusBuffer![0]).toBe(0.5)
+
+      // Point 1: code 1, highlighted → category color, full alpha, radius 1.0
+      const color1 = CATEGORICAL_COLORS[1]
+      expect(buffer[4]).toBe(color1[0])
+      expect(buffer[5]).toBe(color1[1])
+      expect(buffer[6]).toBe(color1[2])
+      expect(buffer[7]).toBe(255)
+      expect(radiusBuffer![1]).toBe(1.0)
+
+      // Point 2: code 2, NOT highlighted → gray, radius 0.5
+      expect(buffer[8]).toBe(200)
+      expect(buffer[9]).toBe(200)
+      expect(buffer[10]).toBe(200)
+      expect(radiusBuffer![2]).toBe(0.5)
+    })
+
+    it('highlights multiple codes simultaneously', () => {
+      const result = handleColorBufferMessage({
+        type: 'buildFromCategories',
+        numPoints: 3,
+        categories: new Uint8Array([0, 1, 2]),
+        alpha: 0.5,
+        highlightedCodes: [0, 2],
+        version: 1,
+      })
+
+      const { buffer, radiusBuffer } = result
+
+      // Point 0: highlighted
+      const color0 = CATEGORICAL_COLORS[0]
+      expect(buffer[0]).toBe(color0[0])
+      expect(radiusBuffer![0]).toBe(1.0)
+
+      // Point 1: NOT highlighted → gray
+      expect(buffer[4]).toBe(200)
+      expect(radiusBuffer![1]).toBe(0.5)
+
+      // Point 2: highlighted
+      const color2 = CATEGORICAL_COLORS[2]
+      expect(buffer[8]).toBe(color2[0])
+      expect(radiusBuffer![2]).toBe(1.0)
+    })
+
+    it('treats empty highlightedCodes array same as null', () => {
+      const result = handleColorBufferMessage({
+        type: 'buildFromCategories',
+        numPoints: 2,
+        categories: new Uint8Array([0, 1]),
+        alpha: 0.8,
+        highlightedCodes: [],
+        version: 1,
+      })
+
+      // No highlights active — normal category colors, no radius buffer
+      expect(result.radiusBuffer).toBeNull()
+      const color0 = CATEGORICAL_COLORS[0]
+      expect(result.buffer[0]).toBe(color0[0])
+      expect(result.buffer[3]).toBe(Math.round(0.8 * 255))
     })
   })
 })

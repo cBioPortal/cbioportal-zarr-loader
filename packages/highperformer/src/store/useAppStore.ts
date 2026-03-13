@@ -91,6 +91,10 @@ export interface AppState {
   _expressionData: Float32Array | null
   _colorAbort: AbortController | null
 
+  // Legend highlight
+  highlightedCategories: Set<number>
+  radiusBuffer: Float32Array | null
+
   // Selection
   selectionTool: SelectionTool
   selectionDisplayMode: SelectionDisplayMode
@@ -138,12 +142,14 @@ export interface AppState {
   clearObsColumn: () => void
   selectGene: (name: string) => void
   clearGene: () => void
+  toggleCategoryHighlight: (code: number) => void
+  clearCategoryHighlights: () => void
   setColorScaleName: (name: string) => void
   setGeneLabelColumn: (col: string | null) => void
   _resolveGeneLabels: () => Promise<void>
 }
 
-const DEFAULT_RGB: RGB = [100, 150, 255]
+const DEFAULT_RGB: RGB = [200, 200, 200]
 
 function computeBounds(positions: Float32Array, numPoints: number): EmbeddingBounds {
   let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity
@@ -208,8 +214,8 @@ const useAppStore = create<AppState>((set, get) => ({
   selectedEmbedding: null,
 
   // Rendering controls
-  pointRadius: 1,
-  opacity: 1.0,
+  pointRadius: 0.5,
+  opacity: 0.5,
   antialiasing: true,
   collisionEnabled: false,
   collisionRadiusScale: 0,
@@ -223,6 +229,23 @@ const useAppStore = create<AppState>((set, get) => ({
   setCollisionEnabled: (v) => set({ collisionEnabled: v }),
   setCollisionRadiusScale: (v) => set({ collisionRadiusScale: v }),
 
+  toggleCategoryHighlight: (code) => {
+    const next = new Set(get().highlightedCategories)
+    if (next.has(code)) {
+      next.delete(code)
+    } else {
+      next.add(code)
+    }
+    set({ highlightedCategories: next })
+    get().rebuildColorBuffer()
+  },
+
+  clearCategoryHighlights: () => {
+    if (get().highlightedCategories.size === 0) return
+    set({ highlightedCategories: new Set() })
+    get().rebuildColorBuffer()
+  },
+
   // Embedding data — typed arrays for direct GPU upload
   embeddingData: null,
   embeddingLoading: false,
@@ -231,6 +254,10 @@ const useAppStore = create<AppState>((set, get) => ({
   // Color buffer — Uint8Array(numPoints * 4), RGBA per point
   colorBuffer: null,
   colorBufferLoading: false,
+
+  // Legend highlight
+  highlightedCategories: new Set(),
+  radiusBuffer: null,
 
   // Color By state
   colorMode: 'category',
@@ -509,7 +536,7 @@ const useAppStore = create<AppState>((set, get) => ({
         obsmKeys,
         selectedEmbedding: defaultKey,
         loading: false,
-        opacity: adata.nObs > 1_000_000 ? 0.3 : 1.0,
+        opacity: adata.nObs > 1_000_000 ? 0.3 : 0.5,
       })
       if (defaultKey) get().fetchEmbedding(defaultKey)
     } catch {
@@ -583,11 +610,13 @@ const useAppStore = create<AppState>((set, get) => ({
     let message: Record<string, unknown>
 
     if (colorMode === 'category' && _categoryCodes) {
+      const { highlightedCategories } = get()
       message = {
         type: 'buildFromCategories',
         numPoints: embeddingData.numPoints,
         categories: _categoryCodes,
         alpha: opacity,
+        highlightedCodes: highlightedCategories.size > 0 ? Array.from(highlightedCategories) : null,
         version,
       }
     } else if (colorMode === 'gene' && _expressionData && expressionRange) {
@@ -615,7 +644,11 @@ const useAppStore = create<AppState>((set, get) => ({
       .dispatch<ColorBufferResponse>(message)
       .then((response) => {
         if (version !== colorBuildVersion) return // stale
-        set({ colorBuffer: response.buffer, colorBufferLoading: false })
+        set({
+          colorBuffer: response.buffer,
+          radiusBuffer: response.radiusBuffer ?? null,
+          colorBufferLoading: false,
+        })
       })
   },
 
@@ -623,6 +656,8 @@ const useAppStore = create<AppState>((set, get) => ({
     set({
       colorMode: mode,
       categoryWarning: null,
+      highlightedCategories: new Set(),
+      radiusBuffer: null,
     })
     // When switching modes, rebuild if cached data exists for the new mode
     if (mode === 'category' && get()._categoryCodes) {
@@ -642,6 +677,7 @@ const useAppStore = create<AppState>((set, get) => ({
       selectedObsColumn: name,
       colorBufferLoading: true,
       categoryWarning: null,
+      highlightedCategories: new Set(),
       _colorAbort: abortController,
     })
 
@@ -687,6 +723,8 @@ const useAppStore = create<AppState>((set, get) => ({
       _categoryCodes: null,
       categoryMap: [],
       categoryWarning: null,
+      highlightedCategories: new Set(),
+      radiusBuffer: null,
       _colorAbort: null,
     })
     get().rebuildColorBuffer()
