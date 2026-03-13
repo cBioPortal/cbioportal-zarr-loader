@@ -119,7 +119,7 @@ const WIDGETS = ENABLE_STATS_WIDGET
   : []
 
 // Fallback color when no color buffer is ready yet
-const FALLBACK_COLOR: [number, number, number, number] = [100, 150, 255, 77]
+const FALLBACK_COLOR: [number, number, number, number] = [200, 200, 200, 128]
 
 const DIM_ALPHA = 10 // ~4% opacity for unselected points in dim mode
 
