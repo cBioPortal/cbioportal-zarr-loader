@@ -37,8 +37,8 @@ describe('useAppStore', () => {
   describe('initial state', () => {
     it('has correct default values', () => {
       const state = useAppStore.getState()
-      expect(state.pointRadius).toBe(1)
-      expect(state.opacity).toBe(1.0)
+      expect(state.pointRadius).toBe(0.5)
+      expect(state.opacity).toBe(0.5)
       expect(state.antialiasing).toBe(true)
       expect(state.collisionEnabled).toBe(false)
       expect(state.collisionRadiusScale).toBe(0)
@@ -130,7 +130,7 @@ describe('useAppStore', () => {
       expect(mockDispatch).toHaveBeenCalledWith({
         type: 'buildDefault',
         numPoints: 2,
-        rgb: [100, 150, 255],
+        rgb: [200, 200, 200],
         alpha: 0.5,
         version: expect.any(Number),
       })
@@ -156,7 +156,7 @@ describe('useAppStore', () => {
       expect(mockDispatch).toHaveBeenCalledWith({
         type: 'buildDefault',
         numPoints: 2,
-        rgb: [100, 150, 255],
+        rgb: [200, 200, 200],
         alpha: 0.8,
         version: expect.any(Number),
       })
@@ -186,7 +186,7 @@ describe('useAppStore', () => {
       expect(mockDispatch).toHaveBeenCalledWith({
         type: 'buildDefault',
         numPoints: 3,
-        rgb: [100, 150, 255],
+        rgb: [200, 200, 200],
         alpha: 0.7,
         version: 1,
       })
@@ -212,6 +212,7 @@ describe('useAppStore', () => {
         numPoints: 3,
         categories: codes,
         alpha: 0.7,
+        highlightedCodes: null,
         version: 1,
       })
     })

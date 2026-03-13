@@ -112,6 +112,7 @@ describe('colorBuffer handler', () => {
         numPoints: 3,
         categories,
         alpha: 0.8,
+        highlightedCodes: null,
         version: 1,
       })
 
@@ -134,6 +135,7 @@ describe('colorBuffer handler', () => {
         numPoints: 1,
         categories: new Uint8Array([15]),
         alpha: 1.0,
+        highlightedCodes: null,
         version: 1,
       })
 
@@ -149,6 +151,7 @@ describe('colorBuffer handler', () => {
         numPoints: 1,
         categories: new Uint8Array([0]),
         alpha: 1.0,
+        highlightedCodes: null,
         version: 99,
       })
       expect(result.version).toBe(99)

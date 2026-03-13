@@ -65,6 +65,7 @@ describe('universal worker', () => {
           numPoints: 1,
           categories: new Uint8Array([0]),
           alpha: 1.0,
+          highlightedCodes: null,
           version: 1,
         },
       })
